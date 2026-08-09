@@ -25,6 +25,12 @@ const FLICK_MS = 300;
 const MIN_FLICK_PX = 10;
 /** For anything slower, how much of a card must be covered to commit. */
 const COMMIT_RATIO = 0.22;
+/**
+ * Travel before a gesture is called horizontal or vertical. Small enough that
+ * the lock happens before the browser finishes its own arbitration, large
+ * enough that the first jittery pixel of a tap does not decide it.
+ */
+const AXIS_LOCK_PX = 8;
 
 const COUNT = shownDepartmentHeads.length;
 
@@ -186,7 +192,19 @@ export function AboutCarousel() {
   const [paused, setPaused] = useState(false);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const trackRef = useRef<HTMLDivElement | null>(null);
-  const dragFrom = useRef<{ x: number; at: number } | null>(null);
+  /**
+   * `axis` is the gesture's committed direction: `?` until it has travelled
+   * AXIS_LOCK_PX. `dx` is mirrored here so a cancelled gesture can still be
+   * judged — the event that cancels carries no useful coordinate. All of it in
+   * a ref, never state — C-11.
+   */
+  const dragFrom = useRef<{
+    x: number;
+    y: number;
+    at: number;
+    dx: number;
+    axis: '?' | 'x' | 'y';
+  } | null>(null);
 
   /** A ref, not the state value: read from the pointer handlers — C-11, C-13. */
   const pausedRef = useRef(false);
@@ -246,29 +264,35 @@ export function AboutCarousel() {
     if (!reduceMotion) resetTimer();
   };
 
-  const onPointerDown = (e: ReactPointerEvent<HTMLDivElement>) => {
-    if (e.pointerType === 'mouse' && e.button !== 0) return;
-    // `timeStamp`, not handler time — C-11.
-    dragFrom.current = { x: e.clientX, at: e.timeStamp };
-    setOffset(0);
-    setDragging(true);
-    e.currentTarget.setPointerCapture(e.pointerId);
-    if (timerRef.current) clearInterval(timerRef.current);
-  };
+  /**
+   * Claims the horizontal gesture from the browser once it is unambiguous.
+   *
+   * `touch-action: pan-y` alone is not enough on WebKit: it still arbitrates a
+   * slightly diagonal swipe into a page scroll and cancels the pointer stream.
+   * Calling `preventDefault` on the touch itself is the only thing that stops
+   * that, and it needs a **non-passive** listener — which React's `onTouchMove`
+   * cannot give us, hence the manual registration.
+   *
+   * Only ever called once the gesture is locked horizontal, so vertical
+   * scrolling is untouched.
+   */
+  useEffect(() => {
+    const el = trackRef.current;
+    if (!el) return;
 
-  const onPointerMove = (e: ReactPointerEvent<HTMLDivElement>) => {
-    if (!dragFrom.current) return;
-    setOffset(e.clientX - dragFrom.current.x);
-  };
+    const claimHorizontal = (e: TouchEvent) => {
+      const from = dragFrom.current;
+      // A second finger means a pinch: hand it straight back to the browser.
+      if (!from || e.touches.length > 1) return;
+      if (from.axis === 'x' && e.cancelable) e.preventDefault();
+    };
 
-  const onPointerUp = (e: ReactPointerEvent<HTMLDivElement>) => {
-    const from = dragFrom.current;
-    if (!from) return;
-    dragFrom.current = null;
+    el.addEventListener('touchmove', claimHorizontal, { passive: false });
+    return () => el.removeEventListener('touchmove', claimHorizontal);
+  }, []);
 
-    // Both off the event itself, so neither lags the finger — C-11.
-    const dx = e.clientX - from.x;
-    const elapsed = e.timeStamp - from.at;
+  /** Shared by a clean release and a cancellation, so both judge identically. */
+  const settle = (dx: number, elapsed: number) => {
     const width = stepPx();
     setOffset(0);
     setDragging(false);
@@ -291,9 +315,80 @@ export function AboutCarousel() {
     if (!reduceMotion) resetTimer();
   };
 
-  /** Browser claimed the gesture (a page scroll). Snap back, don't commit. */
-  const onPointerCancel = () => {
+  const onPointerDown = (e: ReactPointerEvent<HTMLDivElement>) => {
+    if (e.pointerType === 'mouse' && e.button !== 0) return;
+    dragFrom.current = {
+      x: e.clientX,
+      y: e.clientY,
+      // `timeStamp`, not handler time — C-11.
+      at: e.timeStamp,
+      dx: 0,
+      // A mouse or pen never competes with page scrolling, so there is nothing
+      // to arbitrate: those own the horizontal from the first pixel.
+      axis: e.pointerType === 'touch' ? '?' : 'x',
+    };
+    setOffset(0);
+    setDragging(true);
+    e.currentTarget.setPointerCapture(e.pointerId);
+    if (timerRef.current) clearInterval(timerRef.current);
+  };
+
+  const onPointerMove = (e: ReactPointerEvent<HTMLDivElement>) => {
+    const from = dragFrom.current;
+    if (!from) return;
+
+    const dx = e.clientX - from.x;
+    from.dx = dx;
+
+    if (from.axis === '?') {
+      const dy = e.clientY - from.y;
+      if (Math.abs(dx) < AXIS_LOCK_PX && Math.abs(dy) < AXIS_LOCK_PX) return;
+      from.axis = Math.abs(dx) > Math.abs(dy) ? 'x' : 'y';
+    }
+
+    // A vertical gesture belongs to the page: leave the deck where it is
+    // rather than dragging it sideways under a finger that is scrolling.
+    if (from.axis === 'y') return;
+
+    setOffset(dx);
+  };
+
+  const onPointerUp = (e: ReactPointerEvent<HTMLDivElement>) => {
+    const from = dragFrom.current;
+    if (!from) return;
     dragFrom.current = null;
+
+    if (from.axis === 'y') {
+      setOffset(0);
+      setDragging(false);
+      if (!reduceMotion) resetTimer();
+      return;
+    }
+
+    // Both off the event itself, so neither lags the finger — C-11.
+    settle(e.clientX - from.x, e.timeStamp - from.at);
+  };
+
+  /**
+   * The browser took the gesture away mid-swipe — it decided the page should
+   * scroll. WebKit arbitrates far more eagerly than Blink, so on iOS this fires
+   * on swipes the visitor meant, and discarding them was why the deck felt dead
+   * on a phone.
+   *
+   * A gesture already locked horizontal has proven its intent, so it is settled
+   * on the distance it reached rather than thrown away. Anything still
+   * undecided, or decided vertical, snaps back as before.
+   */
+  const onPointerCancel = (e: ReactPointerEvent<HTMLDivElement>) => {
+    const from = dragFrom.current;
+    if (!from) return;
+    dragFrom.current = null;
+
+    if (from.axis === 'x') {
+      settle(from.dx, e.timeStamp - from.at);
+      return;
+    }
+
     setOffset(0);
     setDragging(false);
     if (!reduceMotion) resetTimer();

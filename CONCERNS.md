@@ -167,6 +167,37 @@ entirely; the arrows still work.
 The live region only announces while the deck is *not* moving on its own —
 otherwise a screen reader narrates a new name every 4.2 seconds, unasked.
 
+### C-33 — A cancelled swipe is still a swipe
+
+`touch-action: pan-y` is necessary and **not sufficient**. The browser still
+arbitrates an ambiguous gesture, and when it decides the page should scroll it
+fires `pointercancel` and stops delivering moves. WebKit does this far more
+eagerly than Blink, so on iOS a swipe the visitor plainly meant was being
+discarded — the deck felt dead on a phone while working on a desktop.
+
+Three things together fix it, and removing any one brings the symptom back:
+
+1. **Axis lock.** After `AXIS_LOCK_PX` of travel the gesture is committed to
+   `x` or `y` and stays there. A vertical drag no longer slides the deck
+   sideways under a finger that is scrolling.
+2. **Claiming the touch.** Once locked horizontal, `preventDefault()` on
+   `touchmove` stops the browser taking the gesture. It needs a **non-passive**
+   listener, which React's `onTouchMove` cannot provide — hence the manual
+   `addEventListener` in an effect. Do not "simplify" it back to a JSX prop.
+3. **Settling on cancel.** A gesture already locked horizontal has proven its
+   intent, so `pointercancel` settles it on the distance reached instead of
+   throwing it away. That is why `dx` is mirrored into the drag ref: the
+   cancelling event carries no useful coordinate.
+
+All of it stays in refs and direct DOM writes. No drag state goes through
+React — C-11 still holds.
+
+Verified by driving pointer and touch streams together and cancelling
+mid-gesture: before, three of six cases lost the swipe; after, none do. The
+existing throttled harnesses still pass unchanged (30/30 flicks at 20× CPU,
+all seven gesture cases), which is what proves the fix did not buy phone
+behaviour at the cost of the race this path was originally written to survive.
+
 ---
 
 ## LIVE badge and API quota

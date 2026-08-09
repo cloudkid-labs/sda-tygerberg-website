@@ -140,6 +140,9 @@ export function RequestForm({ topic, copy }: { topic: RequestTopic; copy: TopicC
           message: values.message.trim(),
           // The checkbox state, not a constant, or the consent record is a lie.
           consent,
+          // Which wording was on screen when they ticked it. The Worker stores
+          // the sentence itself, so the record has to know which one they saw.
+          lang,
         }),
       });
 

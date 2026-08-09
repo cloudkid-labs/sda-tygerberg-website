@@ -59,7 +59,7 @@ function headerSafe(value: string, max: number): string {
 }
 
 /** The enquiry as the church reads it. Plain text — no styling to get wrong. */
-function body(fields: Record<string, string>, submittedAt: string): string {
+function body(fields: Record<string, string>, submittedAt: string, recordId?: string): string {
   const lines = [
     'Nuwe navraag vanaf die webwerf.',
     '',
@@ -76,6 +76,10 @@ function body(fields: Record<string, string>, submittedAt: string): string {
     // the only place the submission survives — C-20.
     'Toestemming gegee: ja',
     `Ontvang: ${submittedAt}`,
+    // Ties this mail to the object in the consent bucket. Omitted rather than
+    // printed empty when the bucket is unbound, so the line never implies a
+    // stored record that does not exist.
+    ...(recordId ? [`Toestemmingsrekord: ${recordId}`] : []),
   ];
   return lines.join('\n');
 }
@@ -90,6 +94,7 @@ export async function sendContactEmail(
   env: ContactEmailEnv,
   fields: Record<string, string>,
   submittedAt: string,
+  recordId?: string,
 ): Promise<boolean> {
   const { EMAIL, CONTACT_EMAIL_TO, CONTACT_EMAIL_FROM, CONTACT_EMAIL_BCC } = env;
   if (!EMAIL || !CONTACT_EMAIL_TO || !CONTACT_EMAIL_FROM) return false;
@@ -109,7 +114,7 @@ export async function sendContactEmail(
       // Safe as a header: the validating regex forbids whitespace, so no CR/LF
       // can survive into it.
       ...(fields.email ? { replyTo: fields.email } : {}),
-      text: body(fields, submittedAt),
+      text: body(fields, submittedAt, recordId),
     });
     return true;
   } catch (error) {

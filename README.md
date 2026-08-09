@@ -165,6 +165,14 @@ the API answered without an id; the button then falls back to the channel's
 `/live` tab. That button renders **only** while `isLive` is true, so on any
 ordinary day the hero shows one call to action, not two.
 
+It also returns `consentStored` whenever the consent bucket is bound: `true`
+means one JSON record reached `consent-cloudkid-link`. A `false` never fails a
+submission — the enquiry email carries the consent line either way
+([C-34](./CONCERNS.md#c-34--the-consent-record-is-written-before-delivery-and-never-blocks-it)).
+Records are keyed `YYYY/MM/DD/<timestamp>-<uuid>.json` and the id appears in the
+enquiry email as `Toestemmingsrekord`, so mail and object tie together.
+**Retention is a manual dashboard step** — SETUP-INSTRUCTIONS.md §3.6.
+
 `POST /api/contact` returns an `outcome`: `forwarded`, `not-configured`,
 `invalid` (with `errors` naming the fields), or `forward-error`. On `forwarded`
 it also returns `via` — `email` or `webhook` — naming the channel that carried

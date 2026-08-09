@@ -246,6 +246,37 @@ for i in $(seq 1 10); do
 done; echo
 ```
 
+### 3.6 Consent records — retention rule **(do this, it is not optional)**
+
+`/api/contact` writes one JSON consent record per submission to the
+`consent-cloudkid-link` R2 bucket. The binding is in `wrangler.jsonc` and needs
+no dashboard step — **the retention rule does**, because R2 lifecycle rules
+cannot be expressed in Wrangler config.
+
+Personal data kept forever is a POPIA problem. Until a rule exists, these
+records accumulate with no expiry.
+
+1. Cloudflare dashboard → **R2** → `consent-cloudkid-link` → **Settings**
+2. **Object lifecycle rules** → *Add rule*
+3. Scope it to the prefix `20` (every key starts `YYYY/MM/DD/`, so this covers
+   all records and nothing else)
+4. **Delete objects after N days** — pick the period with the church. Consent
+   needs to outlive the relationship it authorises, so this is a governance
+   decision, not a technical one. If nobody has an opinion, **7 years** matches
+   ordinary South African record-keeping practice and is the safe default.
+
+The API token from §3.2 needs **Workers R2 Storage: Edit** on top of its
+existing permissions, or the deploy fails when it tries to bind the bucket.
+
+To read the records back:
+
+```bash
+npx wrangler r2 object get consent-cloudkid-link/2026/08/09/<key>.json
+```
+
+Each object also carries `topic`, `submittedAt` and `consentVersion` as custom
+metadata, so a listing answers most audit questions without downloading bodies.
+
 ---
 
 ## 4. Worker secrets

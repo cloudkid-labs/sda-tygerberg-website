@@ -1,0 +1,39 @@
+name: Version guard
+
+# Runs on every pull request into `main` — i.e. every dev -> main promotion.
+#
+# The production workflow deploys whether or not the version was bumped, and
+# tags only when it was. That asymmetry is deliberate (a re-deploy must not tag
+# twice) but it makes forgetting silent: production updates, no tag is cut, and
+# `app-version` goes on reporting a number that belongs to different code.
+#
+# It has happened twice — "Release 11" and again at v0.2.0. This is the check
+# that makes it loud instead. It gates the promotion, not the deploy, so a
+# `workflow_dispatch` re-run of an existing version is still unaffected.
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  version:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          # Tags are the comparison set, and a shallow clone has none.
+          fetch-depth: 0
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: '.nvmrc'
+
+      # No `npm ci`: the check reads package.json and `git tag`, and depends on
+      # nothing from node_modules. Keeping it install-free means the guard still
+      # reports when the dependency tree is what is broken.
+      - name: Check the version is releasable
+        run: npm run version:check

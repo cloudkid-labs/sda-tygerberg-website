@@ -83,14 +83,20 @@ export const departmentHeads: DepartmentHead[] = [
     photo: 'TG-DH-Gustav.jpg',
   },
   {
-    id: 'kinderbediening',
+    id: 'welsyn',
     name: 'Lenie Virgin',
+    // Welfare only. Kinderbediening was hers on the Ampsdraers roster; the
+    // board has since given it to Lané Louw, whose card follows the Jeug block
+    // below. Do not move it back from the PDF.
     roles: {
-      af: ['Kinderbediening', 'Gemeenskapsdienste & Welsyn'],
-      en: ['Children’s Ministry', 'Community Services & Welfare'],
+      af: ['Gemeenskapsdienste & Welsyn'],
+      en: ['Community Services & Welfare'],
     },
     photo: 'TG-DH-Lenie.jpg',
   },
+  // Jeug, oldest tier first. Kept as one card per person rather than one
+  // nested Jeug entry — the carousel is a flat ring of equal cards (C-12) and
+  // adjacency is what makes the tiers read as a group.
   {
     id: 'senior-jeug',
     name: 'Monique Spammer',
@@ -106,6 +112,13 @@ export const departmentHeads: DepartmentHead[] = [
     id: 'strewers',
     name: 'Morné Louw',
     roles: { af: ['Strewersleier'], en: ['Pathfinder Leader'] },
+  },
+  {
+    id: 'kinderbediening',
+    name: 'Lané Louw',
+    // Morné and Lelani's daughter; the family holds Gesinsbediening jointly
+    // further down. Took Kinderbediening from Lenie Virgin — see her card.
+    roles: { af: ['Kinderbediening'], en: ['Children’s Ministry'] },
   },
   {
     id: 'musiek',
@@ -164,12 +177,19 @@ export const departmentHeads: DepartmentHead[] = [
   {
     id: 'ontspanningskomitee',
     name: 'Hanlie Tolmay',
-    roles: { af: ['Ontspanningskomitee'], en: ['Recreation Committee'] },
+    // Vrouebediening is held by two people — Linda Jennings above and Hanlie
+    // here. `roles` is per person, so that needs no special handling.
+    roles: {
+      af: ['Vrouebediening', 'Ontspanningskomitee'],
+      en: ['Women’s Ministry', 'Recreation Committee'],
+    },
     photo: 'TG-DH-Hanlie.jpg',
   },
   {
     id: 'gesinsbediening',
-    name: 'Louw Familie',
+    // Held by the family jointly, which is why this is the one card in the
+    // roster naming two people. Morné keeps his own Strewersleier card above.
+    name: 'Morné & Lelani Louw',
     roles: { af: ['Gesinsbediening'], en: ['Family Ministry'] },
   },
 ];

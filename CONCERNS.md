@@ -486,7 +486,7 @@ empty frame reads as neglect rather than as a photo still to come.
 **The roster in `departmentHeads.ts` stays complete** — it is the record of who
 holds what, and shortening it would lose that. Only the rendering is filtered.
 
-The consequence to keep in view: **11 of 21 are currently on the site, and the
+The consequence to keep in view: **11 of 22 are currently on the site, and the
 pastor is one of the ten who are not.** Anyone asking why a particular person
 is missing wants a headshot, not a code change. Adding the file and a `photo:`
 line publishes them, with nothing else to touch.

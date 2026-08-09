@@ -13,6 +13,7 @@
     "astro": "astro",
     "worker:dev": "npm run build && wrangler dev",
     "deploy": "npm run build && wrangler deploy",
+    "headshots": "node scripts/headshot-fallbacks.mjs",
     "version:check": "node scripts/check-version.mjs",
     "version:patch": "npm version patch --no-git-tag-version",
     "version:minor": "npm version minor --no-git-tag-version",

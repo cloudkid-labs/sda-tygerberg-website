@@ -134,7 +134,7 @@ async function deliver(
   env: ContactEnv,
   clean: Record<string, string>,
   lang: Lang,
-): Promise<{ via: ContactVia | null; consentStored?: boolean; recordId: string }> {
+): Promise<{ via: ContactVia | null; consentStored?: boolean }> {
   const submittedAt = new Date().toISOString();
 
   // Built and stored *before* delivery, deliberately. Consent was given at
@@ -146,8 +146,16 @@ async function deliver(
 
   // The id goes into the enquiry too, so the mail a person reads and the object
   // in the bucket can be tied together without guessing from timestamps.
-  if (await sendContactEmail(env, clean, submittedAt, record.id)) {
-    return { via: 'email', consentStored, recordId: record.id };
+  //
+  // Only where the object exists, though. Quoting an id is a claim that it can
+  // be looked up, and an unbound binding or a failed put would make that claim
+  // false — sending an auditor after something never written, which is worse
+  // than saying nothing. Both downstreams take it from `storedId` for that
+  // reason; `contactEmail.ts` already omits the line when it is absent.
+  const storedId = consentStored ? record.id : undefined;
+
+  if (await sendContactEmail(env, clean, submittedAt, storedId)) {
+    return { via: 'email', consentStored };
   }
 
   if (env.CONTACT_WEBHOOK_URL) {
@@ -155,15 +163,18 @@ async function deliver(
       ...clean,
       submittedAt,
       // Recorded here as well as in R2: the webhook receiver is a separate
-      // system and cannot read the bucket.
+      // system and cannot read the bucket. `consent` is the fact — true because
+      // the form enforced it — and stands whether or not the put succeeded; the
+      // id is a pointer, so it is omitted entirely when there is nothing to
+      // point at.
       consent: true,
-      consentRecordId: record.id,
+      ...(storedId ? { consentRecordId: storedId } : {}),
       source: 'tygerberg-sda-website',
     });
-    if (sent) return { via: 'webhook', consentStored, recordId: record.id };
+    if (sent) return { via: 'webhook', consentStored };
   }
 
-  return { via: null, consentStored, recordId: record.id };
+  return { via: null, consentStored };
 }
 
 /** Is any delivery channel set up at all? Decides `not-configured` vs a failure. */

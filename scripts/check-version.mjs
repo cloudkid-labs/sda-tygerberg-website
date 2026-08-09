@@ -72,7 +72,9 @@ function fail(lines) {
   process.exit(1);
 }
 
-const { version } = JSON.parse(readFileSync(new URL('../package.json', import.meta.url)));
+const { version } = JSON.parse(
+  readFileSync(new URL('../package.json', import.meta.url), 'utf8'),
+);
 const current = parse(version);
 
 if (!current) {

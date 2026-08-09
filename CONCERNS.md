@@ -302,6 +302,39 @@ Related: no phone numbers or email addresses appear anywhere in site content —
 they were stripped site-wide, and `/connect` is the compliant route to a person.
 Do not reintroduce them, including on the department-head cards.
 
+### C-34 — The consent record is written before delivery, and never blocks it
+
+Consent is given at submission. If the church's mail then bounces, the record of
+that consent still has to exist — so `deliver()` builds and stores it *first*.
+Doing it the other way round would lose exactly the evidence POPIA asks for, in
+exactly the case where you would want it.
+
+The write is best-effort in the other direction: `storeConsent` never throws and
+never fails a submission. A visitor who filled in the form is owed delivery to
+the church, and a storage fault is our problem rather than theirs. The response
+carries `consentStored` for diagnostics only — **C-19 is about delivery, and
+this is not delivery.** An unbound bucket omits the field entirely and the
+enquiry email still carries its consent line, exactly as before the bucket
+existed.
+
+Three things about what is stored:
+
+- **The wording is pinned in `consentRecord.ts`, not imported from
+  `requestCopy.ts`.** A record has to state what was agreed to *at the time*;
+  pointing at live copy would silently rewrite every historical record the next
+  time someone edits the form. Editing the label means adding a
+  `CONSENT_VERSION`, never editing the old text.
+- **The client sends `lang`** so the record holds the sentence actually on
+  screen. Anything unrecognised falls back to `af` rather than rejecting an
+  otherwise good enquiry over a language tag.
+- **The free-text `message` is deliberately not stored.** It is the most
+  sensitive thing a visitor types and it is not part of demonstrating consent.
+  C-20's "minimum needed" binds harder on storage at rest than on an inbox.
+
+Retention is a dashboard-only R2 lifecycle rule and **is not configured by this
+repo** — SETUP-INSTRUCTIONS.md §3.6. Personal data with no expiry is the failure
+mode to watch here.
+
 ### C-21 — Abuse protection is Cloudflare's, and it is off by default
 
 The Worker validates and forwards; it does no bot detection. Bot Fight Mode and

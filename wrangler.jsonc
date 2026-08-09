@@ -104,6 +104,28 @@
       "allowed_sender_addresses": ["mailer@cloudkid.link"]
     }
   ],
+  // Consent records for /api/contact submissions — CONCERNS.md C-34.
+  //
+  // A bucket that already existed in the account and had nothing writing to it:
+  // the enquiry BCC goes to notifications@, which Email Routing hands to the
+  // cloudkid-link-r2-explorer Worker, and that Worker is configured with
+  // `targetBucket: "email-notifications"`. So consent was demonstrable only as
+  // a raw .txt email dump in a different bucket. This binding is what makes the
+  // Worker that *validates* consent also the one that records it.
+  //
+  // Remove the binding and submissions still work: `storeConsent` treats an
+  // unbound namespace as "not configured" and the enquiry email keeps carrying
+  // the consent line, exactly as before.
+  //
+  // Retention is NOT set here — R2 lifecycle rules are dashboard-only. See
+  // SETUP-INSTRUCTIONS.md §3.6; personal data with no expiry is a POPIA problem
+  // that this file cannot solve.
+  "r2_buckets": [
+    {
+      "binding": "CONSENT",
+      "bucket_name": "consent-cloudkid-link"
+    }
+  ],
   "routes": [
     // Production custom domain (zone already lives in the Cloudflare
     // account) — `wrangler deploy` provisions/attaches this automatically.

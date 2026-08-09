@@ -73,11 +73,18 @@ jobs:
         # network round-trips whose output nothing here reads.
         run: npm ci --prefer-offline --no-audit --fund=false
 
-      # `package.json` is the single source of truth for the released version.
+      # `package.json` is the single source of truth for the released version,
+      # and it follows semver — see README "Versioning and releases".
+      #
       # A deploy whose version already has a tag is a re-deploy, not a release —
-      # it still ships, it just does not tag or release again. So the way to cut
-      # a release is to bump the version in the promotion PR; forget to, and
-      # production still updates, quietly and without a new tag.
+      # it still ships, it just does not tag or release again. That asymmetry is
+      # deliberate, and it is why forgetting to bump used to be silent.
+      #
+      # It is no longer: version-guard.yml runs `npm run version:check` on every
+      # PR into `main` and fails the promotion if the version is already
+      # released, lower than the latest tag, or not valid semver. This step is
+      # the belt to that braces, and still allows a `workflow_dispatch` re-run
+      # of an already-released version.
       - name: Resolve version
         id: version
         run: |

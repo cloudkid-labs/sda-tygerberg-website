@@ -105,20 +105,58 @@ The Pages preview has no Worker and no image transformer — see
 
 ## Versioning and releases
 
-`version` in `package.json` is the single source of truth. A production deploy
-reads it and, **if that version has no release yet**, tags the deployed commit
-`vX.Y.Z` and cuts a GitHub Release with generated notes.
+`version` in `package.json` is the single source of truth, and it follows
+[Semantic Versioning](https://semver.org/). A production deploy reads it and,
+**if that version has no release yet**, tags the deployed commit `vX.Y.Z` and
+cuts a GitHub Release with generated notes.
 
-So cutting a release is one line in the `dev` → `main` promotion PR:
+### What the numbers mean
 
-```jsonc
-"version": "0.2.0"
+Semver is defined for software with a public API. A website has one too — it is
+just easy to forget what it is. Here the contract is **the Worker's HTTP routes
+and the site's public URLs**, because those are the only things anything
+external depends on.
+
+| | When | Examples |
+|---|---|---|
+| **MAJOR** | A breaking change to `/api/*` response shape, or a public URL removed or renamed | dropping `isLive`, moving `/giving` |
+| **MINOR** | New capability, page or endpoint — nothing existing breaks | adding `/api/contact`, a new section |
+| **PATCH** | Content, copy, styling, fixes | roster corrections, a swipe fix |
+
+*Adding* a field to an API response is a MINOR, not a MAJOR: a client reading
+`isLive` is unaffected by `watchUrl` appearing beside it.
+
+**Still on 0.x deliberately.** Semver says `0.y.z` means "anything may change at
+any time", which is no longer quite true of a site serving a congregation. Going
+to `1.0.0` is a decision for the church rather than a mechanical one — take it
+when the API and the URL structure are ones you would not break casually.
+
+### Cutting a release
+
+Bump in the `dev` → `main` promotion PR:
+
+```sh
+npm run version:patch    # or :minor / :major
+npm run version:check    # what CI will assert
 ```
 
-Leave it alone and production still deploys — it just doesn't tag. That is the
-intended behaviour for a re-deploy or a `workflow_dispatch` re-run: a tag claims
-"this is what production serves", and two deploys of one version would make that
-claim twice about different commits.
+The scripts wrap `npm version --no-git-tag-version`, so they update
+`package.json` and the lockfile without creating a tag locally — **the deploy
+creates the tag**, and only after Cloudflare has accepted the build.
+
+Leave the version alone and production still deploys — it just doesn't tag. That
+is intended for a re-deploy or a `workflow_dispatch` re-run: a tag claims "this
+is what production serves", and two deploys of one version would make that claim
+twice about different commits.
+
+The trap in that asymmetry is that forgetting is **silent** — production updates,
+no tag is cut, and `app-version` goes on reporting a number belonging to
+different code. It has happened twice. `.github/workflows/version-guard.yml`
+runs `version:check` on every PR into `main` and fails it if the version is
+already released, lower than the latest tag, or not valid semver.
+
+Curated release notes live in [CHANGELOG.md](./CHANGELOG.md); GitHub's generated
+notes list the raw commits.
 
 Tagging happens **after** Cloudflare accepts the deploy, never before, so a
 failed deploy leaves no tag behind.
@@ -165,6 +203,14 @@ the API answered without an id; the button then falls back to the channel's
 `/live` tab. That button renders **only** while `isLive` is true, so on any
 ordinary day the hero shows one call to action, not two.
 
+It also returns `consentStored` whenever the consent bucket is bound: `true`
+means one JSON record reached `consent-cloudkid-link`. A `false` never fails a
+submission — the enquiry email carries the consent line either way
+([C-34](./CONCERNS.md#c-34--the-consent-record-is-written-before-delivery-and-never-blocks-it)).
+Records are keyed `YYYY/MM/DD/<timestamp>-<uuid>.json` and the id appears in the
+enquiry email as `Toestemmingsrekord`, so mail and object tie together.
+**Retention is a manual dashboard step** — SETUP-INSTRUCTIONS.md §3.6.
+
 `POST /api/contact` returns an `outcome`: `forwarded`, `not-configured`,
 `invalid` (with `errors` naming the fields), or `forward-error`. On `forwarded`
 it also returns `via` — `email` or `webhook` — naming the channel that carried
@@ -185,7 +231,7 @@ All copy and structured content is under `src/data/`, away from components:
 | `homeCopy.ts` | Homepage copy, weekly schedule, "your first visit" answers |
 | `beliefsCopy.ts` | Beliefs-page header copy |
 | `beliefs.ts` | All 28 Fundamental Beliefs, bilingual, in 6 categories |
-| `departmentHeads.ts` | Carousel roster — 21 people, 11 with headshots |
+| `departmentHeads.ts` | Carousel roster — 22 people, 11 with headshots |
 | `requestCopy.ts` | `/connect` and `/bible-studies` copy, incl. POPIA wording |
 | `resources.ts` | External resource links (logos in `public/logos/`) |
 | `giving.ts` | `/giving` page copy, EFT banking details, Zapper link |
@@ -266,11 +312,12 @@ be prompted for this.
 
 Needs the church board:
 
-1. **Headshots for 10 of the 21** — Arnold Neuhoff, Lisa Branders, Morné Louw,
-   Adéle Meyer, Chris Meyer, Gert Coetzee, Peter Wallace, Sanet Stevens, Bertie
-   Hoffman, the Louw family. **These ten are not on the site** — a card needs a
-   photo to render ([C-29](./CONCERNS.md#c-29--a-head-without-a-headshot-is-not-rendered)),
-   so the carousel currently shows 11. Note that the pastor is among the ten.
+1. **Headshots for 11 of the 22** — Arnold Neuhoff, Lisa Branders, Morné Louw,
+   Lané Louw, Adéle Meyer, Chris Meyer, Gert Coetzee, Peter Wallace, Sanet
+   Stevens, Bertie Hoffman, Morné & Lelani Louw. **These eleven are not on the
+   site** — a card needs a photo to render
+   ([C-29](./CONCERNS.md#c-29--a-head-without-a-headshot-is-not-rendered)),
+   so the carousel currently shows 11. Note that the pastor is among the eleven.
    Adding the file and a `photo:` line publishes each one.
 2. ~~**The Ampsdraers 2025/2026 roster is missing an entry**~~ — resolved by the
    board. Laura Rolff holds Persoonlike Bediening and the

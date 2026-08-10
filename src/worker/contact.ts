@@ -1,16 +1,19 @@
 /// <reference types="@cloudflare/workers-types" />
 
+import type { Lang } from '../data/site';
 import { sendContactEmail, type ContactEmailEnv } from './contactEmail';
+import { buildConsentRecord, storeConsent, type ConsentEnv } from './consentRecord';
 
-export type ContactEnv = ContactEmailEnv & {
-  // Any endpoint accepting a JSON POST. A Worker secret, not a build-time var:
-  // it is a delivery address, and a public one invites spam. Unset answers
-  // `not-configured` and the form says so.
-  //
-  // The fallback channel now: email is tried first when it is configured — see
-  // `deliver()` below and C-31.
-  CONTACT_WEBHOOK_URL?: string;
-};
+export type ContactEnv = ContactEmailEnv &
+  ConsentEnv & {
+    // Any endpoint accepting a JSON POST. A Worker secret, not a build-time var:
+    // it is a delivery address, and a public one invites spam. Unset answers
+    // `not-configured` and the form says so.
+    //
+    // The fallback channel now: email is tried first when it is configured — see
+    // `deliver()` below and C-31.
+    CONTACT_WEBHOOK_URL?: string;
+  };
 
 /** Which page the request came from — decides who the church routes it to. */
 export type ContactTopic = 'connect' | 'bible-study';
@@ -27,6 +30,12 @@ export type ContactResult = {
   errors?: string[];
   /** Present only on `forwarded`. */
   via?: ContactVia;
+  /**
+   * Whether the consent record reached R2. Diagnostic only — a false here never
+   * fails a submission, because the enquiry email carries the consent line
+   * regardless. Absent when the bucket is not bound at all.
+   */
+  consentStored?: boolean;
 };
 
 const TOPICS: ContactTopic[] = ['connect', 'bible-study'];
@@ -63,8 +72,13 @@ function json(result: ContactResult, status: number): Response {
  * Validates a submission, returning the cleaned payload or the failed fields.
  * Missing consent is as fatal as a missing name — CONCERNS.md C-20.
  */
-function validate(body: RawBody): { errors: string[]; clean?: Record<string, string> } {
+function validate(body: RawBody): { errors: string[]; clean?: Record<string, string>; lang: Lang } {
   const errors: string[] = [];
+
+  // Which wording the visitor was shown, for the consent record. Metadata, not
+  // a field: anything unrecognised falls back to the site's default language
+  // rather than rejecting an otherwise good enquiry over a language tag.
+  const lang: Lang = body.lang === 'en' ? 'en' : 'af';
 
   const topic = str(body.topic);
   if (!TOPICS.includes(topic as ContactTopic)) errors.push('topic');
@@ -86,9 +100,9 @@ function validate(body: RawBody): { errors: string[]; clean?: Record<string, str
 
   if (body.consent !== true) errors.push('consent');
 
-  if (errors.length > 0) return { errors };
+  if (errors.length > 0) return { errors, lang };
 
-  return { errors, clean: { topic, name, email, phone, message } };
+  return { errors, clean: { topic, name, email, phone, message }, lang };
 }
 
 async function forward(url: string, payload: unknown): Promise<boolean> {
@@ -116,24 +130,51 @@ async function forward(url: string, payload: unknown): Promise<boolean> {
  * only reached when email fails — deliberately not both at once, which would
  * double every enquiry. CONCERNS.md C-31.
  */
-async function deliver(env: ContactEnv, clean: Record<string, string>): Promise<ContactVia | null> {
+async function deliver(
+  env: ContactEnv,
+  clean: Record<string, string>,
+  lang: Lang,
+): Promise<{ via: ContactVia | null; consentStored?: boolean }> {
   const submittedAt = new Date().toISOString();
 
-  if (await sendContactEmail(env, clean, submittedAt)) return 'email';
+  // Built and stored *before* delivery, deliberately. Consent was given at
+  // submission; if the church's mail then bounces, the record of that consent
+  // must still exist. Doing it the other way round would lose exactly the
+  // evidence POPIA asks for in exactly the case you would want it — C-34.
+  const record = buildConsentRecord(clean, submittedAt, lang);
+  const consentStored = env.CONSENT ? await storeConsent(env, record) : undefined;
+
+  // The id goes into the enquiry too, so the mail a person reads and the object
+  // in the bucket can be tied together without guessing from timestamps.
+  //
+  // Only where the object exists, though. Quoting an id is a claim that it can
+  // be looked up, and an unbound binding or a failed put would make that claim
+  // false — sending an auditor after something never written, which is worse
+  // than saying nothing. Both downstreams take it from `storedId` for that
+  // reason; `contactEmail.ts` already omits the line when it is absent.
+  const storedId = consentStored ? record.id : undefined;
+
+  if (await sendContactEmail(env, clean, submittedAt, storedId)) {
+    return { via: 'email', consentStored };
+  }
 
   if (env.CONTACT_WEBHOOK_URL) {
     const sent = await forward(env.CONTACT_WEBHOOK_URL, {
       ...clean,
       submittedAt,
-      // Recorded because POPIA consent has to be demonstrable after the fact,
-      // and the church's inbox is the only place this submission survives.
+      // Recorded here as well as in R2: the webhook receiver is a separate
+      // system and cannot read the bucket. `consent` is the fact — true because
+      // the form enforced it — and stands whether or not the put succeeded; the
+      // id is a pointer, so it is omitted entirely when there is nothing to
+      // point at.
       consent: true,
+      ...(storedId ? { consentRecordId: storedId } : {}),
       source: 'tygerberg-sda-website',
     });
-    if (sent) return 'webhook';
+    if (sent) return { via: 'webhook', consentStored };
   }
 
-  return null;
+  return { via: null, consentStored };
 }
 
 /** Is any delivery channel set up at all? Decides `not-configured` vs a failure. */
@@ -179,16 +220,16 @@ export async function handleContact(request: Request, env: ContactEnv): Promise<
   }
 
   // Bot filtering is Cloudflare's, at the edge — CONCERNS.md C-21.
-  const { errors, clean } = validate(body);
+  const { errors, clean, lang } = validate(body);
   if (!clean) return json({ ok: false, outcome: 'invalid', errors }, 400);
 
   if (!isConfigured(env)) {
     return json({ ok: false, outcome: 'not-configured' }, 503);
   }
 
-  const via = await deliver(env, clean);
+  const { via, consentStored } = await deliver(env, clean, lang);
 
   return via
-    ? json({ ok: true, outcome: 'forwarded', via }, 200)
-    : json({ ok: false, outcome: 'forward-error' }, 502);
+    ? json({ ok: true, outcome: 'forwarded', via, consentStored }, 200)
+    : json({ ok: false, outcome: 'forward-error', consentStored }, 502);
 }

@@ -167,6 +167,37 @@ entirely; the arrows still work.
 The live region only announces while the deck is *not* moving on its own —
 otherwise a screen reader narrates a new name every 4.2 seconds, unasked.
 
+### C-33 — A cancelled swipe is still a swipe
+
+`touch-action: pan-y` is necessary and **not sufficient**. The browser still
+arbitrates an ambiguous gesture, and when it decides the page should scroll it
+fires `pointercancel` and stops delivering moves. WebKit does this far more
+eagerly than Blink, so on iOS a swipe the visitor plainly meant was being
+discarded — the deck felt dead on a phone while working on a desktop.
+
+Three things together fix it, and removing any one brings the symptom back:
+
+1. **Axis lock.** After `AXIS_LOCK_PX` of travel the gesture is committed to
+   `x` or `y` and stays there. A vertical drag no longer slides the deck
+   sideways under a finger that is scrolling.
+2. **Claiming the touch.** Once locked horizontal, `preventDefault()` on
+   `touchmove` stops the browser taking the gesture. It needs a **non-passive**
+   listener, which React's `onTouchMove` cannot provide — hence the manual
+   `addEventListener` in an effect. Do not "simplify" it back to a JSX prop.
+3. **Settling on cancel.** A gesture already locked horizontal has proven its
+   intent, so `pointercancel` settles it on the distance reached instead of
+   throwing it away. That is why `dx` is mirrored into the drag ref: the
+   cancelling event carries no useful coordinate.
+
+All of it stays in refs and direct DOM writes. No drag state goes through
+React — C-11 still holds.
+
+Verified by driving pointer and touch streams together and cancelling
+mid-gesture: before, three of six cases lost the swipe; after, none do. The
+existing throttled harnesses still pass unchanged (30/30 flicks at 20× CPU,
+all seven gesture cases), which is what proves the fix did not buy phone
+behaviour at the cost of the race this path was originally written to survive.
+
 ---
 
 ## LIVE badge and API quota
@@ -270,6 +301,39 @@ submission survives.
 Related: no phone numbers or email addresses appear anywhere in site content —
 they were stripped site-wide, and `/connect` is the compliant route to a person.
 Do not reintroduce them, including on the department-head cards.
+
+### C-34 — The consent record is written before delivery, and never blocks it
+
+Consent is given at submission. If the church's mail then bounces, the record of
+that consent still has to exist — so `deliver()` builds and stores it *first*.
+Doing it the other way round would lose exactly the evidence POPIA asks for, in
+exactly the case where you would want it.
+
+The write is best-effort in the other direction: `storeConsent` never throws and
+never fails a submission. A visitor who filled in the form is owed delivery to
+the church, and a storage fault is our problem rather than theirs. The response
+carries `consentStored` for diagnostics only — **C-19 is about delivery, and
+this is not delivery.** An unbound bucket omits the field entirely and the
+enquiry email still carries its consent line, exactly as before the bucket
+existed.
+
+Three things about what is stored:
+
+- **The wording is pinned in `consentRecord.ts`, not imported from
+  `requestCopy.ts`.** A record has to state what was agreed to *at the time*;
+  pointing at live copy would silently rewrite every historical record the next
+  time someone edits the form. Editing the label means adding a
+  `CONSENT_VERSION`, never editing the old text.
+- **The client sends `lang`** so the record holds the sentence actually on
+  screen. Anything unrecognised falls back to `af` rather than rejecting an
+  otherwise good enquiry over a language tag.
+- **The free-text `message` is deliberately not stored.** It is the most
+  sensitive thing a visitor types and it is not part of demonstrating consent.
+  C-20's "minimum needed" binds harder on storage at rest than on an inbox.
+
+Retention is a dashboard-only R2 lifecycle rule and **is not configured by this
+repo** — SETUP-INSTRUCTIONS.md §3.6. Personal data with no expiry is the failure
+mode to watch here.
 
 ### C-21 — Abuse protection is Cloudflare's, and it is off by default
 
@@ -486,7 +550,7 @@ empty frame reads as neglect rather than as a photo still to come.
 **The roster in `departmentHeads.ts` stays complete** — it is the record of who
 holds what, and shortening it would lose that. Only the rendering is filtered.
 
-The consequence to keep in view: **11 of 21 are currently on the site, and the
+The consequence to keep in view: **11 of 22 are currently on the site, and the
 pastor is one of the ten who are not.** Anyone asking why a particular person
 is missing wants a headshot, not a code change. Adding the file and a `photo:`
 line publishes them, with nothing else to touch.

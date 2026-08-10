@@ -576,3 +576,23 @@ that was meant as the start of a swipe).
 Emulated touch does not reproduce any of these — the native image drag only
 showed up under a real mouse drag, and the callout needs a device. Do not
 conclude they are unnecessary because a touch harness passes without them.
+
+## Discovery
+
+### C-35 — `llms.txt` restates facts it cannot read
+
+`public/llms.txt` follows [llmstxt.org](https://llmstxt.org/): an H1, a
+blockquote summary, prose, then H2 link lists. Being a flat file served as
+text, it cannot import `SITE` or `SERVICE_TIMES`, so the address, the three
+service times, the opening hours and the page list are all typed out a second
+time.
+
+That makes it the same shape of trap as C-03. Change a service time in
+`src/data/site.ts` and every rendered page updates while `llms.txt` goes on
+telling agents the old one — silently, because nothing builds it and nothing
+checks it. `site.ts` carries a pointer back here for that reason.
+
+Absolute production URLs throughout, deliberately. The file is copied verbatim
+to whatever origin serves it, so a devtest build advertises the production
+addresses rather than its own — the same call as C-23, and for the same reason:
+a preview must not invite anyone to treat it as the real site.

@@ -112,6 +112,7 @@ export const departmentHeads: DepartmentHead[] = [
     id: 'strewers',
     name: 'Morné Louw',
     roles: { af: ['Strewersleier'], en: ['Pathfinder Leader'] },
+    photo: 'TG-DH-Morne.jpg',
   },
   {
     id: 'kinderbediening',
@@ -119,6 +120,7 @@ export const departmentHeads: DepartmentHead[] = [
     // Morné and Lelani's daughter; the family holds Gesinsbediening jointly
     // further down. Took Kinderbediening from Lenie Virgin — see her card.
     roles: { af: ['Kinderbediening'], en: ['Children’s Ministry'] },
+    photo: 'TG-DH-Lane.jpg',
   },
   {
     id: 'musiek',
@@ -191,6 +193,11 @@ export const departmentHeads: DepartmentHead[] = [
     // roster naming two people. Morné keeps his own Strewersleier card above.
     name: 'Morné & Lelani Louw',
     roles: { af: ['Gesinsbediening'], en: ['Family Ministry'] },
+    // The only two-person photo, and the only source that was not shot
+    // portrait. Cropped to 4/5 from the 6000x4000 original, centred between
+    // their faces rather than on the frame — a centre crop cut Lelani off at
+    // the edge. headshot-fallbacks.mjs warns on landscape for this reason.
+    photo: 'TG-DH-Louws.jpg',
   },
 ];
 

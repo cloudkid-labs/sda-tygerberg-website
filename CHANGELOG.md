@@ -7,6 +7,7 @@
 
 - Bloedbank dates in "Hierdie week by die kerk"; a date drops off once it
   passes (C-36).
+- Ellen G. White Geskrifte (`egwwritings.org`) in "Voed jou geloof daagliks".
 - `/llms.txt` per [llmstxt.org](https://llmstxt.org/), restating the site's
   facts for agent readers (C-35).
 - Strewers, Kinderbediening and Gesinsbediening render — the three Louw

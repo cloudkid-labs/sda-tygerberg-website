@@ -1,0 +1,34 @@
+# Tygerberg SDA Kerk
+
+> Seventh-day Adventist congregation in Boston, Bellville, Cape Town, South
+> Africa. The site carries service times and directions, the church's beliefs,
+> free Bible study requests, giving details, and a live-stream link that
+> appears only while a broadcast is actually running.
+
+Sabbath (Saturday) services at 54 Boston St, Boston, Cape Town, 7530 — Sabbath
+School 09:30–10:00, Lesson Study 10:00–10:45, Divine Service 11:00–12:00. The
+building is open 09:00–12:30. Children's programmes run 09:30–11:00, after
+which the children join the congregation for the Divine Service.
+
+Every page is bilingual, Afrikaans first with English alongside. Language is a
+control on the page, not part of the URL — there are no `/af/` or `/en/`
+routes, and each address below serves both.
+
+## Pages
+
+- [Tuis / Home](https://tygerberg-sda.cloudkid.link/): Service times, address and directions, department heads, FAQ, and the LIVE badge while streaming.
+- [Wat Ons Glo / What We Believe](https://tygerberg-sda.cloudkid.link/beliefs/): The 28 fundamental beliefs of the Seventh-day Adventist Church, grouped into six themes.
+- [Bybelstudies / Bible Studies](https://tygerberg-sda.cloudkid.link/bible-studies/): Request a free Bible or baptismal study — at home, at the church, or online. No cost, no obligation.
+- [Verbind / Connect](https://tygerberg-sda.cloudkid.link/connect/): Send a question, a message or a prayer request, and be introduced to the right person in the congregation.
+- [Gee / Give](https://tygerberg-sda.cloudkid.link/giving/): Tithe and offering — EFT banking details and Zapper.
+
+## Elsewhere
+
+- [YouTube channel](https://www.youtube.com/@SDATygerberg): Recorded services, and where the Sabbath broadcast goes out.
+- [28 Fundamental Beliefs (PDF)](https://tygerberg-sda.cloudkid.link/SDA-28-Fundamental-Beliefs.pdf): The official statement, self-hosted.
+- [Directions](https://www.google.com/maps/dir//Tygerberg+SDA+Kerk,+54+Boston+St,+Boston,+Cape+Town,+7530): Google Maps route to the church.
+
+## Optional
+
+- [Live status](https://tygerberg-sda.cloudkid.link/api/live-status): JSON — whether the channel is broadcasting right now, and the video to watch if it is. Answers "is the service on air" without loading a page.
+- [Sitemap](https://tygerberg-sda.cloudkid.link/sitemap.xml): The five indexable routes.

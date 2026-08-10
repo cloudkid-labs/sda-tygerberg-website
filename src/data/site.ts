@@ -52,6 +52,24 @@ export const BLOOD_DRIVES = [
   '2026-12-10',
 ] as const;
 
+/**
+ * One donation session. Slots start on the hour from 13:00 and run 45 minutes,
+ * so the last one starts at 15:00 and ends inside the 16:00 close.
+ *
+ * Starts are listed rather than generated from a range: "13:00 to 16:00 in 45s"
+ * is ambiguous about whether a fourth slot squeezes in at 15:45, and a donor
+ * arriving for a slot that does not exist is the failure that matters.
+ */
+export const BLOOD_DRIVE_SLOT_STARTS = ['13:00', '14:00', '15:00'] as const;
+export const BLOOD_DRIVE_SLOT_MINUTES = 45;
+
+/** "13:00 – 13:45", matching how the service times already read. */
+export function slotRange(start: string): string {
+  const [h, m] = start.split(':').map(Number);
+  const end = h * 60 + m + BLOOD_DRIVE_SLOT_MINUTES;
+  return `${start} – ${String(Math.floor(end / 60)).padStart(2, '0')}:${String(end % 60).padStart(2, '0')}`;
+}
+
 export type ServiceTime = { af: string; en: string; start: string; end: string };
 
 /**

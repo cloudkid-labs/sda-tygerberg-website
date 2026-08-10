@@ -21,6 +21,7 @@ routes, and each address below serves both.
 - [Bybelstudies / Bible Studies](https://tygerberg-sda.cloudkid.link/bible-studies/): Request a free Bible or baptismal study — at home, at the church, or online. No cost, no obligation.
 - [Verbind / Connect](https://tygerberg-sda.cloudkid.link/connect/): Send a question, a message or a prayer request, and be introduced to the right person in the congregation.
 - [Gee / Give](https://tygerberg-sda.cloudkid.link/giving/): Tithe and offering — EFT banking details and Zapper.
+- [Bloedbank / Blood Bank](https://tygerberg-sda.cloudkid.link/blood-bank/): Blood donation dates at the church, each with 45-minute slots starting on the hour from 13:00. Informational — there is no booking form.
 
 ## Elsewhere
 
@@ -31,4 +32,4 @@ routes, and each address below serves both.
 ## Optional
 
 - [Live status](https://tygerberg-sda.cloudkid.link/api/live-status): JSON — whether the channel is broadcasting right now, and the video to watch if it is. Answers "is the service on air" without loading a page.
-- [Sitemap](https://tygerberg-sda.cloudkid.link/sitemap.xml): The five indexable routes.
+- [Sitemap](https://tygerberg-sda.cloudkid.link/sitemap.xml): The six indexable routes.

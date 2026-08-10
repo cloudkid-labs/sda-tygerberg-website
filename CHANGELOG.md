@@ -5,8 +5,8 @@
 
 ## [1.2.1] — unreleased
 
-- Bloedbank dates in "Hierdie week by die kerk"; a date drops off once it
-  passes (C-36).
+- `/blood-bank` lists the drive dates and their 45-minute slots; the week grid
+  gains a fifth card counting the sessions still bookable (C-36, C-37).
 - Ellen G. White Geskrifte (`egwwritings.org`) in "Voed jou geloof daagliks".
 - `/llms.txt` per [llmstxt.org](https://llmstxt.org/), restating the site's
   facts for agent readers (C-35).

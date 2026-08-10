@@ -1,0 +1,11 @@
+---
+import Layout from '../../layouts/Layout.astro';
+import { BloodBankPage } from '../../components/react/BloodBankPage';
+---
+
+<Layout
+  title="Bloedbank · Tygerberg SDA Kerk"
+  description="Bloedskenkdatums en tydgleuwe by Tygerberg SDA Kerk, Boston, Kaapstad. Gleuwe van 45 minute vanaf 13:00."
+>
+  <BloodBankPage client:load />
+</Layout>

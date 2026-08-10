@@ -604,6 +604,24 @@ Do not "simplify" this by filtering at module scope. That runs at build on the
 server and at load in the browser, which is the mismatch again, only harder to
 see.
 
+It lives in `useUpcomingDrives` rather than in either component because the home
+page card and `/blood-bank` both need it, and two copies of this would be two
+chances to seed one of them with today's date and reintroduce the mismatch on
+one page only.
+
+### C-37 — The blood bank page takes no bookings
+
+`/blood-bank` publishes dates and slots and stops there. It has no form, asks
+for no name and no phone number, and stores nothing — so there is no personal
+data to protect and no consent to record, which is the whole reason it can be a
+static page with no Worker route behind it.
+
+Adding "book a slot" is not a small change. It would mean a submission path, a
+consent box and a stored consent record, all of which `/api/contact` already
+carries the machinery for (C-20, C-34) — reuse that rather than growing a second
+one. A slot count is also not a booking count: nothing here knows how many
+places are left, and the card must not be read as saying otherwise.
+
 ## Discovery
 
 ### C-35 — `llms.txt` restates facts it cannot read

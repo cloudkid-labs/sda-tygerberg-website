@@ -25,14 +25,10 @@ export type HomeCopy = {
   week: WeekEntry[];
   weekHeading: string;
   weekSub: string;
-  /** January-first, indexed by `Date#getMonth()`. Rendering `BLOOD_DRIVES`
-   *  formats dates from these rather than `toLocaleDateString`, which needs an
-   *  `af-ZA` the browser may not carry and would quietly fall back to English
-   *  month names on an Afrikaans-first page. */
-  months: string[];
+  /** The week grid's fifth card. Everything else the card needs — the next
+   *  date and the session count — is derived, and the page it links to keeps
+   *  its own copy in `bloodBankCopy.ts`. */
   bloodBankName: string;
-  /** The roster says only "Toesluit is 19h30" — a closing time, no start. */
-  bloodBankTime: string;
   /**
    * Answered by the board. The section hides itself while this is empty, so
    * emptying it unpublishes the section rather than leaving a bare heading.
@@ -112,22 +108,7 @@ export const homeCopy: Record<Lang, HomeCopy> = {
     ],
     weekHeading: 'Hierdie week by die kerk',
     weekSub: 'Almal welkom — bring gerus ’n vriend saam.',
-    months: [
-      'Januarie',
-      'Februarie',
-      'Maart',
-      'April',
-      'Mei',
-      'Junie',
-      'Julie',
-      'Augustus',
-      'September',
-      'Oktober',
-      'November',
-      'Desember',
-    ],
     bloodBankName: 'Bloedbank',
-    bloodBankTime: 'Sluit 19:30',
     firstVisit: [
       {
         q: 'Waar parkeer ek?',
@@ -225,22 +206,7 @@ export const homeCopy: Record<Lang, HomeCopy> = {
     ],
     weekHeading: 'This week at church',
     weekSub: 'Everyone welcome — feel free to bring a friend.',
-    months: [
-      'January',
-      'February',
-      'March',
-      'April',
-      'May',
-      'June',
-      'July',
-      'August',
-      'September',
-      'October',
-      'November',
-      'December',
-    ],
     bloodBankName: 'Blood Bank',
-    bloodBankTime: 'Closes 19:30',
     firstVisit: [
       {
         q: 'Where do I park?',

@@ -1,5 +1,8 @@
 export type Lang = 'af' | 'en';
 
+// The address, the service times and the opening hours below are mirrored by
+// hand in `public/llms.txt`, which is a flat file and cannot import them.
+// Change anything here and change it there too — CONCERNS.md C-35.
 export const SITE = {
   name: 'Tygerberg SDA',
   address: '54 Boston St, Boston, Cape Town, 7530',

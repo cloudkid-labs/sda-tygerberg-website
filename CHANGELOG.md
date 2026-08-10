@@ -5,6 +5,10 @@
 
 ## [1.2.0] — unreleased
 
+- `/llms.txt` per [llmstxt.org](https://llmstxt.org/), restating the site's
+  facts for agent readers (C-35).
+- Token setup lists the R2 permission the consent bucket needs —
+  SETUP-INSTRUCTIONS.md §3.2.
 - Six open advisories cleared: `js-yaml`, `nanoid`, `postcss` and `undici`,
   the last via `wrangler` 4.120.0 and a matching `@cloudflare/workers-types`.
 - Consent records for `/api/contact` written to R2 before delivery (C-34).

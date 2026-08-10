@@ -5,6 +5,8 @@
 
 ## [1.2.1] — unreleased
 
+- Bloedbank dates in "Hierdie week by die kerk"; a date drops off once it
+  passes (C-36).
 - `/llms.txt` per [llmstxt.org](https://llmstxt.org/), restating the site's
   facts for agent readers (C-35).
 - Strewers, Kinderbediening and Gesinsbediening render — the three Louw

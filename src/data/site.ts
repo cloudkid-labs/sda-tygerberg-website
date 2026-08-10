@@ -27,6 +27,31 @@ export const SITE = {
   beliefsPdfPath: '/SDA-28-Fundamental-Beliefs.pdf',
 } as const;
 
+/**
+ * Blood bank drives, from the church's "Bloedbank datums 2026" roster. ISO so
+ * a past date can be dropped without parsing prose, and language-independent —
+ * only the month names are copy (`homeCopy.months`).
+ *
+ * Every one falls on a Thursday, but they are listed rather than derived: the
+ * roster is what the church publishes and the pattern is not a promise.
+ *
+ * The roster also names a responsible department and a mobile number per date.
+ * Neither is here. The numbers are personal data that C-20 keeps off the site
+ * entirely; the departments are an internal duty rota that tells a visitor
+ * nothing. Add the departments if the board asks, never the numbers.
+ */
+export const BLOOD_DRIVES = [
+  '2026-04-09',
+  '2026-05-07',
+  '2026-06-04',
+  '2026-07-09',
+  '2026-08-06',
+  '2026-09-10',
+  '2026-10-08',
+  '2026-11-05',
+  '2026-12-10',
+] as const;
+
 export type ServiceTime = { af: string; en: string; start: string; end: string };
 
 /**

@@ -577,6 +577,33 @@ Emulated touch does not reproduce any of these — the native image drag only
 showed up under a real mouse drag, and the callout needs a device. Do not
 conclude they are unnecessary because a touch harness passes without them.
 
+## This week
+
+### C-36 — The blood bank filter reads the clock after mount, not during render
+
+`BLOOD_DRIVES` is a fixed list and the build is static, so a `d >= today()`
+filter evaluated while rendering would be frozen at whatever day the deploy
+ran. It would keep showing a drive that happened weeks ago until someone
+happened to deploy again — and deploys are driven by content changes, not by
+the calendar.
+
+Reading the clock in `useEffect` fixes that, but the reason the state starts at
+`null` rather than at today's date is different: the server render and the
+first client render have to produce the same markup. Seeding it with
+`today()` would have the server emit the build-day list and the browser emit
+the visit-day list, which is a hydration mismatch on a `client:load` island.
+Starting at `null` means both render the full list, and the filter narrows it
+one tick later.
+
+The cost is that the pre-hydration HTML — which is what a crawler without
+JavaScript reads — lists dates that have already passed. That is the year's
+published roster rather than anything false, so it was accepted rather than
+worked around.
+
+Do not "simplify" this by filtering at module scope. That runs at build on the
+server and at load in the browser, which is the mismatch again, only harder to
+see.
+
 ## Discovery
 
 ### C-35 — `llms.txt` restates facts it cannot read

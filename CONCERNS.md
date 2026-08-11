@@ -576,3 +576,68 @@ that was meant as the start of a swipe).
 Emulated touch does not reproduce any of these — the native image drag only
 showed up under a real mouse drag, and the callout needs a device. Do not
 conclude they are unnecessary because a touch harness passes without them.
+
+## This week
+
+### C-36 — The blood bank filter reads the clock after mount, not during render
+
+`BLOOD_DRIVES` is a fixed list and the build is static, so a `d >= today()`
+filter evaluated while rendering would be frozen at whatever day the deploy
+ran. It would keep showing a drive that happened weeks ago until someone
+happened to deploy again — and deploys are driven by content changes, not by
+the calendar.
+
+Reading the clock in `useEffect` fixes that, but the reason the state starts at
+`null` rather than at today's date is different: the server render and the
+first client render have to produce the same markup. Seeding it with
+`today()` would have the server emit the build-day list and the browser emit
+the visit-day list, which is a hydration mismatch on a `client:load` island.
+Starting at `null` means both render the full list, and the filter narrows it
+one tick later.
+
+The cost is that the pre-hydration HTML — which is what a crawler without
+JavaScript reads — lists dates that have already passed. That is the year's
+published roster rather than anything false, so it was accepted rather than
+worked around.
+
+Do not "simplify" this by filtering at module scope. That runs at build on the
+server and at load in the browser, which is the mismatch again, only harder to
+see.
+
+It lives in `useUpcomingDrives` rather than in either component because the home
+page card and `/blood-bank` both need it, and two copies of this would be two
+chances to seed one of them with today's date and reintroduce the mismatch on
+one page only.
+
+### C-37 — The blood bank page takes no bookings
+
+`/blood-bank` publishes dates and slots and stops there. It has no form, asks
+for no name and no phone number, and stores nothing — so there is no personal
+data to protect and no consent to record, which is the whole reason it can be a
+static page with no Worker route behind it.
+
+Adding "book a slot" is not a small change. It would mean a submission path, a
+consent box and a stored consent record, all of which `/api/contact` already
+carries the machinery for (C-20, C-34) — reuse that rather than growing a second
+one. A slot count is also not a booking count: nothing here knows how many
+places are left, and the card must not be read as saying otherwise.
+
+## Discovery
+
+### C-35 — `llms.txt` restates facts it cannot read
+
+`public/llms.txt` follows [llmstxt.org](https://llmstxt.org/): an H1, a
+blockquote summary, prose, then H2 link lists. Being a flat file served as
+text, it cannot import `SITE` or `SERVICE_TIMES`, so the address, the three
+service times, the opening hours and the page list are all typed out a second
+time.
+
+That makes it the same shape of trap as C-03. Change a service time in
+`src/data/site.ts` and every rendered page updates while `llms.txt` goes on
+telling agents the old one — silently, because nothing builds it and nothing
+checks it. `site.ts` carries a pointer back here for that reason.
+
+Absolute production URLs throughout, deliberately. The file is copied verbatim
+to whatever origin serves it, so a devtest build advertises the production
+addresses rather than its own — the same call as C-23, and for the same reason:
+a preview must not invite anyone to treat it as the real site.

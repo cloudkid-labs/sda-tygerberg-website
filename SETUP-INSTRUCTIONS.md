@@ -156,17 +156,33 @@ the `CLOUDFLARE_ACCOUNT_ID` GitHub secret from step 2.3.
 
 **My Profile → API Tokens → Create Token.**
 
-The quickest correct route is the **"Edit Cloudflare Workers"** template. If
-you build a custom token instead, it needs:
+The **"Edit Cloudflare Workers"** template gets most of the way there, but
+check the R2 row below is in what it generates before you save — the template
+has not always included it, and a token without it deploys everything up to the
+consent bucket and then fails (see the troubleshooting table).
+
+The full set:
 
 | Scope | Permission |
 |---|---|
 | Account → Workers Scripts | **Edit** |
+| Account → Workers R2 Storage | **Edit** (for the consent bucket — §3.6) |
 | Account → Account Settings | **Read** |
 | Zone → Workers Routes | **Edit** (for the custom domain) |
 | Zone → DNS | **Edit** (so `wrangler deploy` can attach the domain) |
 
-Scope it to the one account and the one zone rather than "all accounts".
+`User → User Details` and `User → Memberships` at **Read** are optional. They
+only affect what `wrangler whoami` can print about you; nothing deploys or
+fails on them.
+
+Scope it to the one account and the one zone rather than "all accounts". Leave
+**Client IP Address Filtering** empty — GitHub-hosted runners get dynamic
+egress IPs, so a filter here breaks the deploy with the same opaque `10000`
+that a missing permission gives you.
+
+Your own account role is not the token's role. A Super Administrator can hold a
+token that can do exactly one thing; the token carries only what is listed
+above.
 
 Copy the token **immediately** — Cloudflare shows it exactly once — into the
 `CLOUDFLARE_API_TOKEN` GitHub secret.
@@ -265,8 +281,10 @@ records accumulate with no expiry.
    decision, not a technical one. If nobody has an opinion, **7 years** matches
    ordinary South African record-keeping practice and is the safe default.
 
-The API token from §3.2 needs **Workers R2 Storage: Edit** on top of its
-existing permissions, or the deploy fails when it tries to bind the bucket.
+This binding is why **Workers R2 Storage: Edit** is in the §3.2 table. Without
+it the deploy uploads the script and the assets, then dies on the bucket with
+`Authentication error [code: 10000]` — everything looks fine until the very
+last step.
 
 To read the records back:
 
@@ -537,7 +555,8 @@ receiving it — and `via` tells you which channel did the work.
 |---|---|---|
 | Devtest deploy fails on "Get Pages site" | Pages source isn't GitHub Actions | Step 2.2 |
 | Devtest CSS/links 404 under a subpath | `ASTRO_BASE` not applied | The workflow sets it; only an issue when building Pages by hand |
-| Production deploy fails with a 10000/authentication error | Token lacks scope, or wrong account ID | Recreate the token per step 3.2 |
+| Production deploy fails with a 10000/authentication error on `/r2/buckets/...` | Token is missing **Workers R2 Storage: Edit** | Add that one row to the existing token — §3.2. No need to reissue it or touch the GitHub secret |
+| Production deploy fails with a 10000/authentication error anywhere else | Token lacks scope, wrong account ID, or an IP filter is set on the token | Check the §3.2 table, then recreate the token if it still fails |
 | `/api/*` 404s in production | Worker didn't deploy, or the route isn't attached | Check the Actions run, then the Worker's Triggers tab |
 | LIVE badge never shows | Missing/invalid key, or outside the window | `curl /api/live-status` and read `source` |
 | `/api/live-status` says `not-configured` | Secrets missing on the Worker | Step 4 — and check they weren't added as Actions secrets by mistake |

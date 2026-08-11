@@ -25,6 +25,10 @@ export type HomeCopy = {
   week: WeekEntry[];
   weekHeading: string;
   weekSub: string;
+  /** The week grid's fifth card. Everything else the card needs — the next
+   *  date and the session count — is derived, and the page it links to keeps
+   *  its own copy in `bloodBankCopy.ts`. */
+  bloodBankName: string;
   /**
    * Answered by the board. The section hides itself while this is empty, so
    * emptying it unpublishes the section rather than leaving a bare heading.
@@ -104,6 +108,7 @@ export const homeCopy: Record<Lang, HomeCopy> = {
     ],
     weekHeading: 'Hierdie week by die kerk',
     weekSub: 'Almal welkom — bring gerus ’n vriend saam.',
+    bloodBankName: 'Bloedbank',
     firstVisit: [
       {
         q: 'Waar parkeer ek?',
@@ -201,6 +206,7 @@ export const homeCopy: Record<Lang, HomeCopy> = {
     ],
     weekHeading: 'This week at church',
     weekSub: 'Everyone welcome — feel free to bring a friend.',
+    bloodBankName: 'Blood Bank',
     firstVisit: [
       {
         q: 'Where do I park?',

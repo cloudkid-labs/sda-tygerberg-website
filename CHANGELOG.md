@@ -13,6 +13,8 @@
 - README open item 3 (children's programme ages) closed.
 - Version guard also runs on `edited` and `ready_for_review`; #70 reached
   `main` mergeable without it having run once.
+- Headshot counts corrected: 14 of 22 render, not 11. The three Louws landed in
+  1.2.1 and stayed on the "needs the board" list (C-29).
 
 ## [1.2.1] — 2026-08-11
 

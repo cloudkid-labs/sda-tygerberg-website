@@ -7,8 +7,9 @@
 
 Sabbath (Saturday) services at 54 Boston St, Boston, Cape Town, 7530 — Sabbath
 School 09:30–10:00, Lesson Study 10:00–10:45, Divine Service 11:00–12:00. The
-building is open 09:00–12:30. Children's programmes run 09:30–11:00, after
-which the children join the congregation for the Divine Service.
+building is open 09:00–12:30. Children's programmes run 09:30–11:00 in five age
+groups from birth to eighteen, after which the children join the congregation
+for the Divine Service.
 
 Every page is bilingual, Afrikaans first with English alongside. Language is a
 control on the page, not part of the URL — there are no `/af/` or `/en/`
@@ -20,6 +21,7 @@ routes, and each address below serves both.
 - [Wat Ons Glo / What We Believe](https://tygerberg-sda.cloudkid.link/beliefs/): The 28 fundamental beliefs of the Seventh-day Adventist Church, grouped into six themes.
 - [Bybelstudies / Bible Studies](https://tygerberg-sda.cloudkid.link/bible-studies/): Request a free Bible or baptismal study — at home, at the church, or online. No cost, no obligation.
 - [Verbind / Connect](https://tygerberg-sda.cloudkid.link/connect/): Send a question, a message or a prayer request, and be introduced to the right person in the congregation.
+- [Jeug / Youth](https://tygerberg-sda.cloudkid.link/youth/): Youth Evening every Friday 19:00–21:00, and the five Sabbath morning age groups — 0-3, 4-6, 7-9, 10-12 and 13-18 — which run 09:30–11:00.
 - [Gee / Give](https://tygerberg-sda.cloudkid.link/giving/): Tithe and offering — EFT banking details and Zapper.
 - [Bloedbank / Blood Bank](https://tygerberg-sda.cloudkid.link/blood-bank/): Blood donation dates at the church, each with 45-minute slots starting on the hour from 13:00. Informational — there is no booking form.
 
@@ -32,4 +34,4 @@ routes, and each address below serves both.
 ## Optional
 
 - [Live status](https://tygerberg-sda.cloudkid.link/api/live-status): JSON — whether the channel is broadcasting right now, and the video to watch if it is. Answers "is the service on air" without loading a page.
-- [Sitemap](https://tygerberg-sda.cloudkid.link/sitemap.xml): The six indexable routes.
+- [Sitemap](https://tygerberg-sda.cloudkid.link/sitemap.xml): The seven indexable routes.

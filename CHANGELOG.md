@@ -3,7 +3,16 @@
 [Semantic Versioning](https://semver.org/). What the numbers mean: README,
 "Versioning and releases".
 
-## [1.2.1] — unreleased
+## [1.3.0] — unreleased
+
+- `/youth` behind the week grid's Jeugaand card: the Friday evening, and the
+  five Sabbath age groups from 0-3 to 13-18. No volunteer names (C-38).
+- "Junior Jeug" is "Jeugaand".
+- Roster: Kinderbediening returns to Lenie Virgin, Junior Jeugleier goes to Lané
+  Louw, Lisa Branders leads the Juniors.
+- README open item 3 (children's programme ages) closed.
+
+## [1.2.1] — 2026-08-11
 
 - `/blood-bank` lists the drive dates and their 45-minute slots; the week grid
   gains a fifth card counting the sessions still bookable (C-36, C-37).
@@ -46,7 +55,8 @@ Re-tag of `a66c8ac` to move onto 1.x. No code change, and no 1.0.0.
 
 First release.
 
-[1.2.1]: https://github.com/cloud-technologist/sda-tygerberg-website/compare/v1.2.0...dev
+[1.3.0]: https://github.com/cloud-technologist/sda-tygerberg-website/compare/v1.2.1...dev
+[1.2.1]: https://github.com/cloud-technologist/sda-tygerberg-website/compare/v1.2.0...v1.2.1
 [1.2.0]: https://github.com/cloud-technologist/sda-tygerberg-website/releases/tag/v1.2.0
 [1.1.0]: https://github.com/cloud-technologist/sda-tygerberg-website/releases/tag/v1.1.0
 [0.3.0]: https://github.com/cloud-technologist/sda-tygerberg-website/releases/tag/v0.3.0

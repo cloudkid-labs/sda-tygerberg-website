@@ -15,6 +15,7 @@ const ROUTES = [
   { path: '/beliefs/', priority: '0.8' },
   { path: '/connect/', priority: '0.7' },
   { path: '/bible-studies/', priority: '0.7' },
+  { path: '/youth/', priority: '0.6' },
   { path: '/giving/', priority: '0.6' },
   { path: '/blood-bank/', priority: '0.5' },
 ];

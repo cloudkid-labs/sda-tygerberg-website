@@ -1,0 +1,80 @@
+import type { Lang } from './site';
+
+/**
+ * Copy for /youth. Written for a parent deciding whether to bring a child, and
+ * for a teenager deciding whether to come on a Friday — not for the board.
+ * Nothing here names a volunteer; CONCERNS.md C-38 says why.
+ */
+export type YouthCopy = {
+  pageTitle: string;
+  pageDescription: string;
+  backHome: string;
+  eyebrow: string;
+  heading: string;
+  sub: string;
+  /** Composed with the weekday: "Elke Vrydag". */
+  everyPrefix: string;
+  whereLabel: string;
+  /** Nothing on this site takes a booking — C-37 — and a parent should not
+   *  have to guess whether this page is the exception. */
+  noBooking: string;
+  sabbathHeading: string;
+  sabbathSub: string;
+  groupsLabel: string;
+  /** Follows the age band: "4 – 6 jaar". */
+  yearsLabel: string;
+  afterLabel: string;
+  afterNote: string;
+  ctaHeading: string;
+  ctaBody: string;
+  ctaLabel: string;
+};
+
+export const youthCopy: Record<Lang, YouthCopy> = {
+  af: {
+    pageTitle: 'Jeugaand · Tygerberg SDA Kerk',
+    pageDescription:
+      'Jeugaand elke Vrydag 19:00–21:00, en Sabbatoggendklasse vir elke ouderdom van 0 tot 18, by Tygerberg SDA Kerk, Boston, Kaapstad.',
+    backHome: 'Terug na Tuisblad',
+    eyebrow: 'Jeug',
+    heading: 'Jeugaand',
+    sub: 'Vrydagaande kom die gemeente se jongmense by die kerk bymekaar. Op die Sabbat is daar ’n klas vir elke ouderdom — van baba tot matriek.',
+    everyPrefix: 'Elke',
+    whereLabel: 'Waar',
+    noBooking: 'Niks om te bespreek nie — kom net.',
+    sabbathHeading: 'Op die Sabbat',
+    sabbathSub:
+      'Terwyl Sabbatskool en Lesstudie aan die gang is, is die kinders en tieners in hul eie klasse. Elke groep het sy eie leier.',
+    groupsLabel: 'Ouderdomsgroepe',
+    yearsLabel: 'jaar',
+    afterLabel: 'Daarna',
+    afterNote: 'Die kinders sluit by die gemeente aan vir die',
+    ctaHeading: 'Nog ’n vraag?',
+    ctaBody:
+      'Vra gerus vooraf — oor die groepe, die tye, of wat om die eerste keer saam te bring. Ons stel jou aan die regte persoon voor.',
+    ctaLabel: 'Kontak ons',
+  },
+  en: {
+    pageTitle: 'Youth Evening · Tygerberg SDA Church',
+    pageDescription:
+      'Youth Evening every Friday 19:00–21:00, and Sabbath morning classes for every age from 0 to 18, at Tygerberg SDA Church, Boston, Cape Town.',
+    backHome: 'Back to Homepage',
+    eyebrow: 'Youth',
+    heading: 'Youth Evening',
+    sub: 'On Friday evenings the congregation’s young people gather at the church. On the Sabbath there is a class for every age — from babies to school-leavers.',
+    everyPrefix: 'Every',
+    whereLabel: 'Where',
+    noBooking: 'Nothing to book — just come.',
+    sabbathHeading: 'On the Sabbath',
+    sabbathSub:
+      'While Sabbath School and Lesson Study are on, the children and teenagers are in classes of their own. Every group has its own leader.',
+    groupsLabel: 'Age groups',
+    yearsLabel: 'years',
+    afterLabel: 'Afterwards',
+    afterNote: 'The children join the congregation for the',
+    ctaHeading: 'Still have a question?',
+    ctaBody:
+      'Ask before you come — about the groups, the times, or what to bring the first time. We’ll introduce you to the right person.',
+    ctaLabel: 'Contact us',
+  },
+};

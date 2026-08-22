@@ -577,6 +577,29 @@ Emulated touch does not reproduce any of these — the native image drag only
 showed up under a real mouse drag, and the callout needs a device. Do not
 conclude they are unnecessary because a touch harness passes without them.
 
+### C-38 — /youth names no volunteers
+
+The children's-ministry roster the board circulated names a leader and one to
+three assistants for each of the five Sabbath age groups — fifteen people.
+`youthGroups.ts` carries the age bands and the group names and **none of those
+names**, which is a decision and not an omission.
+
+Two reasons, and either would be enough.
+
+The page answers a parent's question: *is there something for my
+eight-year-old, and when.* A name does not answer it, and fifteen of them bury
+the five age bands that do. A visitor who wants a person is already served by
+the carousel on the home page.
+
+The other is consent. The department heads on `departmentHeads.ts` hold church
+offices and are published as such. A Sabbath-morning assistant volunteered to
+help with a class, which is not the same thing as agreeing to appear on a
+public web page, and nobody asked them. C-20 keeps contact details off the site
+outright; a name is a lower bar than a phone number, not no bar at all.
+
+If the board decides otherwise, the type has room for it and the ask is a
+per-person one — get it from the fifteen, not from the roster.
+
 ## This week
 
 ### C-36 — The blood bank filter reads the clock after mount, not during render

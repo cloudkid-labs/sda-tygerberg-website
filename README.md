@@ -235,6 +235,8 @@ All copy and structured content is under `src/data/`, away from components:
 | `requestCopy.ts` | `/connect` and `/bible-studies` copy, incl. POPIA wording |
 | `resources.ts` | External resource links (logos in `public/logos/`) |
 | `giving.ts` | `/giving` page copy, EFT banking details, Zapper link |
+| `youthGroups.ts` | Sabbath age groups, the Friday evening, the Sabbath window |
+| `youthCopy.ts` | `/youth` page copy |
 
 No phone numbers or email addresses anywhere in content —
 [C-20](./CONCERNS.md#c-20--popia-shapes-what-the-form-asks-and-what-it-stores).
@@ -324,9 +326,11 @@ Needs the church board:
    Strategiesebeplannings-komitee, both of which the roster had listed under
    Jaco van Niekerk; he is head elder only. The cards now follow the board, not
    the PDF.
-3. **Children's programme ages** — the answers are in and the section is live,
-   but the board gave times (09:30–11:00) without an age range. Worth adding, so
-   a parent knows whether it covers their child.
+3. ~~**Children's programme ages**~~ — answered by the children's-ministry
+   roster: five groups covering 0-3, 4-6, 7-9, 10-12 and 13-18, all in the
+   09:30–11:00 window. They are on `/youth`, which the week grid's Jeugaand card
+   links to. The roster's fifteen volunteer names are deliberately not published
+   ([C-38](./CONCERNS.md#c-38--youth-names-no-volunteers)).
 4. **Weekly ministry schedule** is 4 fixed entries in `homeCopy.ts`. Move to a
    KV/CMS-backed Worker route if it starts changing seasonally.
 5. **A photograph for the social card** — `og-image.png` is a typographic card.

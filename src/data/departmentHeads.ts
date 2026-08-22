@@ -85,12 +85,14 @@ export const departmentHeads: DepartmentHead[] = [
   {
     id: 'welsyn',
     name: 'Lenie Virgin',
-    // Welfare only. Kinderbediening was hers on the Ampsdraers roster; the
-    // board has since given it to Lané Louw, whose card follows the Jeug block
-    // below. Do not move it back from the PDF.
+    // Kinderbediening is hers again. It was moved to Lané Louw in 1.2.0 on the
+    // board's word; the Sabbath roster the board has since circulated names
+    // Lenie the koördineerder over all five age groups, and Lané the leader of
+    // one of them. She coordinates the ministry, so the title sits here and the
+    // groups themselves are on /youth.
     roles: {
-      af: ['Gemeenskapsdienste & Welsyn'],
-      en: ['Community Services & Welfare'],
+      af: ['Gemeenskapsdienste & Welsyn', 'Kinderbediening'],
+      en: ['Community Services & Welfare', 'Children’s Ministry'],
     },
     photo: 'TG-DH-Lenie.jpg',
   },
@@ -104,21 +106,30 @@ export const departmentHeads: DepartmentHead[] = [
     photo: 'TG-DH-Monique.jpg',
   },
   {
-    id: 'junior-jeug',
+    // Not `junior-jeug` any more: the office moved to Lané Louw below, and the
+    // Sabbath roster puts Lisa on the 10-12s. Ages stay out of the title —
+    // `youthGroups.ts` is where the bands are published, and two copies of
+    // "10-12" is two chances to disagree (C-03).
+    id: 'juniors',
     name: 'Lisa Branders',
-    roles: { af: ['Junior Jeugleier'], en: ['Junior Youth Leader'] },
+    roles: { af: ['Juniorleier'], en: ['Juniors Leader'] },
   },
   {
     id: 'strewers',
     name: 'Morné Louw',
     roles: { af: ['Strewersleier'], en: ['Pathfinder Leader'] },
+    photo: 'TG-DH-Morne.jpg',
   },
   {
-    id: 'kinderbediening',
+    id: 'junior-jeug',
     name: 'Lané Louw',
     // Morné and Lelani's daughter; the family holds Gesinsbediening jointly
-    // further down. Took Kinderbediening from Lenie Virgin — see her card.
-    roles: { af: ['Kinderbediening'], en: ['Children’s Ministry'] },
+    // further down. Junior Jeugleier, not Kinderbediening — that one is Lenie
+    // Virgin's again, see her card. The Sabbath roster calls the group she
+    // leads "Tiener Jeugleier (13-18)"; the board's title for the office is
+    // Junior Jeugleier and that is what the card shows.
+    roles: { af: ['Junior Jeugleier'], en: ['Junior Youth Leader'] },
+    photo: 'TG-DH-Lane.jpg',
   },
   {
     id: 'musiek',
@@ -191,6 +202,11 @@ export const departmentHeads: DepartmentHead[] = [
     // roster naming two people. Morné keeps his own Strewersleier card above.
     name: 'Morné & Lelani Louw',
     roles: { af: ['Gesinsbediening'], en: ['Family Ministry'] },
+    // The only two-person photo, and the only source that was not shot
+    // portrait. Cropped to 4/5 from the 6000x4000 original, centred between
+    // their faces rather than on the frame — a centre crop cut Lelani off at
+    // the edge. headshot-fallbacks.mjs warns on landscape for this reason.
+    photo: 'TG-DH-Louws.jpg',
   },
 ];
 

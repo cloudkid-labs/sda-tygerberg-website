@@ -27,4 +27,13 @@ export const resources: Resource[] = [
     url: 'https://awrafrikaans.org/',
     logo: '/logos/awr.png',
   },
+  {
+    // The brand is "EGW Writings®", but the author's name is what a
+    // congregation recognises, so the card spells it out and the domain line
+    // underneath carries the brand.
+    name: { af: 'Ellen G. White Geskrifte', en: 'Ellen G. White Writings' },
+    domain: 'egwwritings.org',
+    url: 'https://egwwritings.org/',
+    logo: '/logos/egwwritings.png',
+  },
 ];

@@ -1,6 +1,18 @@
 import type { Lang } from './site';
+import { YOUTH_EVENING, youthEveningRange } from './youthGroups';
 
-export type WeekEntry = { day: string; name: string; time: string };
+/**
+ * One midweek card. `href` turns the card into a link to the page behind it and
+ * `more` is the label that says so — both absent on an entry that is only ever
+ * a card, which is most of them.
+ */
+export type WeekEntry = {
+  day: string;
+  name: string;
+  time: string;
+  href?: string;
+  more?: string;
+};
 
 /** A practical question a first-time visitor has, and its answer. */
 export type FirstVisitEntry = { q: string; a: string };
@@ -25,6 +37,10 @@ export type HomeCopy = {
   week: WeekEntry[];
   weekHeading: string;
   weekSub: string;
+  /** The week grid's fifth card. Everything else the card needs — the next
+   *  date and the session count — is derived, and the page it links to keeps
+   *  its own copy in `bloodBankCopy.ts`. */
+  bloodBankName: string;
   /**
    * Answered by the board. The section hides itself while this is empty, so
    * emptying it unpublishes the section rather than leaving a bare heading.
@@ -100,10 +116,19 @@ export const homeCopy: Record<Lang, HomeCopy> = {
       { day: 'Dinsdag', name: 'Biduur', time: '19:00 – 20:00' },
       { day: 'Woensdag', name: 'Bybelstudie', time: '19:00 – 21:00' },
       { day: 'Donderdag', name: 'Vlugbal', time: '19:00 – 21:00' },
-      { day: 'Vrydag', name: 'Junior Jeug', time: '19:00 – 21:00' },
+      // Day and time come from youthGroups.ts because /youth prints them too,
+      // and this card is the link to that page — C-03.
+      {
+        day: YOUTH_EVENING.day.af,
+        name: 'Jeugaand',
+        time: youthEveningRange,
+        href: '/youth/',
+        more: 'Sien meer',
+      },
     ],
     weekHeading: 'Hierdie week by die kerk',
     weekSub: 'Almal welkom — bring gerus ’n vriend saam.',
+    bloodBankName: 'Bloedbank',
     firstVisit: [
       {
         q: 'Waar parkeer ek?',
@@ -197,10 +222,17 @@ export const homeCopy: Record<Lang, HomeCopy> = {
       { day: 'Tuesday', name: 'Prayer Meeting', time: '19:00 – 20:00' },
       { day: 'Wednesday', name: 'Bible Study', time: '19:00 – 21:00' },
       { day: 'Thursday', name: 'Volleyball', time: '19:00 – 21:00' },
-      { day: 'Friday', name: 'Junior Youth', time: '19:00 – 21:00' },
+      {
+        day: YOUTH_EVENING.day.en,
+        name: 'Youth Evening',
+        time: youthEveningRange,
+        href: '/youth/',
+        more: 'See more',
+      },
     ],
     weekHeading: 'This week at church',
     weekSub: 'Everyone welcome — feel free to bring a friend.',
+    bloodBankName: 'Blood Bank',
     firstVisit: [
       {
         q: 'Where do I park?',

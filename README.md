@@ -231,10 +231,12 @@ All copy and structured content is under `src/data/`, away from components:
 | `homeCopy.ts` | Homepage copy, weekly schedule, "your first visit" answers |
 | `beliefsCopy.ts` | Beliefs-page header copy |
 | `beliefs.ts` | All 28 Fundamental Beliefs, bilingual, in 6 categories |
-| `departmentHeads.ts` | Carousel roster — 22 people, 11 with headshots |
+| `departmentHeads.ts` | Carousel roster — 22 people, 14 with headshots |
 | `requestCopy.ts` | `/connect` and `/bible-studies` copy, incl. POPIA wording |
 | `resources.ts` | External resource links (logos in `public/logos/`) |
 | `giving.ts` | `/giving` page copy, EFT banking details, Zapper link |
+| `youthGroups.ts` | Sabbath age groups, the Friday evening, the Sabbath window |
+| `youthCopy.ts` | `/youth` page copy |
 
 No phone numbers or email addresses anywhere in content —
 [C-20](./CONCERNS.md#c-20--popia-shapes-what-the-form-asks-and-what-it-stores).
@@ -312,21 +314,26 @@ be prompted for this.
 
 Needs the church board:
 
-1. **Headshots for 11 of the 22** — Arnold Neuhoff, Lisa Branders, Morné Louw,
-   Lané Louw, Adéle Meyer, Chris Meyer, Gert Coetzee, Peter Wallace, Sanet
-   Stevens, Bertie Hoffman, Morné & Lelani Louw. **These eleven are not on the
-   site** — a card needs a photo to render
+1. **Headshots for 8 of the 22** — Arnold Neuhoff, Lisa Branders, Adéle Meyer,
+   Chris Meyer, Gert Coetzee, Peter Wallace, Sanet Stevens, Bertie Hoffman.
+   **These eight are not on the site** — a card needs a photo to render
    ([C-29](./CONCERNS.md#c-29--a-head-without-a-headshot-is-not-rendered)),
-   so the carousel currently shows 11. Note that the pastor is among the eleven.
+   so the carousel currently shows 14. Note that the pastor is among the eight.
    Adding the file and a `photo:` line publishes each one.
+
+   Morné Louw, Lané Louw and Morné & Lelani Louw were on this list until 1.2.1,
+   when their headshots landed and were referenced. Do not ask the board for
+   those three again.
 2. ~~**The Ampsdraers 2025/2026 roster is missing an entry**~~ — resolved by the
    board. Laura Rolff holds Persoonlike Bediening and the
    Strategiesebeplannings-komitee, both of which the roster had listed under
    Jaco van Niekerk; he is head elder only. The cards now follow the board, not
    the PDF.
-3. **Children's programme ages** — the answers are in and the section is live,
-   but the board gave times (09:30–11:00) without an age range. Worth adding, so
-   a parent knows whether it covers their child.
+3. ~~**Children's programme ages**~~ — answered by the children's-ministry
+   roster: five groups covering 0-3, 4-6, 7-9, 10-12 and 13-18, all in the
+   09:30–11:00 window. They are on `/youth`, which the week grid's Jeugaand card
+   links to. The roster's fifteen volunteer names are deliberately not published
+   ([C-38](./CONCERNS.md#c-38--youth-names-no-volunteers)).
 4. **Weekly ministry schedule** is 4 fixed entries in `homeCopy.ts`. Move to a
    KV/CMS-backed Worker route if it starts changing seasonally.
 5. **A photograph for the social card** — `og-image.png` is a typographic card.

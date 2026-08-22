@@ -10,9 +10,22 @@ name: Version guard
 # It has happened twice — "Release 11" and again at v0.2.0. This is the check
 # that makes it loud instead. It gates the promotion, not the deploy, so a
 # `workflow_dispatch` re-run of an existing version is still unaffected.
+#
+# `types` is set rather than left at the default. The default is opened,
+# synchronize and reopened, and a PR can arrive at `main` without firing any of
+# them: retargeting an open PR from `dev` to `main` fires `edited`, and taking
+# one out of draft fires `ready_for_review`. Both happened on #70, which reached
+# a mergeable state against `main` having never once run this guard — the exact
+# silent-promotion failure the comment above is about, arriving through the
+# trigger list instead of through the deploy.
+#
+# `edited` also fires on a title or body edit, so this runs more often than it
+# strictly must. That is the cheap direction to be wrong in: the job installs
+# nothing and reads only package.json and `git tag`.
 on:
   pull_request:
     branches: [main]
+    types: [opened, synchronize, reopened, edited, ready_for_review]
 
 permissions:
   contents: read

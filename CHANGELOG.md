@@ -11,6 +11,8 @@
 - Roster: Kinderbediening returns to Lenie Virgin, Junior Jeugleier goes to Lané
   Louw, Lisa Branders leads the Juniors.
 - README open item 3 (children's programme ages) closed.
+- Version guard also runs on `edited` and `ready_for_review`; #70 reached
+  `main` mergeable without it having run once.
 
 ## [1.2.1] — 2026-08-11
 

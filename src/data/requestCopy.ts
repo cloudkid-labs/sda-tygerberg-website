@@ -152,8 +152,10 @@ export const requestFormCopy: Record<Lang, FormCopy> = {
     errPhone: 'Kyk asseblief die telefoonnommer na.',
     errConsent: 'Ons het jou toestemming nodig voordat ons jou kan kontak.',
     errValidation: 'Kyk asseblief die gemerkte velde na.',
+    // Shown for every rejected submission with no field to highlight — a bad
+    // topic and a malformed body reach it too, not only an over-long message.
     errUnexpected:
-      'Ons kon nie hierdie versoek aanvaar nie. Maak asseblief jou boodskap korter en probeer weer.',
+      'Ons kon nie hierdie versoek aanvaar nie. Kyk asseblief jou besonderhede en boodskap na en probeer weer. ’n Baie lang boodskap is gewoonlik die oorsaak.',
     errNotConfigured:
       'Die aanlyn vorm is nog nie aktief nie. Kom gerus Sabbatoggend by die kerk aan — ons help jou graag persoonlik.',
     errForward: 'Ons kon nie jou versoek deurstuur nie. Probeer asseblief weer oor ’n rukkie.',
@@ -188,7 +190,7 @@ export const requestFormCopy: Record<Lang, FormCopy> = {
     errConsent: 'We need your consent before we can contact you.',
     errValidation: 'Please check the highlighted fields.',
     errUnexpected:
-      'We couldn’t accept this request. Please shorten your message and try again.',
+      'We couldn’t accept this request. Please check your details and message, then try again. A very long message is the usual cause.',
     errNotConfigured:
       'The online form isn’t live yet. You’re very welcome to join us on Sabbath morning — we’d love to help you in person.',
     errForward: 'We couldn’t send your request through. Please try again in a little while.',

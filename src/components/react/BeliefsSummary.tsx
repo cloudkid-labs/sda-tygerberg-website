@@ -1,5 +1,6 @@
 import { useId, useState } from 'react';
 import { useLanguage } from '../../context/LanguageContext';
+import { beliefCategories } from '../../data/beliefs';
 import { homeCopy } from '../../data/homeCopy';
 import { withBase } from '../../lib/base';
 
@@ -25,8 +26,15 @@ export function BeliefsSummary() {
         </a>
       </div>
 
+      {/*
+        The six themes come from beliefCategories, which /beliefs already
+        renders. They used to be a second copy in homeCopy — six names and six
+        descriptions in both languages, 24 strings that happened to match and
+        had nothing keeping them that way.
+      */}
       <div className="flex flex-col gap-2.5">
-        {t.beliefTitles.map((title, i) => {
+        {beliefCategories.map((category, i) => {
+          const title = category.name[lang];
           const open = openIndex === i;
           return (
             <div key={title} className="overflow-hidden rounded-card border border-subtle bg-cream-card">
@@ -49,14 +57,14 @@ export function BeliefsSummary() {
                   {open ? '–' : '+'}
                 </span>
               </button>
-              {open && (
-                <div
-                  id={`${panelId}-${i}`}
-                  className="px-5.5 pb-5.5 pl-15 text-[15px] leading-relaxed text-slate"
-                >
-                  {t.beliefDescs[i]}
-                </div>
-              )}
+              {/* Always rendered, hidden when collapsed — see C-43. */}
+              <div
+                id={`${panelId}-${i}`}
+                hidden={!open}
+                className="px-5.5 pb-5.5 pl-15 text-[15px] leading-relaxed text-slate"
+              >
+                {category.desc[lang]}
+              </div>
             </div>
           );
         })}

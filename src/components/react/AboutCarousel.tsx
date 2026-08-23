@@ -173,13 +173,7 @@ function Card({
   );
 }
 
-export function AboutCarousel() {
-  // No headshots at all means no deck: `slotOf` takes `% COUNT` and would
-  // divide by zero, and there would be nothing to show in any case. Safe ahead
-  // of the hooks below because COUNT is fixed at module load, so hook order
-  // cannot differ between renders.
-  if (COUNT === 0) return null;
-
+function CarouselDeck() {
   const { lang } = useLanguage();
   const t = homeCopy[lang];
 
@@ -476,7 +470,10 @@ export function AboutCarousel() {
             Below the deck, never over it: on a phone an overlaid arrow puts a
             tap target exactly where a thumb starts its swipe. Prev/next show
             only below `sm` where the floating arrows are hidden; pause shows at
-            every width, because autoplaying content needs a stop control.
+            every width, because autoplaying content needs a stop control — but
+            only while there is autoplay to stop. Under reduced motion the deck
+            never advances on its own, and the control was reporting a
+            playing/paused state for something that was never playing. C-50
           */}
           <div className="mt-5 flex items-center justify-center gap-3">
             <button
@@ -488,18 +485,20 @@ export function AboutCarousel() {
               <span aria-hidden>‹</span>
             </button>
 
-            <button
-              type="button"
-              onClick={togglePaused}
-              aria-pressed={paused}
-              // Visible text is short so the row stays on one line on a narrow
-              // phone; the accessible name says what it actually does.
-              aria-label={paused ? t.carouselPlay : t.carouselPause}
-              className="inline-flex h-10 items-center gap-2 whitespace-nowrap rounded-pill border border-navy/25 px-4 text-[13px] font-semibold text-navy"
-            >
-              <span aria-hidden>{paused ? '▶' : '❚❚'}</span>
-              <span aria-hidden>{paused ? t.carouselPlayShort : t.carouselPauseShort}</span>
-            </button>
+            {!reduceMotion && (
+              <button
+                type="button"
+                onClick={togglePaused}
+                aria-pressed={paused}
+                // Visible text is short so the row stays on one line on a narrow
+                // phone; the accessible name says what it actually does.
+                aria-label={paused ? t.carouselPlay : t.carouselPause}
+                className="inline-flex h-10 items-center gap-2 whitespace-nowrap rounded-pill border border-navy/25 px-4 text-[13px] font-semibold text-navy"
+              >
+                <span aria-hidden>{paused ? '▶' : '❚❚'}</span>
+                <span aria-hidden>{paused ? t.carouselPlayShort : t.carouselPauseShort}</span>
+              </button>
+            )}
 
             <button
               type="button"
@@ -519,4 +518,16 @@ export function AboutCarousel() {
       </div>
     </section>
   );
+}
+
+/*
+ * The guard lives out here so the deck's hooks are never skipped. COUNT is
+ * fixed at module load, so the old early return could not actually reorder
+ * hooks — but it sat above `useLanguage()`, which is the shape the rules of
+ * hooks exist to forbid, and it only stayed correct by an argument in a
+ * comment. `slotOf` takes `% COUNT` and would divide by zero with no heads.
+ */
+export function AboutCarousel() {
+  if (COUNT === 0) return null;
+  return <CarouselDeck />;
 }

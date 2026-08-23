@@ -1,0 +1,70 @@
+name: CI
+
+# Nothing used to run on a pull request. Three workflows existed — two deploys
+# and the version guard — and between them the first thing that ever compiled a
+# branch was the deploy of it. A typo reached production before it reached a
+# reviewer.
+#
+# Runs on every pull request, whatever the target branch, and on pushes to the
+# two long-lived ones so a direct push is covered too.
+on:
+  pull_request:
+  push:
+    branches: [dev, main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# A new push supersedes the run in flight for the same ref.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: '.nvmrc'
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci --prefer-offline --no-audit --fund=false
+
+      # Astro generates .astro/types.d.ts, which tsconfig includes. Without it
+      # the typecheck fails on a clean checkout for a reason that has nothing to
+      # do with the branch.
+      - name: Generate Astro types
+        run: npx astro sync
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Test
+        run: npm test
+
+      - name: Build
+        run: npm run build
+
+      # The build writes the Content-Security-Policy into dist/_headers from the
+      # hashes of the inline scripts it just emitted. A build that quietly
+      # shipped no policy would look identical from here.
+      - name: Assert the CSP was written
+        run: |
+          grep -q "Content-Security-Policy:" dist/_headers \
+            || { echo "::error::dist/_headers has no Content-Security-Policy"; exit 1; }
+          grep -q "sha256-" dist/_headers \
+            || { echo "::error::CSP carries no inline-script hashes"; exit 1; }
+
+      # Every headshot the roster names must exist in both sizes, and every
+      # fallback must be the size the generator would produce. Catches a photo
+      # added without its fallback, which is invisible until transformations are
+      # off and then breaks every card at once.
+      - name: Check the headshot fallbacks
+        run: npm run headshots

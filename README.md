@@ -126,10 +126,15 @@ external depends on.
 *Adding* a field to an API response is a MINOR, not a MAJOR: a client reading
 `isLive` is unaffected by `watchUrl` appearing beside it.
 
-**Still on 0.x deliberately.** Semver says `0.y.z` means "anything may change at
-any time", which is no longer quite true of a site serving a congregation. Going
-to `1.0.0` is a decision for the church rather than a mechanical one — take it
-when the API and the URL structure are ones you would not break casually.
+**On 1.x.** The move off `0.y.z` happened at `v1.1.0` and skipped `1.0.0`
+entirely — there is no such tag and no such changelog entry, so the release that
+was meant to be the deliberate one was never cut. The history reads `v0.1.0`,
+`v0.2.0`, `v0.3.0`, `v1.1.0`.
+
+**The table above is the rule, and it has been broken once.** `v1.2.1` shipped
+`/blood-bank` and `/llms.txt` — two new public URLs and a new week-grid card —
+as a PATCH. By the row above it that was a MINOR. Worth knowing before reading
+the version numbers as a guide to what changed.
 
 ### Cutting a release
 
@@ -203,9 +208,10 @@ the API answered without an id; the button then falls back to the channel's
 `/live` tab. That button renders **only** while `isLive` is true, so on any
 ordinary day the hero shows one call to action, not two.
 
-It also returns `consentStored` whenever the consent bucket is bound: `true`
-means one JSON record reached `consent-cloudkid-link`. A `false` never fails a
-submission — the enquiry email carries the consent line either way
+
+`POST /api/contact` also returns `consentStored` whenever the consent bucket is
+bound: `true` means one JSON record reached `consent-cloudkid-link`. A `false`
+never fails a submission — the enquiry email carries the consent line either way
 ([C-34](./CONCERNS.md#c-34--the-consent-record-is-written-before-delivery-and-never-blocks-it)).
 Records are keyed `YYYY/MM/DD/<timestamp>-<uuid>.json` and the id appears in the
 enquiry email as `Toestemmingsrekord`, so mail and object tie together.
@@ -285,7 +291,7 @@ newest-first, no API key. Which video plays never depends on `YOUTUBE_API_KEY`.
 ### Adding a department-head photo
 
 1. Put the original in `public/images/hod/`.
-2. `node tools/build-headshots.mjs` — builds its fallback copy.
+2. `npm run headshots` — builds its fallback copy, and checks the rest.
 3. Set `photo` on that person in `src/data/departmentHeads.ts`: filename only.
 
 Commit the generated fallback too. `public/` is publicly reachable, so a photo

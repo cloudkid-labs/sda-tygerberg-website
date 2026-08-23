@@ -16,5 +16,14 @@ export default defineConfig({
   integrations: [react()],
   vite: {
     plugins: [tailwindcss()],
+    /*
+     * Frozen at build time and inlined as a literal, so the static HTML and the
+     * hydrating bundle read the same date and cannot disagree. Reading the
+     * clock at module scope instead would give the browser a different answer
+     * from the build and break the hydration contract C-36 protects.
+     */
+    define: {
+      __BUILD_DATE__: JSON.stringify(new Date().toISOString().slice(0, 10)),
+    },
   },
 });

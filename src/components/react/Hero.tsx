@@ -53,9 +53,15 @@ export function Hero() {
           {/* No badge over the video: it sat on top of the title and channel
               name YouTube draws in that corner. It lives in the bar below. */}
           <div className="relative bg-black" style={{ aspectRatio: '16/9' }}>
+            {/* Deferred like the map below it. On a phone the player stacks
+                under the hero copy and starts offscreen, so this genuinely
+                withholds the YouTube bundle — which is larger than the whole
+                first-party homepage — until it is scrolled to. A click-to-load
+                poster would defer it on desktop too. C-46 */}
             <iframe
               src={SITE.youtubeUploadsEmbedUrl}
               title="Tygerberg SDA YouTube"
+              loading="lazy"
               allow="autoplay; encrypted-media; picture-in-picture"
               allowFullScreen
               className="absolute inset-0 h-full w-full border-0"
@@ -79,7 +85,7 @@ export function Hero() {
               rel="noopener"
               // ml-auto rather than justify-between: the button stays right
               // whether or not the badge is there to push it.
-              className="ml-auto rounded-pill bg-orange px-4.5 py-2 text-[12.5px] font-bold text-white hover:bg-orange-hover"
+              className="ml-auto rounded-pill bg-orange-on-navy px-4.5 py-2 text-[12.5px] font-bold text-navy-deep hover:bg-orange-on-navy-hover"
             >
               {t.tabReplay}
             </a>

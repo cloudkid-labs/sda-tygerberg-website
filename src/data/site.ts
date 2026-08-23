@@ -3,9 +3,31 @@ export type Lang = 'af' | 'en';
 // The address, the service times and the opening hours below are mirrored by
 // hand in `public/llms.txt`, which is a flat file and cannot import them.
 // Change anything here and change it there too — CONCERNS.md C-35.
+/**
+ * The address in parts, so the flat string every component prints and the
+ * JSON-LD PostalAddress are built from the same values. They were separate
+ * before, and had drifted: structuredData.ts said "Boston, Bellville" where
+ * this file said "Boston, Cape Town", and a comment claimed both read from
+ * here. Boston is the suburb, Bellville the town, Cape Town the metro — all
+ * three are true, and each field below is the one schema.org asks for. C-49
+ */
+const ADDRESS = {
+  street: '54 Boston St',
+  suburb: 'Boston',
+  town: 'Bellville',
+  city: 'Cape Town',
+  region: 'Western Cape',
+  postalCode: '7530',
+  /** ISO 3166-1 alpha-2, which is what schema.org's addressCountry expects. */
+  country: 'ZA',
+} as const;
+
 export const SITE = {
   name: 'Tygerberg SDA',
-  address: '54 Boston St, Boston, Cape Town, 7530',
+  /** The congregation's full name, for the map popup and the page titles. */
+  fullName: 'Tygerberg SDA Church',
+  addressParts: ADDRESS,
+  address: `${ADDRESS.street}, ${ADDRESS.suburb}, ${ADDRESS.city}, ${ADDRESS.postalCode}`,
   lat: -33.8974,
   lng: 18.6235,
   directionsUrl:
@@ -70,17 +92,40 @@ export function slotRange(start: string): string {
   return `${start} – ${String(Math.floor(end / 60)).padStart(2, '0')}:${String(end % 60).padStart(2, '0')}`;
 }
 
-export type ServiceTime = { af: string; en: string; start: string; end: string };
+export type ServiceTimeId = 'sabbath-school' | 'lesson-study' | 'divine-service';
+export type ServiceTime = {
+  /** Stable across renames — the visible names are copy, this is not. */
+  id: ServiceTimeId;
+  af: string;
+  en: string;
+  start: string;
+  end: string;
+};
 
 /**
  * The Sabbath morning, in order. Both ends kept: a start time alone doesn't
  * tell a visitor if they are committing to half an hour or the whole morning.
  */
 export const SERVICE_TIMES: ServiceTime[] = [
-  { af: 'Sabbatskool', en: 'Sabbath School', start: '09:30', end: '10:00' },
-  { af: 'Lesstudie', en: 'Lesson Study', start: '10:00', end: '10:45' },
-  { af: 'Erediens', en: 'Divine Service', start: '11:00', end: '12:00' },
+  { id: 'sabbath-school', af: 'Sabbatskool', en: 'Sabbath School', start: '09:30', end: '10:00' },
+  { id: 'lesson-study', af: 'Lesstudie', en: 'Lesson Study', start: '10:00', end: '10:45' },
+  { id: 'divine-service', af: 'Erediens', en: 'Divine Service', start: '11:00', end: '12:00' },
 ];
+
+export function serviceTime(id: ServiceTimeId): ServiceTime {
+  const found = SERVICE_TIMES.find((s) => s.id === id);
+  // At module load, so a removed entry is a build failure and not a blank on
+  // the page.
+  if (!found) throw new Error(`SERVICE_TIMES has no entry with id "${id}"`);
+  return found;
+}
+
+/**
+ * The 11:00 service. Named in prose by the first-visit FAQ and by /youth, both
+ * of which used to hardcode it — and both of which had to be corrected by hand
+ * in v1.3.1 when the church renamed it. C-53
+ */
+export const DIVINE_SERVICE = serviceTime('divine-service');
 
 /** "09:30 – 10:00", matching how the midweek schedule already reads. */
 export const serviceRange = (s: ServiceTime) => `${s.start} – ${s.end}`;

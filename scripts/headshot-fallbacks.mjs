@@ -11,22 +11,45 @@
  * meant remembering a resize step that is easy to skip and invisible when
  * skipped, until the CDN is disabled and every card 404s.
  *
- *   node scripts/headshot-fallbacks.mjs
+ *   npm run headshots            # generate anything missing
+ *   npm run headshots -- --force # rebuild every fallback
  *
- * Idempotent: existing fallbacks are left alone. Pass --force to rebuild them.
+ * Idempotent: existing fallbacks are left alone unless --force. The checks run
+ * either way — they used to sit below the skip, so the only files ever
+ * validated were the ones being created in that same run.
+ *
+ * This is the only generator. `tools/build-headshots.mjs` was a second one
+ * writing the same files from the same sources with different settings, and
+ * `npm run headshots` pointed at the one that had them wrong. C-52
+ *
+ * `sharp` is not a direct dependency — it arrives with Astro's. See tools/README.
  */
 
 import { readdirSync, existsSync, mkdirSync, readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
-import sharp from 'sharp';
+
+let sharp;
+try {
+  sharp = (await import('sharp')).default;
+} catch {
+  console.error('✖ sharp is not installed. It normally arrives with Astro — run `npm ci`.');
+  process.exit(1);
+}
 
 const HOD = 'public/images/hod';
 const FALLBACK = join(HOD, 'fallback');
 
-/** Matches the existing set: 2:3 sources land at exactly 1400x2100. */
+/** Must stay >= the largest HEADSHOT_WIDTHS entry — C-04. Matches the existing
+ *  set: 2:3 sources land at exactly 1400x2100. */
 const WIDTH = 1400;
-/** Same quality the edge uses, so the two copies look alike — cdnImage.ts. */
-const QUALITY = 82;
+
+/**
+ * Higher than the transform's 82, deliberately — C-07 measured it: SSIM 0.9733
+ * at 82 against 0.9812 at 90, and this copy is what a visitor gets when there
+ * is no transformer to do better. Reading `quality=82` off cdnImage.ts and
+ * matching it here is the mistake C-07 exists to prevent.
+ */
+const QUALITY = 90;
 
 const force = process.argv.includes('--force');
 
@@ -40,14 +63,19 @@ if (sources.length === 0) {
 
 const warnings = [];
 let made = 0;
+let checked = 0;
 
-for (const file of sources) {
+for (const file of sources.sort()) {
   const src = join(HOD, file);
   const dest = join(FALLBACK, file);
 
-  if (existsSync(dest) && !force) continue;
-
-  const { width, height } = await sharp(src).metadata();
+  const meta = await sharp(src).metadata();
+  // `.rotate()` below applies EXIF orientation, which swaps the axes for
+  // orientations 5-8. Judge the shape the way the output will look.
+  const sideways = meta.orientation >= 5 && meta.orientation <= 8;
+  const width = sideways ? meta.height : meta.width;
+  const height = sideways ? meta.width : meta.height;
+  checked++;
 
   // The card is a 4/5 box filled with object-cover, so a landscape source is
   // cropped hard on both sides — on a couple or a group that usually means
@@ -62,9 +90,35 @@ for (const file of sources) {
     warnings.push(`${file} is only ${width}px wide; the fallback wants ${WIDTH}px.`);
   }
 
-  // Width only: height follows the source, exactly as the existing 2:3 set did.
-  // Cropping here would bake a framing decision into a file nobody re-checks.
-  await sharp(src).resize({ width: WIDTH, withoutEnlargement: true }).jpeg({ quality: QUALITY, mozjpeg: true }).toFile(dest);
+  if (existsSync(dest) && !force) {
+    // Validate what is already there rather than trusting it. A fallback built
+    // by the old second generator, or by hand, can be the wrong size.
+    const have = await sharp(dest).metadata();
+    const want = Math.min(WIDTH, width);
+    if (have.width !== want) {
+      warnings.push(
+        `fallback/${file} is ${have.width}px wide, expected ${want}px. ` +
+          `Rebuild it with --force.`,
+      );
+    }
+    continue;
+  }
+
+  /*
+   * `.rotate()` applies EXIF orientation before the resize, and sharp then
+   * drops EXIF and the ICC profile — a size win that also strips the camera and
+   * location metadata. Safe: the originals are already sRGB IEC61966-2.1.
+   *
+   * Without it a photo straight off a camera at orientation 6 writes a sideways
+   * fallback, while Cloudflare's transform honours the EXIF and renders it
+   * upright — so the card is correct in production and rotated 90° everywhere
+   * there is no transformer, and nothing anywhere reports it.
+   */
+  await sharp(src)
+    .rotate()
+    .resize({ width: WIDTH, withoutEnlargement: true })
+    .jpeg({ quality: QUALITY, progressive: true, mozjpeg: true })
+    .toFile(dest);
 
   const out = await sharp(dest).metadata();
   const kb = (statSync(dest).size / 1024).toFixed(0);
@@ -72,7 +126,11 @@ for (const file of sources) {
   made++;
 }
 
-console.log(made ? `\nGenerated ${made} fallback${made === 1 ? '' : 's'}.` : 'All fallbacks present.');
+console.log(
+  made
+    ? `\nGenerated ${made} fallback${made === 1 ? '' : 's'}; checked ${checked}.`
+    : `All fallbacks present; checked ${checked}.`,
+);
 
 // Every referenced photo must exist in both places. A `photo` is what puts a
 // person on the page, so a typo here is a broken card rather than a quiet skip.
@@ -85,11 +143,11 @@ const missing = referenced.flatMap((file) => {
   return gaps;
 });
 
+for (const warning of warnings) console.warn(`\n⚠ ${warning}`);
+
 if (missing.length > 0) {
   console.error(`\n✖ Referenced by the roster but not on disk:`);
   for (const path of missing) console.error(`  ${path}`);
   process.exit(1);
 }
 console.log(`✔ All ${referenced.length} referenced photos exist in both sizes.`);
-
-for (const warning of warnings) console.warn(`\n⚠ ${warning}`);

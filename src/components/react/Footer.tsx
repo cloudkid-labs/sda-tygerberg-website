@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react';
 import { useLanguage } from '../../context/LanguageContext';
 import { homeCopy } from '../../data/homeCopy';
 import { SERVICE_TIMES, SITE, serviceRange } from '../../data/site';
@@ -6,6 +7,16 @@ import { Logo } from './Logo';
 export function Footer() {
   const { lang } = useLanguage();
   const t = homeCopy[lang];
+
+  /*
+   * Seeded from the build date and corrected after mount. `new Date()` during
+   * render bakes the build year into the static HTML, so a site built in
+   * December still says the old year in January — permanently for a reader with
+   * JavaScript off, and briefly for everyone else. Same shape as the blood
+   * drive seed, and for the same reason. C-36, C-44
+   */
+  const [year, setYear] = useState(() => Number(__BUILD_DATE__.slice(0, 4)));
+  useEffect(() => setYear(new Date().getFullYear()), []);
 
   return (
     <footer className="bg-navy-deep text-blue-pale">
@@ -36,12 +47,12 @@ export function Footer() {
       </div>
       <div className="border-t border-white/10">
         <div className="mx-auto flex max-w-content flex-wrap items-center gap-4 px-7 py-5 text-xs">
-          <span>© {new Date().getFullYear()} Tygerberg SDA</span>
-          <a href="https://cloudkid.link" target="_blank" rel="noopener" className="font-semibold text-orange hover:text-white">
-            Created by Cloudkid Technologist ™ · cloudkid.link
+          <span>© {year} Tygerberg SDA</span>
+          <a href="https://cloudkid.link" target="_blank" rel="noopener" className="font-semibold text-orange-on-navy hover:text-white">
+            {t.footerCreditBuilder}
           </a>
-          <a href="https://adventist.org" target="_blank" rel="noopener" className="font-semibold text-orange hover:text-white">
-            Part of the worldwide Adventist Church · adventist.org
+          <a href="https://adventist.org" target="_blank" rel="noopener" className="font-semibold text-orange-on-navy hover:text-white">
+            {t.footerCreditChurch}
           </a>
         </div>
       </div>

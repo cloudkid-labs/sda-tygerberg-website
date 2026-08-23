@@ -1,4 +1,5 @@
 import type { Lang } from './site';
+import { YOUTH_AGE_SPAN, YOUTH_EVENING, youthEveningRange } from './youthGroups';
 
 /**
  * Copy for /youth. Written for a parent deciding whether to bring a child, and
@@ -33,8 +34,7 @@ export type YouthCopy = {
 export const youthCopy: Record<Lang, YouthCopy> = {
   af: {
     pageTitle: 'Jeugaand · Tygerberg SDA Kerk',
-    pageDescription:
-      'Jeugaand elke Vrydag 19:00–21:00, en Sabbatoggendklasse vir elke ouderdom van 0 tot 18, by Tygerberg SDA Kerk, Boston, Kaapstad.',
+    pageDescription: `Jeugaand elke ${YOUTH_EVENING.day.af} ${youthEveningRange}, en Sabbatoggendklasse vir elke ouderdom van ${YOUTH_AGE_SPAN.youngest} tot ${YOUTH_AGE_SPAN.oldest}, by Tygerberg SDA Kerk, Boston, Kaapstad.`,
     backHome: 'Terug na Tuisblad',
     eyebrow: 'Jeug',
     heading: 'Jeugaand',
@@ -56,8 +56,7 @@ export const youthCopy: Record<Lang, YouthCopy> = {
   },
   en: {
     pageTitle: 'Youth Evening · Tygerberg SDA Church',
-    pageDescription:
-      'Youth Evening every Friday 19:00–21:00, and Sabbath morning classes for every age from 0 to 18, at Tygerberg SDA Church, Boston, Cape Town.',
+    pageDescription: `Youth Evening every ${YOUTH_EVENING.day.en} ${youthEveningRange}, and Sabbath morning classes for every age from ${YOUTH_AGE_SPAN.youngest} to ${YOUTH_AGE_SPAN.oldest}, at Tygerberg SDA Church, Boston, Cape Town.`,
     backHome: 'Back to Homepage',
     eyebrow: 'Youth',
     heading: 'Youth Evening',

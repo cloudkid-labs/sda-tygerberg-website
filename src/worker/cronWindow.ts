@@ -50,7 +50,14 @@ function matchField(field: string, value: number, min: number, max: number): boo
       hi = Number(b);
     } else {
       lo = Number(range);
-      hi = lo;
+      /*
+       * `9/2` is "from 9 to the end of the field, every 2" in standard cron —
+       * not "9 only". Collapsing hi to lo made `(value - lo) % step` reachable
+       * for 9 alone, so `* 9/2 * * 6` matched 09:00 and silently missed 11:00
+       * and 13:00. isValidCronWindow could not catch it either: 9 does match,
+       * so the "matches nothing in its range" test passed. C-15
+       */
+      hi = stepText === undefined ? lo : max;
     }
 
     if (lo < min || hi > max || lo > hi) return false;

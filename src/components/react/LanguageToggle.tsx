@@ -17,8 +17,15 @@ export function LanguageToggle({ variant = 'light' }: LanguageToggleProps) {
    * footers it is the lifted one with a navy-deep label. Both clear 4.5:1 in
    * every state; neither value does on the other ground.
    *
-   * The navy hover tint is /10, not /20: at /20 it stacked a third orange layer
-   * under orange text and the inactive label fell to 4.21:1. C-39
+   * The navy hover darkens rather than tinting. `hover:bg-orange-on-navy/20`
+   * slid a third orange layer under orange text and the inactive label fell to
+   * 3.31-4.21:1 depending on where the SubPageFooter gradient is strongest —
+   * hover made it harder to read than rest. Any orange tint has the same
+   * problem; navy-deep/40 holds 5.56:1 at the gradient's worst point.
+   *
+   * Not `hover:bg-orange-on-navy hover:text-navy-deep`, which clears easily but
+   * renders the hovered *unselected* pill identical to the selected one — on a
+   * control whose only job is showing which language is active. C-39, C-41
    */
   const pillClass = (active: boolean) =>
     `h-full inline-flex items-center justify-center px-2.5 sm:px-3.5 text-[11px] sm:text-xs font-bold transition-colors shrink-0 ${
@@ -27,7 +34,7 @@ export function LanguageToggle({ variant = 'light' }: LanguageToggleProps) {
           ? 'bg-orange-on-navy text-navy-deep'
           : 'bg-orange text-white'
         : isNavy
-        ? 'bg-transparent text-orange-on-navy hover:bg-orange-on-navy/10'
+        ? 'bg-transparent text-orange-on-navy hover:bg-navy-deep/40'
         : 'bg-transparent text-navy hover:bg-orange/10 hover:text-orange'
     }`;
 

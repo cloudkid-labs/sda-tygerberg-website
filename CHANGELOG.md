@@ -22,12 +22,8 @@
   bar clears the header at every width (C-42); the language toggle carries
   `aria-pressed` (C-41).
 - The map is a page, not a public file, and reads the address from `site.ts`
-  (C-47). The JSON-LD address is derived, not retyped (C-49).
-
-  **`/map.html` no longer resolves** — the map is at `/map/`. It was an iframe
-  source, never linked and never in the sitemap, and production already answered
-  it with a 307. Filed MINOR on that basis; by the letter of the README's table
-  a removed public URL is MAJOR.
+  (C-47); `/map.html` still 307s, now to `/map/`. The JSON-LD address is
+  derived, not retyped (C-49).
 
 ## [1.3.2] — 2026-08-23
 

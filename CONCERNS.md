@@ -804,10 +804,14 @@ loading Leaflet, and retyped the coordinates and the address that `site.ts`
 already held. As `src/pages/map.astro` it is served at its own URL with no
 redirect and reads both from the same place as everything else.
 
-**`/map.html` no longer resolves.** It was an iframe source, never linked and
-never in the sitemap, and production already answered it with a 307 — but by the
-letter of the README's own table a removed public URL is a MAJOR, and this went
-out as a MINOR. Noted rather than hidden.
+**`/map.html` still resolves**, which was not obvious and was worth checking
+rather than assuming. Workers static assets default to
+`html_handling: "auto-trailing-slash"` and `wrangler.jsonc` sets no override; that
+handler's `.html` branch falls through to `<path>/index.html` and redirects to
+`<path>/`, which `dist/map/index.html` matches. Confirmed against the real asset
+worker under `wrangler dev`: `/map.html` → 307 → `/map/` → 200. No public URL was
+removed, so MINOR is right by the letter of the README's table rather than in
+spite of it.
 
 Two things the move broke and had to be put back:
 
@@ -903,9 +907,15 @@ would have written a sideways fallback while Cloudflare's transform rendered it
 upright, so the card would be correct in production and rotated 90° everywhere
 there is no transformer, with nothing reporting it.
 
-Not hypothetical: regenerating all fourteen with the surviving script's settings
-reproduced thirteen byte for byte and changed `TG-DH-Louws.jpg`, which had been
-built by the other one at q82.
+Not hypothetical, and the attribution is the interesting part: regenerating all
+fourteen with the settings this script now carries reproduced thirteen byte for
+byte — `tools/build-headshots.mjs` had written those — and changed
+`TG-DH-Louws.jpg`, the one file this script had built itself, at its old q82.
+Verified by reproducing both recipes with sharp against the committed bytes.
+
+So the generator `package.json` pointed at is the one that had produced exactly
+one of the fourteen, and it produced the only wrong one. The settings that
+survive here are the deleted script's.
 
 The validation used to sit below the `existsSync` skip, so the only files ever
 checked were the ones being created in that same run. It runs on every file now,

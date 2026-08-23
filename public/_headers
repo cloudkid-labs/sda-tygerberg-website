@@ -7,9 +7,10 @@
 # carrying the hash of every inline script in the build. Edit this file —
 # dist/_headers is generated.
 #
-# Every comment sits between blocks, never inside one, and the placeholder is the
-# last line of its block: whether Cloudflare accepts a `#` line mid-rule is not
-# documented, and the CSP is not the thing to find out with.
+# The placeholder is the last line of its block, and it is the only comment
+# inside one: whether Cloudflare accepts a `#` line mid-rule is not documented,
+# so nothing load-bearing sits after it. Once the build has run it is a
+# Content-Security-Policy header and the question does not arise.
 #
 # On the `/*` block:
 #   Permissions-Policy — nothing on the site asks for any of these, and a

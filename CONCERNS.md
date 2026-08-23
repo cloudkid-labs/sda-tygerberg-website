@@ -15,8 +15,9 @@ file covers the traps.
 
 ### C-01 — The map carries no tile attribution
 
-`public/map.html` sets `attributionControl: false`, and nothing renders an
-OpenStreetMap credit anywhere on the page.
+`src/pages/map.astro` sets `attributionControl: false`, and nothing renders an
+OpenStreetMap credit anywhere on the page. (It was `public/map.html` until
+C-47 moved it; the decision below is unchanged.)
 
 **This is a known breach**, decided by the repo owner. OSM tiles come under the
 ODbL and the [OSMF tile usage policy](https://operations.osmfoundation.org/policies/tiles/),
@@ -727,6 +728,14 @@ so a new dark section gets the right ring without anyone remembering.
 
 `outline-offset: 2px` is load-bearing: the ring is drawn clear of the element,
 so what it must contrast with is the ground behind it, not the fill it surrounds.
+For the same reason the language toggle carries no `overflow-hidden` — it clipped
+each pill's ring to a sliver — and rounds its end buttons instead.
+
+Two rules cover everything that takes the default outline. The form inputs opt
+out on purpose: `RequestForm` sets `focus:outline-none` and draws its own
+`focus:ring-2 focus:ring-navy/15` with a `focus:border-navy`, which is a stronger
+signal on a field than an outline around it. That is a deliberate exception, not
+a gap.
 
 ### C-41 — The language toggle says which language is active
 
@@ -748,8 +757,9 @@ at 390/640/768/1280.
 The accordions set `aria-controls` unconditionally but rendered the panel only
 while open, so every collapsed control referenced an id that was not in the
 document — 28 of 28 on `/beliefs`, 5 of 6 on the homepage. `hidden` when closed
-instead. It also puts the belief text in the served HTML, where a crawler and a
-reader without JavaScript can reach it.
+instead. It also puts the belief text in the served HTML, where a crawler reads
+it — a reader without JavaScript still cannot open a panel, but the words are now
+in the document rather than absent from it.
 
 ### C-44 — What the page says before it hydrates has to be defensible
 
@@ -758,9 +768,17 @@ un-narrowed first render *says*: seeded with the whole roster, the static HTML
 named a blood drive four months past and 27 sessions where the mounted page says
 12. That is what a crawler indexes.
 
-`__BUILD_DATE__` is inlined by `vite.define` in `astro.config.mjs`, so it is the
-same literal in the static HTML and in the bundle and cannot cause a hydration
-mismatch. The drive list and the footer's copyright year both seed from it.
+`PUBLIC_BUILD_DATE` is set once in `astro.config.mjs` and read as
+`import.meta.env.PUBLIC_BUILD_DATE`, so it is the same value in the static HTML
+and in the bundle and cannot cause a hydration mismatch. The drive list, the
+sitemap's `lastmod` and the footer's copyright year all read it.
+
+**Not `vite.define`.** That was the first attempt and it fails in exactly one
+place: Vite applies user defines to the *server* consumer under `astro dev`, so
+the client module was served with a bare `__BUILD_DATE__` identifier and every
+island on the homepage threw `ReferenceError` on hydration. The built site was
+fine, which is the worst shape for a bug like this. A `PUBLIC_` variable is
+inlined for both.
 
 ### C-45 — A checkout with no tags is not a first release
 
@@ -784,11 +802,22 @@ above the fold and lazy does nothing; a click-to-load poster would.
 `public/map.html` answered a 307 to `/map` in production before the iframe began
 loading Leaflet, and retyped the coordinates and the address that `site.ts`
 already held. As `src/pages/map.astro` it is served at its own URL with no
-redirect and reads both from the same place as everything else. `/map.html`
-redirects rather than 404s, so no public URL was removed.
+redirect and reads both from the same place as everything else.
 
-The marker path had to become absolute: a relative `map-marker.svg` resolved
-against `/map/` once this stopped being a file at the root.
+**`/map.html` no longer resolves.** It was an iframe source, never linked and
+never in the sitemap, and production already answered it with a 307 — but by the
+letter of the README's own table a removed public URL is a MAJOR, and this went
+out as a MINOR. Noted rather than hidden.
+
+Two things the move broke and had to be put back:
+
+- The marker path had to become absolute. A relative `map-marker.svg` resolved
+  against `/map/` once this stopped being a file at the root.
+- The `<style>` block needs `is:global`. Every selector in it targets an element
+  Leaflet creates at runtime, and Astro's default scoping rewrites them to
+  `.church-marker[data-astro-cid-…]`, which matches nothing a script appends
+  after hydration. The marker lost its cream ring and the popup its type styling,
+  with no error anywhere.
 
 ### C-48 — Leaflet is pinned and hash-checked
 
@@ -813,6 +842,14 @@ country. `SITE.address` composes the published string from them and the JSON-LD
 `PostalAddress` takes the schema.org fields from the same object. A test asserts
 both, so the comment cannot go stale again.
 
+The two still name **different levels of the same hierarchy**, and that is
+deliberate: the printed address ends "Cape Town, 7530" because that is how the
+church writes it, while `addressLocality` is `Bellville`, which is the town
+schema.org is asking for. Boston is the suburb and rides on the street line. What
+was wrong before was not that the two differed — it was that they were two
+unconnected literals, so nobody could tell whether a difference was a decision or
+a typo.
+
 ### C-50 — A pause button is only shown when there is autoplay to pause
 
 Under `prefers-reduced-motion` the deck never advances, but the pause control
@@ -832,6 +869,13 @@ every one a 200 with a week-long cache, and the filenames are in the srcset.
 The Worker rewrites `/images/hod/*.jpg` to the `fallback/` copy unless the
 request carries `image-resizing` in `Via`, which is how Cloudflare marks its own
 transform subrequest.
+
+**This needs `run_worker_first` to work at all.** By default a URL that matches a
+file in the assets directory is served straight from the asset store and the
+Worker is never invoked — so the guard sat in `index.ts` doing nothing until
+`wrangler.jsonc` named the path. The negative pattern keeps `fallback/` on the
+default asset path: those are what a browser is meant to get, and every Worker
+invocation there is a billable request for an image that needs no logic.
 
 **A rewrite rather than a 404, and that is the safety margin.** If the marker
 ever does not arrive, the transformer reads the 1400px fallback as its source
@@ -911,3 +955,15 @@ deletion request means reading the object bodies.
 
 The code is right and the comment was wrong. Putting a name or an email into
 object metadata would make every listing a disclosure — the worse fix.
+
+### C-57 — The six themes live apart from the 28 beliefs
+
+`BeliefsSummary` renders the six theme names and summaries on the homepage.
+Reading them from `beliefCategories` deduplicated the strings and cost the
+homepage 8.1 kB gzipped: a static import pulled `beliefs.ts` — all 28 beliefs,
+both languages, full descriptions — into `Home.js` to render six lines.
+
+`beliefThemes.ts` holds the six name/desc pairs and nothing else. `beliefs.ts`
+imports it and composes each category from a theme plus its items, so the names
+still exist once, and the homepage imports only the small module. Vite splits on
+the module boundary, so this only works while the two stay in separate files.

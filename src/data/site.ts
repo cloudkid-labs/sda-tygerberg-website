@@ -121,9 +121,10 @@ export function serviceTime(id: ServiceTimeId): ServiceTime {
 }
 
 /**
- * The 11:00 service. Named in prose by the first-visit FAQ and by /youth, both
- * of which used to hardcode it — and both of which had to be corrected by hand
- * in v1.3.1 when the church renamed it. C-53
+ * The 11:00 service. The first-visit FAQ names it in prose and used to hardcode
+ * it, which is why it had to be corrected by hand in v1.3.1 when the church
+ * renamed it; /youth reached it as `SERVICE_TIMES.at(-1)`, which was right only
+ * while it stayed last. Both go through the id now. C-53
  */
 export const DIVINE_SERVICE = serviceTime('divine-service');
 

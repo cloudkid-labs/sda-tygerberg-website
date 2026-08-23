@@ -1,6 +1,6 @@
 import { useId, useState } from 'react';
 import { useLanguage } from '../../context/LanguageContext';
-import { beliefCategories } from '../../data/beliefs';
+import { beliefThemes } from '../../data/beliefThemes';
 import { homeCopy } from '../../data/homeCopy';
 import { withBase } from '../../lib/base';
 
@@ -27,13 +27,14 @@ export function BeliefsSummary() {
       </div>
 
       {/*
-        The six themes come from beliefCategories, which /beliefs already
-        renders. They used to be a second copy in homeCopy — six names and six
-        descriptions in both languages, 24 strings that happened to match and
-        had nothing keeping them that way.
+        The six themes come from beliefThemes, which /beliefs composes its
+        categories from. They used to be a second copy in homeCopy — 24 strings
+        that happened to match with nothing keeping them that way. Imported from
+        beliefThemes rather than beliefs so the homepage does not carry all 28
+        belief descriptions to render six lines. C-57
       */}
       <div className="flex flex-col gap-2.5">
-        {beliefCategories.map((category, i) => {
+        {beliefThemes.map((category, i) => {
           const title = category.name[lang];
           const open = openIndex === i;
           return (

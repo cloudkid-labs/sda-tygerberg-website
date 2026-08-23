@@ -49,6 +49,19 @@ for (const page of pages) {
   }
 }
 
+/*
+ * Astro emits at least the island loader inline on every page that hydrates, so
+ * finding none means the scan is broken — a regex that stopped matching, or a
+ * future Astro that externalises them. Shipping `script-src 'self'` with no
+ * hashes would not look wrong here and would kill every island in production.
+ */
+if (hashes.size === 0) {
+  console.error('✖ scripts/build-headers.mjs: no inline scripts found in dist/.');
+  console.error('  Either the scan is broken or Astro stopped inlining. Refusing');
+  console.error('  to write a hash-less script-src, which would block every island.');
+  process.exit(1);
+}
+
 const scriptHashes = [...hashes].sort().join(' ');
 
 const CSP = [

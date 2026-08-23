@@ -37,7 +37,14 @@ const markerUrl = withBase('/map-marker.svg');
       integrity="sha384-cxOPjt7s7Iz04uaHJceBmS+qpjv2JkIHNVcuOrM+YHwZOmJGBXI00mdUXEq65HTH"
       crossorigin="anonymous"
       referrerpolicy="no-referrer"></script>
-    <style>
+    <!--
+      is:global, because every selector below targets an element Leaflet creates
+      at runtime. Astro's default scoping rewrites them to
+      `.church-marker[data-astro-cid-…]`, which matches nothing a script appends
+      after hydration — the marker lost its cream ring and the popup its type
+      styling, silently. C-47
+    -->
+    <style is:global>
       html,
       body {
         margin: 0;

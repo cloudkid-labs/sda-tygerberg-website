@@ -39,9 +39,12 @@ export function Hero() {
               href={watchUrl ?? SITE.youtubeLiveUrl}
               target="_blank"
               rel="noopener"
-              className="flex items-center gap-2 rounded-pill border-[1.5px] border-navy px-6.5 py-3.5 text-[15px] font-semibold text-navy hover:bg-navy hover:text-white"
+              className="group flex items-center gap-2 rounded-pill border-[1.5px] border-navy px-6.5 py-3.5 text-[15px] font-semibold text-navy hover:bg-navy hover:text-white"
             >
-              <span className="inline-block h-2 w-2 rounded-full bg-orange motion-safe:animate-pulse" />
+              {/* The button's ground flips to navy on hover, and the dot has to
+                  flip with it: the light-ground orange measures 1.83:1 there and
+                  effectively vanishes. C-39 */}
+              <span className="inline-block h-2 w-2 rounded-full bg-orange group-hover:bg-orange-on-navy motion-safe:animate-pulse" />
               {t.ctaWatch}
             </a>
           )}

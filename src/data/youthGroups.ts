@@ -112,8 +112,14 @@ export const YOUTH_EVENING = {
  * group at either end. C-53
  */
 export const YOUTH_AGE_SPAN = {
-  youngest: Math.min(...SABBATH_YOUTH_GROUPS.map((g) => g.ages[0])),
-  oldest: Math.max(...SABBATH_YOUTH_GROUPS.map((g) => g.ages[1])),
+  // `Math.min()` of nothing is Infinity, and this feeds a meta description.
+  // An empty roster is not a state the page can describe, so say nothing.
+  youngest: SABBATH_YOUTH_GROUPS.length
+    ? Math.min(...SABBATH_YOUTH_GROUPS.map((g) => g.ages[0]))
+    : 0,
+  oldest: SABBATH_YOUTH_GROUPS.length
+    ? Math.max(...SABBATH_YOUTH_GROUPS.map((g) => g.ages[1]))
+    : 0,
 } as const;
 
 export const sabbathGroupsRange = `${SABBATH_GROUPS.start} – ${SABBATH_GROUPS.end}`;

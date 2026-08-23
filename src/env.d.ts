@@ -1,4 +1,10 @@
 /// <reference types="astro/client" />
 
-/** `YYYY-MM-DD` of the build, inlined by `vite.define` in astro.config.mjs. */
-declare const __BUILD_DATE__: string;
+interface ImportMetaEnv {
+  /** `YYYY-MM-DD`, frozen once per build in astro.config.mjs. See C-44. */
+  readonly PUBLIC_BUILD_DATE: string;
+}
+
+interface ImportMeta {
+  readonly env: ImportMetaEnv;
+}

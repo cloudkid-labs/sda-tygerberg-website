@@ -32,7 +32,7 @@ export function GET({ site }: APIContext) {
 
   const urls = ROUTES.map(
     ({ path, priority }) =>
-      `  <url>\n    <loc>${new URL(path, origin).href}</loc>\n    <lastmod>${__BUILD_DATE__}</lastmod>\n    <priority>${priority}</priority>\n  </url>`,
+      `  <url>\n    <loc>${new URL(path, origin).href}</loc>\n    <lastmod>${import.meta.env.PUBLIC_BUILD_DATE}</lastmod>\n    <priority>${priority}</priority>\n  </url>`,
   ).join('\n');
 
   return new Response(

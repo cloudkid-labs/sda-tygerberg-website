@@ -475,7 +475,14 @@ function CarouselDeck() {
             never advances on its own, and the control was reporting a
             playing/paused state for something that was never playing. C-50
           */}
-          <div className="mt-5 flex items-center justify-center gap-3">
+          {/* Under reduced motion the pause control is not rendered and the
+              prev/next pair is `sm:hidden`, which left an empty row holding a
+              20px margin on every desktop. C-50 */}
+          <div
+            className={`mt-5 flex items-center justify-center gap-3 ${
+              reduceMotion ? 'sm:hidden' : ''
+            }`}
+          >
             <button
               type="button"
               aria-label={t.carouselPrev}

@@ -66,5 +66,8 @@ jobs:
       # fallback must be the size the generator would produce. Catches a photo
       # added without its fallback, which is invisible until transformations are
       # off and then breaks every card at once.
+      #
+      # `--check` writes nothing. Without it the script would generate the very
+      # file that is missing and then report success.
       - name: Check the headshot fallbacks
-        run: npm run headshots
+        run: npm run headshots -- --check

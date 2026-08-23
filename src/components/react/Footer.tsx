@@ -15,7 +15,7 @@ export function Footer() {
    * JavaScript off, and briefly for everyone else. Same shape as the blood
    * drive seed, and for the same reason. C-36, C-44
    */
-  const [year, setYear] = useState(() => Number(__BUILD_DATE__.slice(0, 4)));
+  const [year, setYear] = useState(() => Number(import.meta.env.PUBLIC_BUILD_DATE.slice(0, 4)));
   useEffect(() => setYear(new Date().getFullYear()), []);
 
   return (

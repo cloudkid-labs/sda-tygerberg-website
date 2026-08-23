@@ -1,5 +1,5 @@
 import { LanguageProvider, useLanguage } from '../../context/LanguageContext';
-import { SERVICE_TIMES, SITE, serviceRange } from '../../data/site';
+import { DIVINE_SERVICE, SITE, serviceRange } from '../../data/site';
 import { youthCopy } from '../../data/youthCopy';
 import {
   SABBATH_YOUTH_GROUPS,
@@ -24,11 +24,10 @@ function YouthContent() {
   const { lang } = useLanguage();
   const t = youthCopy[lang];
 
-  // The last thing on the Sabbath morning, whatever it is called and whenever
-  // it starts — read from SERVICE_TIMES rather than typed out, so a change to
-  // the timetable cannot leave this page describing the old one. Guarded
-  // because an empty roster is a valid state for that array.
-  const divine = SERVICE_TIMES.at(-1);
+  // The service the children join, by name and by id — not `SERVICE_TIMES.at(-1)`,
+  // which was right only for as long as it stayed last in the array. Reordering
+  // the morning would have had this page naming Lesson Study. C-53
+  const divine = DIVINE_SERVICE;
 
   return (
     <div className="flex min-h-screen flex-col font-sans text-ink">
@@ -94,8 +93,9 @@ function YouthContent() {
                   {ageRange(group)} {t.yearsLabel}
                 </div>
                 <div className="mb-1.5 font-serif text-xl text-ink">{group.name[lang]}</div>
-                {/* Absent rather than empty when the board has not confirmed a
-                    description — see youthGroups.ts. */}
+                {/* Absent rather than empty: emptying a blurb is how a
+                    description gets retracted without losing the age band —
+                    see youthGroups.ts. */}
                 {group.blurb[lang] && (
                   <p className="text-[13.5px] leading-relaxed text-slate">{group.blurb[lang]}</p>
                 )}
@@ -103,14 +103,12 @@ function YouthContent() {
             ))}
           </ul>
 
-          {divine && (
-            <p className="mt-6 text-[14.5px] leading-relaxed text-slate">
+          <p className="mt-6 text-[14.5px] leading-relaxed text-slate">
               <span className="font-bold text-ink">{t.afterLabel} · </span>
               {t.afterNote}{' '}
               <span className="font-bold text-ink">{divine[lang]}</span>{' '}
-              <span className="tabular-nums">({serviceRange(divine)})</span>.
-            </p>
-          )}
+            <span className="tabular-nums">({serviceRange(divine)})</span>.
+          </p>
         </section>
 
         <section className="mx-auto max-w-[780px] px-5 pb-16 sm:px-7">

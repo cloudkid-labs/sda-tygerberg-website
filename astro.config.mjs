@@ -2,6 +2,19 @@ import { defineConfig } from 'astro/config';
 import react from '@astrojs/react';
 import tailwindcss from '@tailwindcss/vite';
 
+/*
+ * Frozen once per build and read as `import.meta.env.PUBLIC_BUILD_DATE`, so the
+ * static HTML and the hydrating bundle see the same date and cannot disagree.
+ * Reading the clock at module scope instead would give the browser a different
+ * answer from the build and break the hydration contract C-36 protects.
+ *
+ * A `PUBLIC_` env var rather than `vite.define`: Vite only applies user defines
+ * to the *server* consumer under `astro dev`, so a client island would hydrate
+ * against an undeclared identifier and throw. `PUBLIC_` is inlined for both.
+ * C-44
+ */
+process.env.PUBLIC_BUILD_DATE ??= new Date().toISOString().slice(0, 10);
+
 // Set ASTRO_BASE (e.g. "/sda-tygerberg-website") when building for a GitHub
 // Pages project site; leave unset for the Cloudflare production deploy,
 // which serves from the domain root.
@@ -16,14 +29,5 @@ export default defineConfig({
   integrations: [react()],
   vite: {
     plugins: [tailwindcss()],
-    /*
-     * Frozen at build time and inlined as a literal, so the static HTML and the
-     * hydrating bundle read the same date and cannot disagree. Reading the
-     * clock at module scope instead would give the browser a different answer
-     * from the build and break the hydration contract C-36 protects.
-     */
-    define: {
-      __BUILD_DATE__: JSON.stringify(new Date().toISOString().slice(0, 10)),
-    },
   },
 });

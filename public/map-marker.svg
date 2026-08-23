@@ -1,6 +1,6 @@
 <!-- Generated from src/assets/sda-symbol.svg; see tools/README.md.
-     The bare mark in navy, for the map marker (public/map.html). Kept separate
-     from favicon.svg, which carries a plate the marker does not want. -->
+     The bare mark in navy, for the map marker (src/pages/map.astro). Kept
+     separate from favicon.svg, which carries a plate the marker does not want. -->
 <svg
    fill="#0b3d54"
    width="64"

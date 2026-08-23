@@ -16,10 +16,10 @@ function today(): string {
  * where the mounted page says 12. That is the copy a crawler indexes and the
  * only copy a reader without JavaScript ever sees.
  *
- * `__BUILD_DATE__` is a literal, identical in the static HTML and in the
- * bundle, so this stays a constant on both sides of hydration. C-36, C-44
+ * `PUBLIC_BUILD_DATE` is inlined at build, identical in the static HTML and in
+ * the bundle, so this stays a constant on both sides of hydration. C-36, C-44
  */
-const DRIVES_AT_BUILD = BLOOD_DRIVES.filter((d) => d >= __BUILD_DATE__);
+const DRIVES_AT_BUILD = BLOOD_DRIVES.filter((d) => d >= import.meta.env.PUBLIC_BUILD_DATE);
 
 /**
  * The drives still to come, narrowed after mount rather than during render —

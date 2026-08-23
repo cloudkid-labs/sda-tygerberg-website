@@ -13,6 +13,11 @@
  *
  *   npm run headshots            # generate anything missing
  *   npm run headshots -- --force # rebuild every fallback
+ *   npm run headshots -- --check # report gaps, write nothing, exit non-zero
+ *
+ * CI runs `--check`. Without it the step would generate the fallback someone
+ * forgot to commit, find nothing missing, and pass — the one outcome that makes
+ * the check pointless.
  *
  * Idempotent: existing fallbacks are left alone unless --force. The checks run
  * either way — they used to sit below the skip, so the only files ever
@@ -52,6 +57,11 @@ const WIDTH = 1400;
 const QUALITY = 90;
 
 const force = process.argv.includes('--force');
+const check = process.argv.includes('--check');
+if (force && check) {
+  console.error('✖ --force and --check are opposites. Pick one.');
+  process.exit(1);
+}
 
 mkdirSync(FALLBACK, { recursive: true });
 
@@ -88,6 +98,11 @@ for (const file of sources.sort()) {
   }
   if (width < WIDTH) {
     warnings.push(`${file} is only ${width}px wide; the fallback wants ${WIDTH}px.`);
+  }
+
+  if (!existsSync(dest) && check) {
+    warnings.push(`fallback/${file} is missing. Run \`npm run headshots\` and commit it.`);
+    continue;
   }
 
   if (existsSync(dest) && !force) {
@@ -129,7 +144,9 @@ for (const file of sources.sort()) {
 console.log(
   made
     ? `\nGenerated ${made} fallback${made === 1 ? '' : 's'}; checked ${checked}.`
-    : `All fallbacks present; checked ${checked}.`,
+    : check && warnings.length
+      ? `\nChecked ${checked}; ${warnings.length} need attention.`
+      : `All fallbacks present; checked ${checked}.`,
 );
 
 // Every referenced photo must exist in both places. A `photo` is what puts a
@@ -144,6 +161,13 @@ const missing = referenced.flatMap((file) => {
 });
 
 for (const warning of warnings) console.warn(`\n⚠ ${warning}`);
+
+// Under --check a warning is the finding, not a footnote: nothing was written,
+// so there is no other signal that the tree is short a file.
+if (check && warnings.length > 0) {
+  console.error(`\n✖ ${warnings.length} problem(s) with the committed fallbacks.`);
+  process.exit(1);
+}
 
 if (missing.length > 0) {
   console.error(`\n✖ Referenced by the roster but not on disk:`);

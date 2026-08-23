@@ -3,7 +3,13 @@
 [Semantic Versioning](https://semver.org/). What the numbers mean: README,
 "Versioning and releases".
 
-## [1.3.0] — unreleased
+## [1.3.1] — unreleased
+
+- The 11:00 service is "Erediens" everywhere; it was "Hoofdiens" in
+  `SERVICE_TIMES` and "Goddelike Diens" in the FAQ prose. Social card
+  regenerated.
+
+## [1.3.0] — 2026-08-22
 
 - `/youth` behind the week grid's Jeugaand card: the Friday evening, and the
   five Sabbath age groups from 0-3 to 13-18. No volunteer names (C-38).
@@ -59,7 +65,8 @@ Re-tag of `a66c8ac` to move onto 1.x. No code change, and no 1.0.0.
 
 First release.
 
-[1.3.0]: https://github.com/cloud-technologist/sda-tygerberg-website/compare/v1.2.1...dev
+[1.3.1]: https://github.com/cloud-technologist/sda-tygerberg-website/compare/v1.3.0...dev
+[1.3.0]: https://github.com/cloud-technologist/sda-tygerberg-website/compare/v1.2.1...v1.3.0
 [1.2.1]: https://github.com/cloud-technologist/sda-tygerberg-website/compare/v1.2.0...v1.2.1
 [1.2.0]: https://github.com/cloud-technologist/sda-tygerberg-website/releases/tag/v1.2.0
 [1.1.0]: https://github.com/cloud-technologist/sda-tygerberg-website/releases/tag/v1.1.0

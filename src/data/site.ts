@@ -79,7 +79,7 @@ export type ServiceTime = { af: string; en: string; start: string; end: string }
 export const SERVICE_TIMES: ServiceTime[] = [
   { af: 'Sabbatskool', en: 'Sabbath School', start: '09:30', end: '10:00' },
   { af: 'Lesstudie', en: 'Lesson Study', start: '10:00', end: '10:45' },
-  { af: 'Hoofdiens', en: 'Divine Service', start: '11:00', end: '12:00' },
+  { af: 'Erediens', en: 'Divine Service', start: '11:00', end: '12:00' },
 ];
 
 /** "09:30 – 10:00", matching how the midweek schedule already reads. */

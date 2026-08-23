@@ -136,7 +136,7 @@ export const homeCopy: Record<Lang, HomeCopy> = {
       },
       {
         q: 'Is daar iets vir die kinders?',
-        a: 'Ja — kinderprogramme loop van 09:30 tot 11:00, terwyl Sabbatskool en Lesstudie aan die gang is. Daarna sluit die kinders by die gemeente aan vir die Goddelike Diens.',
+        a: 'Ja — kinderprogramme loop van 09:30 tot 11:00, terwyl Sabbatskool en Lesstudie aan die gang is. Daarna sluit die kinders by die gemeente aan vir die Erediens.',
       },
       {
         q: 'Is die gebou rolstoeltoeganklik?',

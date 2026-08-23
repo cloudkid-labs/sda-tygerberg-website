@@ -99,6 +99,10 @@ export const departmentHeads: DepartmentHead[] = [
   // Jeug, oldest tier first. Kept as one card per person rather than one
   // nested Jeug entry — the carousel is a flat ring of equal cards (C-12) and
   // adjacency is what makes the tiers read as a group.
+  //
+  // Senior, then Tieners, then Juniors — bands in `youthGroups.ts`. Strewers
+  // follows the tiers rather than sitting inside them: it is a club, not an
+  // age band.
   {
     id: 'senior-jeug',
     name: 'Monique Spammer',
@@ -106,10 +110,22 @@ export const departmentHeads: DepartmentHead[] = [
     photo: 'TG-DH-Monique.jpg',
   },
   {
-    // Not `junior-jeug` any more: the office moved to Lané Louw below, and the
-    // Sabbath roster puts Lisa on the 10-12s. Ages stay out of the title —
-    // `youthGroups.ts` is where the bands are published, and two copies of
-    // "10-12" is two chances to disagree (C-03).
+    id: 'tiener-jeug',
+    name: 'Lané Louw',
+    // Morné and Lelani's daughter; the family holds Gesinsbediening jointly
+    // further down. Tiener Jeugleier, not Kinderbediening — that one is Lenie
+    // Virgin's again, see her card. 1.3.0 published her as Junior Jeugleier on
+    // a reading of how the correction was worded; the repo owner has since
+    // confirmed the Sabbath roster's own title is the right one. Not recorded
+    // as a board decision, because it was not relayed as one.
+    roles: { af: ['Tiener Jeugleier'], en: ['Teen Youth Leader'] },
+    photo: 'TG-DH-Lane.jpg',
+  },
+  {
+    // No Junior Jeugleier office remains: the Sabbath roster has the Juniors
+    // under Lisa and the teens under Lané, and nothing between them.
+    // Ages stay out of the title — `youthGroups.ts` is where the bands are
+    // published, and two copies of "10-12" is two chances to disagree (C-03).
     id: 'juniors',
     name: 'Lisa Branders',
     roles: { af: ['Juniorleier'], en: ['Juniors Leader'] },
@@ -119,17 +135,6 @@ export const departmentHeads: DepartmentHead[] = [
     name: 'Morné Louw',
     roles: { af: ['Strewersleier'], en: ['Pathfinder Leader'] },
     photo: 'TG-DH-Morne.jpg',
-  },
-  {
-    id: 'junior-jeug',
-    name: 'Lané Louw',
-    // Morné and Lelani's daughter; the family holds Gesinsbediening jointly
-    // further down. Junior Jeugleier, not Kinderbediening — that one is Lenie
-    // Virgin's again, see her card. The Sabbath roster calls the group she
-    // leads "Tiener Jeugleier (13-18)"; the board's title for the office is
-    // Junior Jeugleier and that is what the card shows.
-    roles: { af: ['Junior Jeugleier'], en: ['Junior Youth Leader'] },
-    photo: 'TG-DH-Lane.jpg',
   },
   {
     id: 'musiek',

@@ -80,3 +80,12 @@ jobs:
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v5
+
+      # Same check as production, against whatever URL Pages just published.
+      # `--no-api`: there is no Worker here, so /api/* is absent by design
+      # (PUBLIC_HAS_API=false above) and its absence is not a failure. That
+      # means this run cannot catch the C-60 routing bug — only the production
+      # smoke test can — but it does catch a broken page or a missing asset
+      # before the promotion PR is opened.
+      - name: Smoke-test the preview
+        run: npm run smoke -- "${{ steps.deployment.outputs.page_url }}" --no-edge

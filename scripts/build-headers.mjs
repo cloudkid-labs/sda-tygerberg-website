@@ -81,7 +81,13 @@ const CSP = [
   "img-src 'self' data: https://*.tile.openstreetmap.org",
   // /api/live-status, /api/contact and the transformer probe are all same-origin.
   "connect-src 'self'",
-  "frame-src 'self' https://www.youtube-nocookie.com",
+  // 'self' is /map/. The other three are all one embed: the player is served
+  // from youtube-nocookie.com, but it navigates to youtube.com and builds a
+  // nested frame on google.com at runtime for its identity plumbing. Neither
+  // appears in the embed's HTML, so grepping the source will not show you why
+  // they are here — production blocked "Framing 'https://www.google.com/'" and
+  // the video did not play. C-60
+  "frame-src 'self' https://www.youtube-nocookie.com https://www.youtube.com https://www.google.com",
   'upgrade-insecure-requests',
 ].join('; ');
 

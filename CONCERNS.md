@@ -1046,3 +1046,76 @@ taken here because both change the look in their own right:
 
 Whoever picks this up next: the value is a decision, not a defect. Change it
 only if the church asks.
+
+### C-60 — `run_worker_first` as a list is the whole set, not an addition
+
+C-51 added `run_worker_first: ["/images/hod/*", "!/images/hod/fallback/*"]` so the
+Worker could see a direct hit on a headshot master. It did that. It also silently
+took `/api/live-status` and `/api/contact` out of service in production.
+
+The array form is not "run the Worker first for these as well as the usual". It
+is the entire set of paths that reach the Worker script at all. Everything else
+is answered by asset serving on its own, and with `not_found_handling: "404-page"`
+a path with no file behind it gets `404.html` — a 200-shaped HTML error where an
+API response belongs. Cloudflare's own example says so plainly: "All other
+requests either serve an asset that matches or serve the index.html fallback,
+without ever hitting this code."
+
+So the fix is one entry: `["/api/*", "/images/hod/*", "!/images/hod/fallback/*"]`.
+**Adding a route to `src/worker/index.ts` now means adding its path here too.**
+Nothing in the type system or the build connects the two.
+
+The second failure was the Content-Security-Policy from C-48. `frame-src` listed
+`https://www.youtube-nocookie.com`, which is where the embed is served from — but
+the player navigates to `youtube.com` and builds a nested frame on `google.com`
+at runtime, and the parent page's `frame-src` governs those too. Neither origin
+appears anywhere in the embed's HTML, so no amount of reading the markup would
+have found it. The console said `Framing 'https://www.google.com/' violates ...`
+and the video did not play.
+
+### What actually let both reach production
+
+Not the mistakes themselves — the absence of anything that looks at the running
+site. Typecheck passed. Twenty-six tests passed. The build passed. `wrangler
+deploy` reported success and the release was tagged. Every gate was green while
+the contact form returned an error page, because every gate examined the artifact
+and none examined the deployment.
+
+`scripts/smoke.mjs` is the missing gate. It runs against the origin that was just
+deployed, in the production workflow *between* the deploy and the tag — a release
+tag pointing at a deploy that does not serve is worse than no tag. It checks that
+every page renders, that `/api/*` answers with JSON rather than HTML (naming this
+concern in the failure message, because the symptom looks nothing like the
+cause), that the C-51 guard still serves the fallback for a plain master URL, and
+that the security headers and CSP are present.
+
+It was written against broken production first: exit 1 with the right diagnosis
+before the fix, exit 0 after. A smoke test that has never failed is a smoke test
+nobody has tested.
+
+It also failed its own first deploy, which is worth recording rather than
+quietly fixing. The flag was `--no-api`, on the assumption that the only thing
+devtest lacks is the Worker. It lacks two things: `public/_headers` is a
+Cloudflare mechanism, and GitHub Pages never interprets it — the file uploads and
+answers 200 while the response carries no CSP and no security headers at all. So
+a healthy devtest deploy went red on six checks, five of them headers and the
+sixth a `frame-src` comparison against a policy that was not there. The flag is
+`--no-edge` now and gates both, because the distinction that matters is whether
+Cloudflare is in front, not whether a Worker exists.
+
+The general lesson is the one the header of this file warns about: a check that
+has only ever been run against one shape of target has only been tested against
+one shape of target. Both are exercised now — `--no-edge` against the live Pages
+URL, and the full set against `wrangler dev`.
+
+Two honest limits:
+
+- The devtest run passes `--no-edge`, because Pages has neither a Worker nor the
+  headers. That run cannot catch this class of bug. Only the production smoke
+  test can, which means it is caught *after* production is serving it, not
+  before. Catching it earlier needs a `wrangler dev` step in CI.
+- It cannot catch the `frame-src` half. The blocked frame is constructed by the
+  YouTube player at runtime; the static check here compares `frame-src` against
+  the iframes in the markup, and `google.com` is not one of them. Only a real
+  browser loading the page would see it. That check is worth adding if a second
+  CSP surprise ever ships.

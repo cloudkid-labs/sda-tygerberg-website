@@ -8,7 +8,7 @@ export function GetInvolved() {
 
   const cardClass = (tint: boolean) =>
     `rounded-card-lg border p-6.5 flex flex-col justify-between ${
-      tint ? 'border-orange-on-navy/40 bg-orange-on-navy/15' : 'border-white/15 bg-white/10'
+      tint ? 'border-orange/40 bg-orange/15' : 'border-white/15 bg-white/10'
     }`;
 
   return (
@@ -55,7 +55,7 @@ export function GetInvolved() {
                 the kind of thing people want to send to someone else. */}
             <a
               href={withBase('/giving/')}
-              className="w-full inline-flex items-center justify-center gap-1.5 rounded-pill bg-orange-on-navy px-4 py-2 text-[13px] font-bold text-navy-deep hover:bg-orange-on-navy-hover transition-colors"
+              className="w-full inline-flex items-center justify-center gap-1.5 rounded-pill bg-orange px-4 py-2 text-[13px] font-bold text-white hover:bg-orange-hover transition-colors"
             >
               {t.giveCta} →
             </a>

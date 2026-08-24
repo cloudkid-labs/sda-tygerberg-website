@@ -4,20 +4,16 @@
 @theme {
   --color-navy: #0b3d54;
   --color-navy-deep: #072a3b;
-  /* Two oranges, because one value cannot clear 4.5:1 on both the cream page
-     and the navy bands. The handoff's #e8862c measured 2.39:1 as text on cream
-     and 2.67:1 under a white button label — the fill on every primary call to
-     action — so the light-ground value is darkened until white on it passes.
-     The dark sections keep the lifted hue, where it reads as the brand colour
-     and still passes.
+  /* The handoff orange, one value everywhere, restored at the church's request
+     after the darkened pair shipped to devtest and was rejected on looks.
 
-     The exact value is set by the tightest ground, which is not the page but
-     the orange-tinted panels on /giving and /connect: an eyebrow sitting on
-     `bg-orange/10` has only the 10% tint between it and its own colour. C-39 */
-  --color-orange: #924e0f;
-  --color-orange-hover: #7d4309;
-  --color-orange-on-navy: #f0a15a;
-  --color-orange-on-navy-hover: #f7bd88;
+     This is a knowing trade, not an oversight: #e8862c measures 2.39:1 as text
+     on cream and 2.67:1 under a white button label, so the light grounds miss
+     WCAG AA (SC 1.4.3, 4.5:1). It clears on the navy bands at 5.31:1, which is
+     why one token serves again. C-59 records the decision and what it costs;
+     do not "fix" this by editing the value. */
+  --color-orange: #e8862c;
+  --color-orange-hover: #c06a1a;
   --color-cream: #f6f2e9;
   --color-cream-card: #fffdf8;
   --color-tan: #eee7d8;

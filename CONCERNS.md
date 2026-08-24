@@ -691,6 +691,10 @@ Where that happened the comment is now either true or gone.
 
 ### C-39 — Two oranges, because one cannot serve both grounds
 
+**Reversed by C-59.** The palette below shipped to devtest, was rejected on
+looks, and the handoff orange is back as a single token. The measurements here
+still hold — they are why C-59 is a knowing trade rather than a fix.
+
 The handoff's `#e8862c` measured 2.39:1 as text on cream and 2.67:1 under a
 white button label — the fill on every primary call to action. Both fail
 WCAG 1.4.3 (4.5:1). Darkening it far enough for the light grounds pushes it to
@@ -707,8 +711,8 @@ it and its own colour. `#9a5410` measured 4.47:1 there. `#924e0f` measures 4.94.
 `--color-slate-muted` went `#5c6b73` → `#55646b` for the same reason: 4.48:1 on
 tan was the one body colour that missed.
 
-Anything on a navy ground takes the `-on-navy` token, and a filled control there
-takes a `text-navy-deep` label rather than white.
+Anything on a navy ground took the `-on-navy` token, and a filled control there
+took a `text-navy-deep` label rather than white. Both are gone under C-59.
 
 ### C-40 — The focus ring is two rules
 
@@ -1006,3 +1010,39 @@ That trades supply-chain pinning for not having to bump a patch by hand; a repo
 holding no secrets on the PR path is the case where that trade is defensible,
 and the production workflow's secrets are the reason to revisit it if it ever
 stops being.
+
+### C-59 — One orange again, and it does not pass on the light grounds
+
+C-39 split the brand orange in two so both grounds could clear WCAG AA. That
+shipped to devtest, the church looked at it, and the darkened light-ground value
+was rejected: it reads brown rather than orange on cream, which is most of the
+site. The instruction was to put the handoff colour back everywhere.
+
+So `--color-orange` is `#e8862c` again, `--color-orange-hover` is `#c06a1a`, and
+the `-on-navy` pair is deleted. Every `orange-on-navy` usage collapses back to
+`orange`, and the filled controls on navy take a white label again.
+
+What this costs, stated plainly so nobody has to re-derive it:
+
+- `#e8862c` as text on cream is **2.39:1**, against the 4.5:1 that SC 1.4.3 asks
+  for body-size text. This is the eyebrow labels, the `→` arrows and the inline
+  links on every light section.
+- White on `#e8862c` is **2.67:1** — every primary button label.
+- On the navy bands it measures **5.31:1** and passes, which is why one token
+  serves the whole site again rather than needing a second.
+
+The accessibility work that did *not* depend on the value stays: the focus ring
+is still navy on light and cream on dark (C-40), the language toggle still
+carries `aria-pressed` (C-41), and `--color-slate-muted` stays at `#55646b`.
+Those fix contrast and state signalling without touching the brand colour.
+
+There are two ways to recover AA without changing the orange, and neither was
+taken here because both change the look in their own right:
+
+- a dark label on the orange fills instead of white, which is what the deleted
+  `-on-navy` token already did on the navy side;
+- larger or heavier orange text, since SC 1.4.3 relaxes to 3:1 at 18.66px bold
+  or 24px — though at 2.39:1 the eyebrows would still miss even that.
+
+Whoever picks this up next: the value is a decision, not a defect. Change it
+only if the church asks.

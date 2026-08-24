@@ -41,10 +41,7 @@ export function Hero() {
               rel="noopener"
               className="group flex items-center gap-2 rounded-pill border-[1.5px] border-navy px-6.5 py-3.5 text-[15px] font-semibold text-navy hover:bg-navy hover:text-white"
             >
-              {/* The button's ground flips to navy on hover, and the dot has to
-                  flip with it: the light-ground orange measures 1.83:1 there and
-                  effectively vanishes. C-39 */}
-              <span className="inline-block h-2 w-2 rounded-full bg-orange group-hover:bg-orange-on-navy motion-safe:animate-pulse" />
+              <span className="inline-block h-2 w-2 rounded-full bg-orange motion-safe:animate-pulse" />
               {t.ctaWatch}
             </a>
           )}
@@ -88,7 +85,7 @@ export function Hero() {
               rel="noopener"
               // ml-auto rather than justify-between: the button stays right
               // whether or not the badge is there to push it.
-              className="ml-auto rounded-pill bg-orange-on-navy px-4.5 py-2 text-[12.5px] font-bold text-navy-deep hover:bg-orange-on-navy-hover"
+              className="ml-auto rounded-pill bg-orange px-4.5 py-2 text-[12.5px] font-bold text-white hover:bg-orange-hover"
             >
               {t.tabReplay}
             </a>

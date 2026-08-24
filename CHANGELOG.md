@@ -24,6 +24,8 @@
 - The map is a page, not a public file, and reads the address from `site.ts`
   (C-47); `/map.html` still 307s, now to `/map/`. The JSON-LD address is
   derived, not retyped (C-49).
+- Workflow actions moved to their current majors; the four workflows were on
+  runners Node 20 had been deprecated on (C-58).
 
 ## [1.3.2] — 2026-08-23
 

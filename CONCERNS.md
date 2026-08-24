@@ -977,3 +977,32 @@ both languages, full descriptions — into `Home.js` to render six lines.
 imports it and composes each category from a theme plus its items, so the names
 still exist once, and the homepage imports only the small module. Vite splits on
 the module boundary, so this only works while the two stay in separate files.
+
+### C-58 — The workflow actions sit on floating major tags
+
+All four workflows ran on actions whose majors pinned the Node 20 runner, which
+GitHub has deprecated. Bumped to `checkout@v7`, `setup-node@v7`,
+`configure-pages@v6`, `upload-pages-artifact@v5`, `deploy-pages@v5` and
+`wrangler-action@v4` — every one of them a node24 runner.
+
+Two of those majors carry a behaviour change rather than just a runner bump, and
+both are inert here:
+
+- `upload-pages-artifact@v5` excludes dotfiles from the artifact unless
+  `include-hidden-files: true`. `dist/` has none, and nothing wants a
+  `.nojekyll` — the artifact path to Pages does not run Jekyll.
+- `wrangler-action@v4` changes `DEFAULT_WRANGLER_VERSION` from `3.90.0` to `4`.
+  The deploy job does not set `wranglerVersion`, and the action returns the
+  already-installed CLI when that input is absent, so `npm ci` decides the
+  version and `package.json` pins `wrangler@^4`. The default is never reached.
+  Set `wranglerVersion` and it would be, so leave it unset.
+
+`setup-node@v7` drops `always-auth` (unused) and adds `package-manager-cache`,
+which auto-enables caching off a `packageManager` field in `package.json`. There
+isn't one, so the explicit `cache: npm` is still what caches.
+
+Floating majors rather than pinned SHAs, which is what the repo already did.
+That trades supply-chain pinning for not having to bump a patch by hand; a repo
+holding no secrets on the PR path is the case where that trade is defensible,
+and the production workflow's secrets are the reason to revisit it if it ever
+stops being.

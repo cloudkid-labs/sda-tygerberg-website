@@ -1093,12 +1093,27 @@ It was written against broken production first: exit 1 with the right diagnosis
 before the fix, exit 0 after. A smoke test that has never failed is a smoke test
 nobody has tested.
 
+It also failed its own first deploy, which is worth recording rather than
+quietly fixing. The flag was `--no-api`, on the assumption that the only thing
+devtest lacks is the Worker. It lacks two things: `public/_headers` is a
+Cloudflare mechanism, and GitHub Pages never interprets it — the file uploads and
+answers 200 while the response carries no CSP and no security headers at all. So
+a healthy devtest deploy went red on six checks, five of them headers and the
+sixth a `frame-src` comparison against a policy that was not there. The flag is
+`--no-edge` now and gates both, because the distinction that matters is whether
+Cloudflare is in front, not whether a Worker exists.
+
+The general lesson is the one the header of this file warns about: a check that
+has only ever been run against one shape of target has only been tested against
+one shape of target. Both are exercised now — `--no-edge` against the live Pages
+URL, and the full set against `wrangler dev`.
+
 Two honest limits:
 
-- The devtest run passes `--no-api`, because Pages has no Worker. That run cannot
-  catch this class of bug. Only the production smoke test can, which means it is
-  caught *after* production is serving it, not before. Catching it earlier needs
-  a `wrangler dev` step in CI.
+- The devtest run passes `--no-edge`, because Pages has neither a Worker nor the
+  headers. That run cannot catch this class of bug. Only the production smoke
+  test can, which means it is caught *after* production is serving it, not
+  before. Catching it earlier needs a `wrangler dev` step in CI.
 - It cannot catch the `frame-src` half. The blocked frame is constructed by the
   YouTube player at runtime; the static check here compares `frame-src` against
   the iframes in the markup, and `google.com` is not one of them. Only a real

@@ -11,7 +11,8 @@
 - The CSP let the YouTube embed load but blocked the frames its player builds at
   runtime, so the video did not play (C-60).
 - Both deploys now smoke-test the origin they just published; production does it
-  before tagging (`npm run smoke`).
+  before tagging (`npm run smoke`). `--no-edge` skips the Worker and header
+  checks on the Pages preview, which has neither.
 
 ## [1.4.0] — 2026-08-24
 

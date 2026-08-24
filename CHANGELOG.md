@@ -8,8 +8,10 @@
 - `/api/live-status` and `/api/contact` answered with the 404 page in 1.4.0:
   `run_worker_first` as a list is the whole set of paths that reach the Worker,
   not an addition to the default (C-60).
-- The CSP let the YouTube embed load but blocked the frames its player builds at
-  runtime, so the video did not play (C-60).
+- The homepage video does not play. Widening the CSP to admit the frames the
+  player builds at runtime replaced a silent failure with a visible redirect
+  loop, so `frame-src` is back to its previous value; the embed itself is the
+  problem and is still open (C-60).
 - Both deploys now smoke-test the origin they just published; production does it
   before tagging (`npm run smoke`). `--no-edge` skips the Worker and header
   checks on the Pages preview, which has neither.

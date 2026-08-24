@@ -81,13 +81,16 @@ const CSP = [
   "img-src 'self' data: https://*.tile.openstreetmap.org",
   // /api/live-status, /api/contact and the transformer probe are all same-origin.
   "connect-src 'self'",
-  // 'self' is /map/. The other three are all one embed: the player is served
-  // from youtube-nocookie.com, but it navigates to youtube.com and builds a
-  // nested frame on google.com at runtime for its identity plumbing. Neither
-  // appears in the embed's HTML, so grepping the source will not show you why
-  // they are here — production blocked "Framing 'https://www.google.com/'" and
-  // the video did not play. C-60
-  "frame-src 'self' https://www.youtube-nocookie.com https://www.youtube.com https://www.google.com",
+  // 'self' is /map/; youtube-nocookie.com is where the embed is served from.
+  //
+  // google.com was added here and then taken back out. The console said
+  // "Framing 'https://www.google.com/' violates ..." so allowing it looked like
+  // the fix; what it actually did was un-hide a redirect loop, and the card
+  // rendered Chrome's "redirected you too many times" page where the video
+  // belongs. Blocked, the same failure is silent. Neither plays the video —
+  // that is a problem with the embed itself and needs a browser to diagnose,
+  // not a wider policy. Do not re-add google.com without one. C-60
+  "frame-src 'self' https://www.youtube-nocookie.com",
   'upgrade-insecure-requests',
 ].join('; ');
 

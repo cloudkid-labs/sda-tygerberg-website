@@ -45,23 +45,49 @@ function pass(what, detail = '') {
   console.log(`  ✔ ${what}${detail ? `  (${detail})` : ''}`);
 }
 
-/** One fetch with a couple of retries: a cold Worker or a propagating deploy
- *  is not a broken site, and a flaky smoke test is worse than none. */
+/*
+ * A browser User-Agent, and 403/429 treated as "come back in a moment" rather
+ * than as a verdict.
+ *
+ * Both are here because of a real failure: the first production run of this
+ * script came back 403 on every page and blocked the release tag for a deploy
+ * that was serving correctly. A dozen rapid requests from a datacenter IP with
+ * `node` as the User-Agent is exactly the shape Cloudflare's bot and rate
+ * protection exists to stop, and the origin being ours makes no difference to
+ * it. The identical request succeeded a minute later.
+ *
+ * A 403 or 429 on a page that the site is happy to serve a browser is a
+ * statement about the *client*, so retrying is right; the old code only
+ * retried 5xx and let 403 through as a hard failure. If it survives the
+ * retries it is still reported — see the note where pages are checked, which
+ * says which of the two it looks like so nobody re-debugs this from scratch.
+ */
+const UA =
+  'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36';
+
+let lastEdgeStatus = null;
+
 async function get(path, init = {}) {
   const url = `${base}${path}`;
   let last;
-  for (let attempt = 0; attempt < 3; attempt++) {
+  for (let attempt = 0; attempt < 4; attempt++) {
     try {
-      const res = await fetch(url, { redirect: 'follow', ...init });
-      if (res.status < 500) return res;
+      const res = await fetch(url, {
+        redirect: 'follow',
+        ...init,
+        headers: { 'User-Agent': UA, ...(init.headers ?? {}) },
+      });
+      if (res.status !== 403 && res.status !== 429 && res.status < 500) return res;
       last = new Error(`HTTP ${res.status}`);
+      lastEdgeStatus = res.status === 403 || res.status === 429 ? res.status : lastEdgeStatus;
     } catch (err) {
       last = err;
     }
-    await new Promise((r) => setTimeout(r, 2000 * (attempt + 1)));
+    await new Promise((r) => setTimeout(r, 1500 * (attempt + 1)));
   }
   throw last ?? new Error('unreachable');
 }
+
 
 console.log(`\nSmoke-testing ${base}\n`);
 
@@ -201,6 +227,14 @@ if (noEdge) {
 /* ---- verdict ------------------------------------------------------------ */
 console.log('');
 for (const n of notes) console.log(`note: ${n}`);
+
+if (lastEdgeStatus && failures.length) {
+  console.log(
+    `\nnote: requests were answered ${lastEdgeStatus} even after retries. That is Cloudflare's\n` +
+      `      bot/rate protection reacting to this runner, not necessarily a broken deploy —\n` +
+      `      check the site in a browser before treating the failures below as real.`,
+  );
+}
 
 if (failures.length) {
   console.log(`\n✖ ${failures.length} smoke check(s) failed against ${base}:`);

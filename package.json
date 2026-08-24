@@ -1,7 +1,7 @@
 {
   "name": "tygerberg-sda-website",
   "type": "module",
-  "version": "1.4.0",
+  "version": "1.4.1",
   "private": true,
   "engines": {
     "node": ">=24.18.0"
@@ -17,6 +17,7 @@
     "typecheck": "tsc --noEmit",
     "test": "node --import ./test/register.mjs --test \"test/**/*.test.?(m)[jt]s\"",
     "version:check": "node scripts/check-version.mjs",
+    "smoke": "node scripts/smoke.mjs",
     "version:patch": "npm version patch --no-git-tag-version",
     "version:minor": "npm version minor --no-git-tag-version",
     "version:major": "npm version major --no-git-tag-version"

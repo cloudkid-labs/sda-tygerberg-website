@@ -10,7 +10,16 @@
     // the default is "none", and a 404.html in dist is ignored. GitHub Pages
     // picks 404.html up on its own, so only Cloudflare needs telling.
     "not_found_handling": "404-page",
-    // The headshot masters are the one path where the Worker has to see the
+    // Which paths reach the Worker script at all.
+    //
+    // `/api/*` MUST be listed. The array form is not "also run the Worker for
+    // these" — it is the whole set. Anything outside it is answered by asset
+    // serving alone, and with `not_found_handling` above that means a path with
+    // no file behind it gets 404.html instead of the Worker. Omitting `/api/*`
+    // took out /api/live-status and /api/contact in production, and it took a
+    // user report to find, because nothing here 404s at build time. C-60
+    //
+    // The headshot masters are the other path where the Worker has to see the
     // request. By default a URL that matches a file in `directory` is served
     // straight from the asset store and the Worker is never invoked — so the
     // guard in src/worker/index.ts, which rewrites a direct hit to the 1400px
@@ -19,7 +28,9 @@
     // The negative pattern keeps the fallbacks on the default asset path: they
     // are what a browser is *meant* to get, and every Worker invocation here is
     // a billable request for an image that needs no logic.
-    "run_worker_first": ["/images/hod/*", "!/images/hod/fallback/*"]
+    //
+    // Add a route to src/worker/index.ts and you must add its path here too.
+    "run_worker_first": ["/api/*", "/images/hod/*", "!/images/hod/fallback/*"]
   },
   // Workers Logs and Traces. The nested `logs` / `traces` blocks are the
   // per-signal switches and are what actually decides each one; the top-level

@@ -1113,16 +1113,31 @@ sixth a `frame-src` comparison against a policy that was not there. The flag is
 `--no-edge` now and gates both, because the distinction that matters is whether
 Cloudflare is in front, not whether a Worker exists.
 
-Then it failed its first *production* run, differently. Every page came back 403
-and the release tag was skipped for a deploy that was serving correctly — v1.4.1
-reached production untagged and had to be tagged by a second promotion. A dozen
-rapid requests from a datacenter IP with `node` as the User-Agent is the exact
-shape Cloudflare's bot and rate protection exists to stop, and the origin being
-ours makes no difference to it; the identical request succeeded a minute later.
-The script sends a browser User-Agent now and treats 403 and 429 as "retry"
-rather than as a verdict, because a status the site is happy to give a browser
-is a statement about the client. If they survive the retries the run still
-fails, with a note saying which of the two it looks like.
+Then it failed its first *production* run, differently: every page came back 403
+and the release tag was skipped for a deploy that was serving correctly. The
+first reading was rate limiting — a dozen rapid requests from a datacenter IP
+with `node` as the User-Agent — so the script got a browser User-Agent and
+retried 403/429 instead of treating them as a verdict.
+
+That was wrong, and the second production run proved it: 403 on all twelve
+checks again, after four retries each, with the browser User-Agent. **Cloudflare
+blocks GitHub Actions runners outright**, not as a burst limit. The identical
+checks from anywhere else pass every time.
+
+Which means the production smoke test cannot gate anything, and building a gate
+that structurally cannot pass gives you either a permanently red pipeline or a
+check everyone learns to ignore. So the script now separates *blocked* from
+*broken*: a run where every single check failed and the edge status was 403/429
+is *inconclusive* — it exits 0 with a loud warning, because a site that is
+genuinely down does not also refuse the request that would prove it. Any mixed
+result means the edge is letting this client see the site, so a failure among
+those is real and still exits 1.
+
+**The proper fix is on the Cloudflare side** and needs dashboard access: a WAF
+skip rule for the GitHub Actions IP ranges, or for a shared secret header the
+script sends. Add one and the `process.exit(0)` branch stops being reachable and
+the gate becomes real. Until then the production run reports and does not
+block.
 
 The general lesson is the one this file keeps relearning: a check that has only
 ever been run against one shape of target has only been tested against one shape
@@ -1135,9 +1150,18 @@ should.
 Two honest limits:
 
 - The devtest run passes `--no-edge`, because Pages has neither a Worker nor the
-  headers. That run cannot catch this class of bug. Only the production smoke
-  test can, which means it is caught *after* production is serving it, not
-  before. Catching it earlier needs a `wrangler dev` step in CI.
+  headers. That run cannot catch this class of bug — and with the production run
+  reduced to advisory by the block above, **nothing in CI currently catches it**.
+  The `wrangler dev` check that found it is a local step. Making that automatic
+  means a `wrangler dev` job in CI, which would also sidestep Cloudflare
+  entirely; that is the better fix and is not done here.
+- `fetch` has no default timeout, so the script carries three bounds: 10s per
+  request, a 150s whole-run deadline past which every remaining request fails
+  immediately, and `timeout-minutes: 5` on both workflow steps. None of these
+  was load-bearing for a real incident — a run that looked hung for twenty
+  minutes turned out to be the GitHub jobs API lagging, not the script — but a
+  liveness check that *can* hang blocks a release without ever saying why, and
+  the bounds cost nothing.
 - It cannot catch the `frame-src` half. The blocked frame is constructed by the
   YouTube player at runtime; the static check here compares `frame-src` against
   the iframes in the markup, and `google.com` is not one of them. Only a real

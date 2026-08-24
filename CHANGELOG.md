@@ -3,6 +3,14 @@
 [Semantic Versioning](https://semver.org/). What the numbers mean: README,
 "Versioning and releases".
 
+## [1.4.2] — 2026-08-24
+
+- The post-deploy smoke check exits when every check passes; it used to fall off
+  the end and hold the deploy open on undici's connection pool, which stalled
+  three production releases (C-60).
+- The production smoke step is advisory until Cloudflare stops answering the CI
+  runner 403 (C-60).
+
 ## [1.4.1] — 2026-08-24
 
 - `/api/live-status` and `/api/contact` answered with the 404 page in 1.4.0:

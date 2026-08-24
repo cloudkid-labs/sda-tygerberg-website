@@ -143,6 +143,11 @@ jobs:
       # Before the tag for the same reason the tag comes last: a release tag
       # claiming a deploy that does not serve is worse than no tag.
       - name: Smoke-test production
+        # A backstop under the per-request timeout in the script. Belt and
+        # braces on purpose: this step gates the release tag, and the first
+        # version of it hung a deploy for twenty minutes because `fetch` has no
+        # default timeout. GitHub would not have reaped that job for six hours.
+        timeout-minutes: 5
         run: npm run smoke -- https://tygerberg-sda.cloudkid.link
 
       # Only after Cloudflare has accepted the deploy. Tagging first would leave

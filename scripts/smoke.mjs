@@ -65,15 +65,38 @@ function pass(what, detail = '') {
 const UA =
   'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36';
 
+const REQUEST_TIMEOUT_MS = 10_000;
+
+/*
+ * A whole-run deadline on top of the per-request one, because the per-request
+ * timeout alone is not a useful bound: 14 URLs x 4 attempts x 10s is over nine
+ * minutes, and the workflow would kill the step before it said anything. Past
+ * the deadline every remaining request fails immediately, so the run still
+ * reaches its verdict and prints which checks it got to.
+ */
+const RUN_DEADLINE_MS = 150_000;
+const startedAt = Date.now();
+const outOfTime = () => Date.now() - startedAt > RUN_DEADLINE_MS;
+
 let lastEdgeStatus = null;
 
 async function get(path, init = {}) {
   const url = `${base}${path}`;
   let last;
   for (let attempt = 0; attempt < 4; attempt++) {
+    if (outOfTime()) throw new Error(`run deadline exceeded (${RUN_DEADLINE_MS / 1000}s) before ${path}`);
     try {
+      /*
+        * The timeout is not optional. Without it this hung a production deploy
+        * for over twenty minutes: `fetch` has no default timeout, and an edge
+        * that accepts the connection and then holds it open leaves the await
+        * pending forever. A liveness check that can hang is worse than no
+        * liveness check — it blocks the release without ever reporting why,
+        * and GitHub would not reap the job for six hours.
+        */
       const res = await fetch(url, {
         redirect: 'follow',
+        signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
         ...init,
         headers: { 'User-Agent': UA, ...(init.headers ?? {}) },
       });

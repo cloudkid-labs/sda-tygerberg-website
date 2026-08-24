@@ -1065,13 +1065,23 @@ So the fix is one entry: `["/api/*", "/images/hod/*", "!/images/hod/fallback/*"]
 **Adding a route to `src/worker/index.ts` now means adding its path here too.**
 Nothing in the type system or the build connects the two.
 
-The second failure was the Content-Security-Policy from C-48. `frame-src` listed
-`https://www.youtube-nocookie.com`, which is where the embed is served from — but
-the player navigates to `youtube.com` and builds a nested frame on `google.com`
-at runtime, and the parent page's `frame-src` governs those too. Neither origin
-appears anywhere in the embed's HTML, so no amount of reading the markup would
-have found it. The console said `Framing 'https://www.google.com/' violates ...`
-and the video did not play.
+The second failure was the Content-Security-Policy from C-48, and the fix for it
+was wrong. The console said `Framing 'https://www.google.com/' violates ...`, so
+`google.com` and `youtube.com` were added to `frame-src`. That did let the frame
+through, and what came through was a redirect loop: the card rendered Chrome's
+"redirected you too many times" page where the video belongs.
+
+So the CSP was never the cause. It was hiding a broken embed, and widening the
+policy only changed the failure from silent to loud. `frame-src` is back to the
+C-48 value, which is the state a visitor is least badly served by, and the video
+not playing is recorded here as open rather than as fixed.
+
+Whoever picks it up: the redirect is JS-driven inside the player, so it does not
+show in the HTTP response — `curl -L` on the embed URL is a clean 200 with zero
+redirects, and `videoseries?list=`, `?listType=playlist&list=` and the
+`youtube.com` host all return the same bytes. It needs a real browser with
+network access on the actual page. Do not re-add `google.com` on the strength of
+the console message alone; that is exactly the reasoning that produced this.
 
 ### What actually let both reach production
 

@@ -133,6 +133,18 @@ jobs:
           YOUTUBE_API_KEY: ${{ secrets.YOUTUBE_API_KEY }}
           YOUTUBE_CHANNEL_ID: ${{ secrets.YOUTUBE_CHANNEL_ID }}
 
+      # Between the deploy and the tag, deliberately. `wrangler deploy` reporting
+      # success only means Cloudflare accepted the upload — it says nothing about
+      # what the origin then serves. C-60 shipped a config that answered every
+      # /api/* route with 404.html; typecheck, tests, build and deploy were all
+      # green and a user found it. This is the first step in the pipeline that
+      # looks at the running site.
+      #
+      # Before the tag for the same reason the tag comes last: a release tag
+      # claiming a deploy that does not serve is worse than no tag.
+      - name: Smoke-test production
+        run: npm run smoke -- https://tygerberg-sda.cloudkid.link
+
       # Only after Cloudflare has accepted the deploy. Tagging first would leave
       # a tag claiming to be live when the deploy failed, which is worse than no
       # tag at all — the tag is the record of what production is actually

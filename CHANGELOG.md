@@ -3,7 +3,7 @@
 [Semantic Versioning](https://semver.org/). What the numbers mean: README,
 "Versioning and releases".
 
-## [1.4.0] — unreleased
+## [1.4.0] — 2026-08-24
 
 - Focus rings are navy on light grounds, cream on dark (C-40). The brand orange
   stays the handoff `#e8862c` everywhere by decision; it misses AA on the light

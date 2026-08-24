@@ -1,11 +1,18 @@
 ---
 import Layout from '../../layouts/Layout.astro';
 import { BloodBankPage } from '../../components/react/BloodBankPage';
+import { bloodBankCopy } from '../../data/bloodBankCopy';
+
+// Meta comes from the Afrikaans copy — the document ships as lang="af" and the
+// toggle swaps the body text client-side, so the crawlable title stays
+// Afrikaans. Same call as /youth and /bible-studies.
+//
+// These two strings were typed inline here, which left bloodBankCopy.pageTitle
+// and pageDescription defined in both languages and read by nothing: editing
+// the copy file changed the page not at all, and said so nowhere.
+const copy = bloodBankCopy.af;
 ---
 
-<Layout
-  title="Bloedbank · Tygerberg SDA Kerk"
-  description="Bloedskenkdatums en tydgleuwe by Tygerberg SDA Kerk, Boston, Kaapstad. Gleuwe van 45 minute vanaf 13:00."
->
+<Layout title={copy.pageTitle} description={copy.pageDescription}>
   <BloodBankPage client:load />
 </Layout>

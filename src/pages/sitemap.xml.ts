@@ -9,6 +9,12 @@ import type { APIContext } from 'astro';
  * `Sitemap:` directive, so it has to be
  * submitted once in Google Search Console before it does anything — see the
  * README.
+ *
+ * `<lastmod>` is the build date. Crawlers read it and largely ignore
+ * `<priority>`, which was the only hint here before. Build date rather than a
+ * per-page timestamp: the site is one deploy of one repo, every page ships
+ * together, and a per-page date would have to be maintained by hand — which is
+ * how a lastmod ends up lying. C-55
  */
 const ROUTES = [
   { path: '/', priority: '1.0' },
@@ -26,7 +32,7 @@ export function GET({ site }: APIContext) {
 
   const urls = ROUTES.map(
     ({ path, priority }) =>
-      `  <url>\n    <loc>${new URL(path, origin).href}</loc>\n    <priority>${priority}</priority>\n  </url>`,
+      `  <url>\n    <loc>${new URL(path, origin).href}</loc>\n    <lastmod>${import.meta.env.PUBLIC_BUILD_DATE}</lastmod>\n    <priority>${priority}</priority>\n  </url>`,
   ).join('\n');
 
   return new Response(

@@ -70,7 +70,16 @@ export function RequestForm({ topic, copy }: { topic: RequestTopic; copy: TopicC
   const set = (key: keyof typeof EMPTY) => (e: { target: { value: string } }) =>
     setValues((v) => ({ ...v, [key]: e.target.value }));
 
+  /*
+   * Set on the way out of the success panel. The panel holds focus while it is
+   * mounted, so returning to the form unmounts the focused node and drops the
+   * caret at document.body — the same failure the effect below was written to
+   * prevent, in the other direction.
+   */
+  const returning = useRef(false);
+
   const reset = () => {
+    returning.current = true;
     setValues(EMPTY);
     setConsent(false);
     setStatus('idle');
@@ -99,9 +108,17 @@ export function RequestForm({ topic, copy }: { topic: RequestTopic; copy: TopicC
   }, [attempt]);
 
   // Submitting replaces the form with the confirmation, which would drop focus
-  // to the top of the document without this.
+  // to the top of the document without this — and so does going back.
   useEffect(() => {
-    if (status === 'success') successRef.current?.focus();
+    if (status === 'success') {
+      successRef.current?.focus();
+      return;
+    }
+    if (returning.current) {
+      returning.current = false;
+      refs.name.current?.focus();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [status]);
 
   /** Mirrors the Worker's rules so obvious mistakes don't need a round trip. */

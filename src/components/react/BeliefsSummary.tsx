@@ -1,5 +1,6 @@
 import { useId, useState } from 'react';
 import { useLanguage } from '../../context/LanguageContext';
+import { beliefThemes } from '../../data/beliefThemes';
 import { homeCopy } from '../../data/homeCopy';
 import { withBase } from '../../lib/base';
 
@@ -25,8 +26,16 @@ export function BeliefsSummary() {
         </a>
       </div>
 
+      {/*
+        The six themes come from beliefThemes, which /beliefs composes its
+        categories from. They used to be a second copy in homeCopy — 24 strings
+        that happened to match with nothing keeping them that way. Imported from
+        beliefThemes rather than beliefs so the homepage does not carry all 28
+        belief descriptions to render six lines. C-57
+      */}
       <div className="flex flex-col gap-2.5">
-        {t.beliefTitles.map((title, i) => {
+        {beliefThemes.map((category, i) => {
+          const title = category.name[lang];
           const open = openIndex === i;
           return (
             <div key={title} className="overflow-hidden rounded-card border border-subtle bg-cream-card">
@@ -49,14 +58,14 @@ export function BeliefsSummary() {
                   {open ? '–' : '+'}
                 </span>
               </button>
-              {open && (
-                <div
-                  id={`${panelId}-${i}`}
-                  className="px-5.5 pb-5.5 pl-15 text-[15px] leading-relaxed text-slate"
-                >
-                  {t.beliefDescs[i]}
-                </div>
-              )}
+              {/* Always rendered, hidden when collapsed — see C-43. */}
+              <div
+                id={`${panelId}-${i}`}
+                hidden={!open}
+                className="px-5.5 pb-5.5 pl-15 text-[15px] leading-relaxed text-slate"
+              >
+                {category.desc[lang]}
+              </div>
             </div>
           );
         })}

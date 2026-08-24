@@ -1,15 +1,48 @@
 # Custom response headers for the Cloudflare Worker's static assets.
 # Supported natively by Workers static assets, the same way Pages reads it.
 # Copied verbatim into dist/ by Astro; GitHub Pages ignores it.
+#
+# `dist/_headers` is then REWRITTEN by scripts/build-headers.mjs, which replaces
+# the placeholder at the end of the `/*` block with a Content-Security-Policy
+# carrying the hash of every inline script in the build. Edit this file —
+# dist/_headers is generated.
+#
+# The placeholder is the last line of its block, and it is the only comment
+# inside one: whether Cloudflare accepts a `#` line mid-rule is not documented,
+# so nothing load-bearing sits after it. Once the build has run it is a
+# Content-Security-Policy header and the question does not arise.
+#
+# On the `/*` block:
+#   Permissions-Policy — nothing on the site asks for any of these, and a
+#     third-party frame should not be able to either.
+#   Strict-Transport-Security — no `includeSubDomains`. This host has none, so it
+#     would protect nothing, and the directive is pinned in browsers for a year
+#     once sent.
+
+/*
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: strict-origin-when-cross-origin
+  X-Frame-Options: SAMEORIGIN
+  Cross-Origin-Opener-Policy: same-origin
+  Permissions-Policy: geolocation=(), microphone=(), camera=(), payment=(), usb=(), magnetometer=(), gyroscope=()
+  Strict-Transport-Security: max-age=31536000
+  # CSP-PLACEHOLDER — replaced by scripts/build-headers.mjs. Inert if it is not.
+
+# Content-hashed filenames, so the URL changes whenever the bytes do and the copy
+# in a browser cache can never be stale. This is the case C-24 describes and did
+# not cover: without it these inherit the `max-age=0, must-revalidate` default and
+# every navigation re-validates the whole bundle.
+/_astro/*
+  Cache-Control: public, max-age=31536000, immutable
 
 # Unhashed assets default to `max-age=0`, which pins every Cloudflare image
 # variant to a 300s floor and has the transformer re-pulling a multi-MB original
 # all day. A week, not a year, because these filenames carry no content hash.
 # CONCERNS.md C-24.
+#
+# Every matching rule applies, not just the most specific one, so there is no
+# separate `/images/hod/fallback/*` block: `*` spans `/` and this rule already
+# covers it. The two together were sending
+# `public, max-age=604800, public, max-age=604800` on every fallback copy.
 /images/hod/*
-  Cache-Control: public, max-age=604800
-
-# The fallback copies, which browsers do fetch directly. Spelled out rather than
-# left to the rule above: whether `*` spans a `/` is not worth being wrong about.
-/images/hod/fallback/*
   Cache-Control: public, max-age=604800

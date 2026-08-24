@@ -93,12 +93,43 @@ try {
     .map((t) => t.trim())
     .filter(Boolean);
 } catch {
-  fail(['Could not read git tags.', 'A shallow clone has none — fetch with `fetch-depth: 0`.']);
+  fail(['Could not read git tags.', 'Is this a git work tree?']);
 }
 
 const released = tags
   .map((tag) => ({ tag, parsed: parse(tag.slice(1)) }))
   .filter((entry) => entry.parsed);
+
+/*
+ * `git tag -l` on a shallow clone succeeds with empty output — it does not
+ * throw — so the catch above could never fire for the case its message named.
+ * A checkout without tags therefore reported "first release" and exited 0,
+ * waving through a version that is already released: exactly the silent
+ * promotion this script exists to stop. Ask git directly instead. C-45
+ */
+if (released.length === 0) {
+  let shallow = false;
+  try {
+    shallow =
+      execSync('git rev-parse --is-shallow-repository', { encoding: 'utf8' }).trim() === 'true';
+  } catch {
+    // Not a work tree; the tag read above would already have failed.
+  }
+
+  if (shallow) {
+    fail([
+      'No release tags found, and this is a shallow clone.',
+      'A shallow checkout carries no tags, so every version would look unreleased.',
+      '',
+      'Fetch the full history:  actions/checkout with `fetch-depth: 0`',
+    ]);
+  }
+
+  console.warn(
+    `\n! No v* tags in this clone. Treating v${version} as the first release.\n` +
+      '  If that is wrong, the tags did not come with the checkout.\n',
+  );
+}
 
 if (released.some((entry) => entry.tag === `v${version}`)) {
   fail([

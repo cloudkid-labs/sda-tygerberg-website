@@ -78,7 +78,9 @@ export const askYouTube: AskLive = async (apiKey, channelId) => {
   url.searchParams.set('maxResults', '1');
 
   try {
-    const res = await fetch(url.toString());
+    // Without a deadline a hung upstream holds the request until the Worker's
+    // own limit kills it. `null` is the fail-closed answer C-16 already expects.
+    const res = await fetch(url.toString(), { signal: AbortSignal.timeout(5000) });
     if (!res.ok) return null;
     const data = (await res.json()) as { items?: { id?: { videoId?: string } }[] };
     const first = data.items?.[0];

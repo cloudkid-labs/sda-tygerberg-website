@@ -1,0 +1,117 @@
+---
+import { SITE } from '../data/site';
+import { withBase } from '../lib/base';
+
+/*
+ * Was `public/map.html`, which production answered with a 307 to `/map` before
+ * the iframe started loading Leaflet — and which retyped the coordinates and
+ * the address that `src/data/site.ts` already holds, with nothing to keep the
+ * two in step. As a page it is served at its own URL with no redirect, and the
+ * values below are the same ones the rest of the site reads. C-47
+ */
+const markerUrl = withBase('/map-marker.svg');
+---
+
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>{SITE.fullName} — Map</title>
+    <!--
+      Pinned and hash-checked. Without `integrity` anything unpkg served would
+      have run with full access to this document; the hashes are of the exact
+      1.9.4 bytes. `crossorigin` is required for SRI to be enforced at all on a
+      cross-origin fetch. C-48
+    -->
+    <link
+      rel="stylesheet"
+      href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+      integrity="sha384-sHL9NAb7lN7rfvG5lfHpm643Xkcjzp4jFvuavGOndn6pjVqS6ny56CAt3nsEVT4H"
+      crossorigin="anonymous"
+      referrerpolicy="no-referrer"
+    />
+    <script
+      is:inline
+      src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+      integrity="sha384-cxOPjt7s7Iz04uaHJceBmS+qpjv2JkIHNVcuOrM+YHwZOmJGBXI00mdUXEq65HTH"
+      crossorigin="anonymous"
+      referrerpolicy="no-referrer"></script>
+    <!--
+      is:global, because every selector below targets an element Leaflet creates
+      at runtime. Astro's default scoping rewrites them to
+      `.church-marker[data-astro-cid-…]`, which matches nothing a script appends
+      after hydration — the marker lost its cream ring and the popup its type
+      styling, silently. C-47
+    -->
+    <style is:global>
+      html,
+      body {
+        margin: 0;
+        padding: 0;
+        height: 100%;
+      }
+      #map {
+        width: 100%;
+        height: 100%;
+        background: #eee7d8;
+      }
+      .leaflet-popup-content {
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+        font-size: 13.5px;
+        color: #17252e;
+      }
+      .leaflet-popup-content b {
+        color: #0b3d54;
+      }
+
+      /* The church's symbol, not Leaflet's teardrop. The cream ring lifts the navy
+         disc off tiles that run from pale road fill to mid-green parkland. */
+      .church-marker {
+        border-radius: 50%;
+        background: #f6f2e9;
+        box-shadow: 0 2px 8px rgba(7, 42, 59, 0.45);
+      }
+    </style>
+  </head>
+  <body>
+    <div id="map"></div>
+    <script
+      is:inline
+      define:vars={{ lat: SITE.lat, lng: SITE.lng, name: SITE.fullName, address: SITE.address, markerUrl }}
+    >
+      /* One-finger drag off on touch, wheel never zooms — CONCERNS.md C-28.
+         Mouse dragging stays on; a desktop drag doesn't compete with page scroll. */
+      // No tile attribution anywhere, by decision — see CONCERNS.md C-01 before
+      // reinstating or removing this.
+      const map = L.map('map', {
+        scrollWheelZoom: false,
+        dragging: !L.Browser.mobile,
+        tap: false,
+        attributionControl: false,
+      }).setView([lat, lng], 16);
+
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        maxZoom: 19,
+      }).addTo(map);
+
+      // A committed derivation of the official mark. Built through withBase so it
+      // resolves at the domain root and under the Pages base alike — a relative
+      // path would have resolved against /map/ once this stopped being a file in
+      // public/. Not favicon.svg — that one carries a plate the marker does not
+      // need (C-27).
+      const icon = L.icon({
+        iconUrl: markerUrl,
+        iconSize: [40, 40],
+        iconAnchor: [20, 20],
+        popupAnchor: [0, -18],
+        className: 'church-marker',
+      });
+
+      L.marker([lat, lng], { icon, alt: name })
+        .addTo(map)
+        .bindPopup(`<b>${name}</b><br>${address}`)
+        .openPopup();
+    </script>
+  </body>
+</html>

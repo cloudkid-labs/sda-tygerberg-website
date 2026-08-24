@@ -1,5 +1,18 @@
 import type { Lang } from './site';
-import { YOUTH_EVENING, youthEveningRange } from './youthGroups';
+import { DIVINE_SERVICE } from './site';
+import { SABBATH_GROUPS, YOUTH_EVENING, youthEveningRange } from './youthGroups';
+
+/*
+ * The midweek clock times, once. A clock time is not language-specific, and
+ * typing it into both the Afrikaans and the English literal is how the two
+ * halves of a bilingual file drift apart — the Jeugaand entry three lines below
+ * each of them already imports its range instead of retyping it. C-53
+ */
+const MIDWEEK = {
+  prayer: '19:00 – 20:00',
+  bibleStudy: '19:00 – 21:00',
+  volleyball: '19:00 – 21:00',
+} as const;
 
 /**
  * One midweek card. `href` turns the card into a link to the page behind it and
@@ -64,8 +77,6 @@ export type HomeCopy = {
   beliefsHeading: string;
   beliefsSub: string;
   beliefRead: string;
-  beliefTitles: string[];
-  beliefDescs: string[];
   involvedHeading: string;
   connectTitle: string;
   connectDesc: string;
@@ -78,19 +89,22 @@ export type HomeCopy = {
   studyCta: string;
   resourcesHeading: string;
   resourcesSub: string;
-  resLesson: string;
-  resHomebase: string;
-  resAwr: string;
   visitEyebrow: string;
   visitHeading: string;
   visitAddressLabel: string;
   copyAddress: string;
   addressCopied: string;
+  addressCopyFailed: string;
+  /** Day prefix on the service-times rows. "Sa" in Afrikaans, "Sat" in English. */
+  saturdayShort: string;
+  mapTitle: string;
   directionsCta: string;
   appleMapsCta: string;
   footerBlurb: string;
   footerVisit: string;
   footerTimesLabel: string;
+  footerCreditBuilder: string;
+  footerCreditChurch: string;
 };
 
 export const homeCopy: Record<Lang, HomeCopy> = {
@@ -113,9 +127,9 @@ export const homeCopy: Record<Lang, HomeCopy> = {
     tabReplay: 'Onlangse Dienste',
     timesLabel: 'Sabbatdienste',
     week: [
-      { day: 'Dinsdag', name: 'Biduur', time: '19:00 – 20:00' },
-      { day: 'Woensdag', name: 'Bybelstudie', time: '19:00 – 21:00' },
-      { day: 'Donderdag', name: 'Vlugbal', time: '19:00 – 21:00' },
+      { day: 'Dinsdag', name: 'Biduur', time: MIDWEEK.prayer },
+      { day: 'Woensdag', name: 'Bybelstudie', time: MIDWEEK.bibleStudy },
+      { day: 'Donderdag', name: 'Vlugbal', time: MIDWEEK.volleyball },
       // Day and time come from youthGroups.ts because /youth prints them too,
       // and this card is the link to that page — C-03.
       {
@@ -136,7 +150,7 @@ export const homeCopy: Record<Lang, HomeCopy> = {
       },
       {
         q: 'Is daar iets vir die kinders?',
-        a: 'Ja — kinderprogramme loop van 09:30 tot 11:00, terwyl Sabbatskool en Lesstudie aan die gang is. Daarna sluit die kinders by die gemeente aan vir die Erediens.',
+        a: `Ja — kinderprogramme loop van ${SABBATH_GROUPS.start} tot ${SABBATH_GROUPS.end}, terwyl Sabbatskool en Lesstudie aan die gang is. Daarna sluit die kinders by die gemeente aan vir die ${DIVINE_SERVICE.af}.`,
       },
       {
         q: 'Is die gebou rolstoeltoeganklik?',
@@ -166,15 +180,6 @@ export const homeCopy: Record<Lang, HomeCopy> = {
     beliefsHeading: 'Wat ons glo',
     beliefsSub: 'Die 28 fundamentele leerstellings, gegroepeer in ses temas wat ons geloof in Jesus vorm.',
     beliefRead: 'Lees al 28 leerstellings →',
-    beliefTitles: ['God', 'Mensdom', 'Verlossing', 'Die Kerk', 'Daaglikse Lewe', 'Herstel'],
-    beliefDescs: [
-      'Die Skrif as die Woord van God, die Drie-eenheid, en die karakter van die Vader, Seun en Heilige Gees.',
-      'Die skepping en die aard van die mens, geskape na die beeld van God.',
-      'Die groot stryd, die lewe, dood en opstanding van Christus, en die ervaring van verlossing.',
-      'Die kerk en haar sending, eenheid in die liggaam, die doop en die Nagmaal.',
-      'Die Sabbat, rentmeesterskap, die gawe van profesie, die gesin en Christelike lewe.',
-      'Christus se diens in die hemelse heiligdom, sy wederkoms, die opstanding en die nuwe aarde.',
-    ],
     involvedHeading: 'Raak betrokke',
     connectTitle: 'Verbind',
     connectDesc: "Kry 'n antwoord op jou vrae — ons stel jou aan die regte persoon voor.",
@@ -187,19 +192,21 @@ export const homeCopy: Record<Lang, HomeCopy> = {
     studyCta: 'Vra studie aan',
     resourcesHeading: 'Voed jou geloof daagliks',
     resourcesSub: 'Amptelike Adventiste hulpbronne vir studie en aanbidding.',
-    resLesson: 'Lesstudie Biblioteek',
-    resHomebase: 'HomebaseTV Afrikaans',
-    resAwr: 'AWR Afrikaans',
     visitEyebrow: 'Besoek Ons',
     visitHeading: 'Sluit by ons aan hierdie Sabbat',
     visitAddressLabel: 'Adres',
     copyAddress: 'Kopieer Adres',
     addressCopied: 'Gekopieer!',
+    addressCopyFailed: 'Kon nie kopieer nie',
+    saturdayShort: 'Sa',
+    mapTitle: 'Tygerberg SDA Kerk — kaart',
     directionsCta: 'Kry Aanwysings',
     appleMapsCta: 'Maak oop in Apple Maps',
     footerBlurb: '’n Gemeente wat hoop, genesing en die liefde van Jesus met die Tygerberg-omgewing deel.',
     footerVisit: 'Besoek ons',
     footerTimesLabel: 'Dienstye',
+    footerCreditBuilder: 'Geskep deur Cloudkid Technologist ™ · cloudkid.link',
+    footerCreditChurch: 'Deel van die wêreldwye Adventistekerk · adventist.org',
   },
   en: {
     navAbout: 'About',
@@ -219,9 +226,9 @@ export const homeCopy: Record<Lang, HomeCopy> = {
     tabReplay: 'Recent Services',
     timesLabel: 'Sabbath Services',
     week: [
-      { day: 'Tuesday', name: 'Prayer Meeting', time: '19:00 – 20:00' },
-      { day: 'Wednesday', name: 'Bible Study', time: '19:00 – 21:00' },
-      { day: 'Thursday', name: 'Volleyball', time: '19:00 – 21:00' },
+      { day: 'Tuesday', name: 'Prayer Meeting', time: MIDWEEK.prayer },
+      { day: 'Wednesday', name: 'Bible Study', time: MIDWEEK.bibleStudy },
+      { day: 'Thursday', name: 'Volleyball', time: MIDWEEK.volleyball },
       {
         day: YOUTH_EVENING.day.en,
         name: 'Youth Evening',
@@ -240,7 +247,7 @@ export const homeCopy: Record<Lang, HomeCopy> = {
       },
       {
         q: 'Is there anything for the children?',
-        a: 'Yes — children’s programmes run from 09:30 to 11:00, while Sabbath School and Lesson Study are on. The children then join the congregation for the Divine Service.',
+        a: `Yes — children’s programmes run from ${SABBATH_GROUPS.start} to ${SABBATH_GROUPS.end}, while Sabbath School and Lesson Study are on. The children then join the congregation for the ${DIVINE_SERVICE.en}.`,
       },
       {
         q: 'Is the building wheelchair accessible?',
@@ -270,15 +277,6 @@ export const homeCopy: Record<Lang, HomeCopy> = {
     beliefsHeading: 'What we believe',
     beliefsSub: 'The 28 fundamental beliefs, grouped into six themes that shape our faith in Jesus.',
     beliefRead: 'Read all 28 beliefs →',
-    beliefTitles: ['God', 'Humanity', 'Salvation', 'The Church', 'Daily Living', 'Restoration'],
-    beliefDescs: [
-      'Scripture as the Word of God, the Trinity, and the character of the Father, Son and Holy Spirit.',
-      'Creation and the nature of humanity, made in the image of God.',
-      'The great controversy, the life, death and resurrection of Christ, and the experience of salvation.',
-      'The church and its mission, unity in the body, baptism and the Lord’s Supper.',
-      'The Sabbath, stewardship, the gift of prophecy, family and Christian living.',
-      'Christ’s ministry in the heavenly sanctuary, His second coming, the resurrection and the new earth.',
-    ],
     involvedHeading: 'Get involved',
     connectTitle: 'Connect',
     connectDesc: 'Get an answer to your questions — we’ll introduce you to the right person.',
@@ -291,18 +289,20 @@ export const homeCopy: Record<Lang, HomeCopy> = {
     studyCta: 'Request study',
     resourcesHeading: 'Feed your faith daily',
     resourcesSub: 'Official Adventist resources for study and worship.',
-    resLesson: 'Lesson Study Library',
-    resHomebase: 'HomebaseTV Afrikaans',
-    resAwr: 'AWR Afrikaans',
     visitEyebrow: 'Visit Us',
     visitHeading: 'Join us this Sabbath',
     visitAddressLabel: 'Address',
     copyAddress: 'Copy Address',
     addressCopied: 'Copied!',
+    addressCopyFailed: 'Copy failed',
+    saturdayShort: 'Sat',
+    mapTitle: 'Tygerberg SDA Church — map',
     directionsCta: 'Get Directions',
     appleMapsCta: 'Open in Apple Maps',
     footerBlurb: 'A congregation sharing hope, healing and the love of Jesus with the Tygerberg community.',
     footerVisit: 'Visit us',
     footerTimesLabel: 'Service times',
+    footerCreditBuilder: 'Created by Cloudkid Technologist ™ · cloudkid.link',
+    footerCreditChurch: 'Part of the worldwide Adventist Church · adventist.org',
   },
 };

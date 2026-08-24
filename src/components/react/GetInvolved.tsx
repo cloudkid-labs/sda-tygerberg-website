@@ -24,7 +24,7 @@ export function GetInvolved() {
               <p className="mb-4 text-sm leading-relaxed text-blue-pale">{t.connectDesc}</p>
             </div>
             <a
-              href={withBase('/connect')}
+              href={withBase('/connect/')}
               className="w-full inline-flex items-center justify-center gap-1.5 rounded-pill border border-white/20 px-4 py-2 text-[13px] font-bold text-white hover:border-white hover:bg-white/10 transition-colors"
             >
               {t.connectCta} →
@@ -37,7 +37,7 @@ export function GetInvolved() {
               <p className="mb-4 text-sm leading-relaxed text-blue-pale">{t.studyDesc}</p>
             </div>
             <a
-              href={withBase('/bible-studies')}
+              href={withBase('/bible-studies/')}
               className="w-full inline-flex items-center justify-center gap-1.5 rounded-pill border border-white/20 px-4 py-2 text-[13px] font-bold text-white hover:border-white hover:bg-white/10 transition-colors"
             >
               {t.studyCta} →
@@ -54,7 +54,7 @@ export function GetInvolved() {
                 code does not fit in a third of a card — and a giving link is
                 the kind of thing people want to send to someone else. */}
             <a
-              href={withBase('/giving')}
+              href={withBase('/giving/')}
               className="w-full inline-flex items-center justify-center gap-1.5 rounded-pill bg-orange px-4 py-2 text-[13px] font-bold text-white hover:bg-orange-hover transition-colors"
             >
               {t.giveCta} →

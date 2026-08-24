@@ -86,7 +86,7 @@ export function Header() {
               three cards of which giving is one; someone pressing this has
               already decided. */}
           <a
-            href={withBase('/giving')}
+            href={withBase('/giving/')}
             className="h-8 inline-flex shrink-0 items-center justify-center rounded-pill border border-orange bg-orange px-2.5 sm:px-3.5 text-[11px] sm:text-xs font-bold text-white hover:bg-orange-hover transition-colors"
           >
             {t.give}
@@ -138,7 +138,7 @@ export function Header() {
             <DirectionsLink onClick={closeMenu} />
             <LanguageToggle />
             <a
-              href={withBase('/giving')}
+              href={withBase('/giving/')}
               onClick={closeMenu}
               className="h-8 inline-flex shrink-0 items-center justify-center rounded-pill border border-orange bg-orange px-2.5 sm:px-3.5 text-[11px] sm:text-xs font-bold text-white hover:bg-orange-hover transition-colors"
             >

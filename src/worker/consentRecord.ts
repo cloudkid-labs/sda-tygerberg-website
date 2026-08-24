@@ -106,8 +106,14 @@ export async function storeConsent(
   try {
     await env.CONSENT.put(consentKey(record), JSON.stringify(record, null, 2), {
       httpMetadata: { contentType: 'application/json' },
-      // Queryable without fetching the body — enough to audit a date range or
-      // find one person's records from a listing alone.
+      /*
+       * Listable without fetching the bodies, which is enough to audit volume
+       * and date ranges. It is deliberately NOT enough to find one person's
+       * records: nothing here identifies anyone, so a POPIA access or deletion
+       * request means reading the objects. That is the right trade — putting a
+       * name or an email in object metadata would make every listing a
+       * disclosure. C-20, C-56
+       */
       customMetadata: {
         topic: record.topic,
         submittedAt: record.submittedAt,

@@ -1,19 +1,21 @@
 {
   "name": "tygerberg-sda-website",
   "type": "module",
-  "version": "1.3.2",
+  "version": "1.4.0",
   "private": true,
   "engines": {
     "node": ">=24.18.0"
   },
   "scripts": {
     "dev": "astro dev",
-    "build": "astro build",
+    "build": "astro build && node scripts/build-headers.mjs",
     "preview": "astro preview",
     "astro": "astro",
     "worker:dev": "npm run build && wrangler dev",
     "deploy": "npm run build && wrangler deploy",
     "headshots": "node scripts/headshot-fallbacks.mjs",
+    "typecheck": "tsc --noEmit",
+    "test": "node --import ./test/register.mjs --test \"test/**/*.test.?(m)[jt]s\"",
     "version:check": "node scripts/check-version.mjs",
     "version:patch": "npm version patch --no-git-tag-version",
     "version:minor": "npm version minor --no-git-tag-version",

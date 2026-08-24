@@ -7,27 +7,31 @@ After regenerating any icon, confirm a browser actually *draws* it
 (`naturalWidth > 0`), not merely that the file contains the right path data —
 CONCERNS.md C-26.
 
-## build-headshots.mjs
+## Headshot fallbacks — moved
 
-Builds the fallback copies of the department-head headshots:
+`build-headshots.mjs` used to live here. It is gone: `scripts/headshot-fallbacks.mjs`
+did the same job from the same sources, `npm run headshots` pointed at that one,
+and the two disagreed on quality and on whether to apply EXIF rotation — so
+which copy a headshot got depended on which script someone happened to run.
+One of the fourteen committed fallbacks had been built by the wrong one.
+
+There is one generator now:
 
 ```sh
-node tools/build-headshots.mjs
+npm run headshots            # build anything missing, check the rest
+npm run headshots -- --force # rebuild every fallback
 ```
 
 `public/images/hod/TG-DH-*.jpg` (~20 MP, 7-10 MB) →
-`public/images/hod/fallback/TG-DH-*.jpg` (1400px wide, ~200 kB, EXIF stripped).
-It resizes nothing else — the originals stay exactly as delivered, because they
-are what Cloudflare transforms per viewport. The fallbacks exist only for when
-there is no transformer to do that; see "Department head photos" in the root
-README for when that happens and how the site decides.
+`public/images/hod/fallback/TG-DH-*.jpg` (1400px wide, ~200-360 kB, EXIF
+stripped). It resizes nothing else — the originals stay exactly as delivered,
+because they are what Cloudflare transforms per viewport. See CONCERNS.md C-52.
 
 Run it whenever a headshot is added or replaced, and commit the output.
 
-Unlike `og-image.html` below, this needs no extra install: `sharp` comes in
-with Astro's own dependencies, so `npm ci` is enough. If that ever stops being
-true, `npm i sharp` in a scratch directory outside the repo and run it from
-there.
+Like `og-image.html` below it needs `sharp`, but no extra install: `sharp` comes
+in with Astro's own dependencies, so `npm ci` is enough. If that ever stops
+being true the script says so and exits.
 
 ## og-image.html
 

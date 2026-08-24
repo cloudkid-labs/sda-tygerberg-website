@@ -14,16 +14,23 @@
  * deployment. Anything a unit test or the build can prove belongs there
  * instead — this file costs deploy time and a false failure blocks a release.
  *
- * Usage: node scripts/smoke.mjs <base-url> [--no-api]
- *   --no-api  the devtest Pages build has no Worker, so /api/* is absent by
- *             design there (PUBLIC_HAS_API=false) and is not a failure.
+ * Usage: node scripts/smoke.mjs <base-url> [--no-edge]
+ *   --no-edge  the target has no Cloudflare edge in front of it. That removes
+ *              two things at once, and conflating them is how the first version
+ *              of this script red-failed a healthy devtest deploy: there is no
+ *              Worker, so /api/* is absent by design (PUBLIC_HAS_API=false),
+ *              AND `public/_headers` is a Cloudflare mechanism that GitHub
+ *              Pages never interprets — it uploads as a plain file and answers
+ *              200, while the response carries no CSP and no security headers
+ *              at all. Checking for either against Pages tests nothing about
+ *              the build and only produces noise.
  */
 
 const base = process.argv[2]?.replace(/\/$/, '');
-const noApi = process.argv.includes('--no-api');
+const noEdge = process.argv.includes('--no-edge');
 
 if (!base) {
-  console.error('usage: node scripts/smoke.mjs <base-url> [--no-api]');
+  console.error('usage: node scripts/smoke.mjs <base-url> [--no-edge]');
   process.exit(2);
 }
 
@@ -76,8 +83,8 @@ for (const path of PAGES) {
 
 /* ---- the API routes exist ---------------------------------------------- */
 console.log('\napi');
-if (noApi) {
-  notes.push('API checks skipped (--no-api): this deployment has no Worker.');
+if (noEdge) {
+  notes.push('API checks skipped (--no-edge): this deployment has no Worker.');
   console.log('  – skipped, no Worker on this target');
 } else {
   try {
@@ -136,7 +143,7 @@ try {
     if (!fb.ok) fail('headshot fallback', `HTTP ${fb.status}`);
     else pass('headshot fallback', `${fb.headers.get('content-length') ?? '?'}b`);
 
-    if (!noApi) {
+    if (!noEdge) {
       // C-51: the plain master URL must answer with the fallback, not the
       // 21-megapixel original. Compared by size, which is the only signal a
       // plain GET gives.
@@ -154,7 +161,10 @@ try {
 
 /* ---- security headers and the CSP -------------------------------------- */
 console.log('\nheaders');
-try {
+if (noEdge) {
+  notes.push('Header and CSP checks skipped (--no-edge): `_headers` is a Cloudflare mechanism and Pages does not apply it.');
+  console.log('  – skipped, no Cloudflare edge on this target');
+} else try {
   const res = await get('/');
   const required = [
     'content-security-policy',

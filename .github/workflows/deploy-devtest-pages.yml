@@ -88,4 +88,4 @@ jobs:
       # smoke test can — but it does catch a broken page or a missing asset
       # before the promotion PR is opened.
       - name: Smoke-test the preview
-        run: npm run smoke -- "${{ steps.deployment.outputs.page_url }}" --no-api
+        run: npm run smoke -- "${{ steps.deployment.outputs.page_url }}" --no-edge

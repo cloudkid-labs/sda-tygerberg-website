@@ -12,29 +12,16 @@ export function LanguageToggle({ variant = 'light' }: LanguageToggleProps) {
   const isNavy = variant === 'navy';
 
   /*
-   * Two palettes, not one tinted differently: on the cream header the orange
-   * is the darkened light-ground value with a white label, and on the navy
-   * footers it is the lifted one with a navy-deep label. Both clear 4.5:1 in
-   * every state; neither value does on the other ground.
-   *
-   * The navy hover darkens rather than tinting. `hover:bg-orange-on-navy/20`
-   * slid a third orange layer under orange text and the inactive label fell to
-   * 3.31-4.21:1 depending on where the SubPageFooter gradient is strongest —
-   * hover made it harder to read than rest. Any orange tint has the same
-   * problem; navy-deep/40 holds 5.56:1 at the gradient's worst point.
-   *
-   * Not `hover:bg-orange-on-navy hover:text-navy-deep`, which clears easily but
-   * renders the hovered *unselected* pill identical to the selected one — on a
-   * control whose only job is showing which language is active. C-39, C-41
+   * One orange on both grounds again (C-59), so the selected pill is the
+   * handoff's `bg-orange text-white` everywhere and the navy hover is back to
+   * the original orange tint.
    */
   const pillClass = (active: boolean) =>
     `h-full inline-flex items-center justify-center px-2.5 sm:px-3.5 text-[11px] sm:text-xs font-bold transition-colors shrink-0 ${
       active
-        ? isNavy
-          ? 'bg-orange-on-navy text-navy-deep'
-          : 'bg-orange text-white'
+        ? 'bg-orange text-white'
         : isNavy
-        ? 'bg-transparent text-orange-on-navy hover:bg-navy-deep/40'
+        ? 'bg-transparent text-orange hover:bg-orange/20'
         : 'bg-transparent text-navy hover:bg-orange/10 hover:text-orange'
     }`;
 
@@ -52,8 +39,8 @@ export function LanguageToggle({ variant = 'light' }: LanguageToggleProps) {
          sides, so clipping cut the focus ring (drawn 2px outside) down to a
          sliver. The pills are square-ended and the wrapper is a pill, so the
          corners are shaped with a radius on the buttons instead. C-40 */
-      className={`h-8 inline-flex shrink-0 flex-none items-center rounded-pill border text-[11px] sm:text-xs font-bold [&>button:first-child]:rounded-l-pill [&>button:last-child]:rounded-r-pill ${
-        isNavy ? 'border-orange-on-navy bg-orange-on-navy/10' : 'border-orange bg-orange/5'
+      className={`h-8 inline-flex shrink-0 flex-none items-center rounded-pill border border-orange text-[11px] sm:text-xs font-bold [&>button:first-child]:rounded-l-pill [&>button:last-child]:rounded-r-pill ${
+        isNavy ? 'bg-orange/10' : 'bg-orange/5'
       }`}
     >
       <button

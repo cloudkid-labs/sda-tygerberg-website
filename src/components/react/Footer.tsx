@@ -48,10 +48,10 @@ export function Footer() {
       <div className="border-t border-white/10">
         <div className="mx-auto flex max-w-content flex-wrap items-center gap-4 px-7 py-5 text-xs">
           <span>© {year} Tygerberg SDA</span>
-          <a href="https://cloudkid.link" target="_blank" rel="noopener" className="font-semibold text-orange-on-navy hover:text-white">
+          <a href="https://cloudkid.link" target="_blank" rel="noopener" className="font-semibold text-orange hover:text-white">
             {t.footerCreditBuilder}
           </a>
-          <a href="https://adventist.org" target="_blank" rel="noopener" className="font-semibold text-orange-on-navy hover:text-white">
+          <a href="https://adventist.org" target="_blank" rel="noopener" className="font-semibold text-orange hover:text-white">
             {t.footerCreditChurch}
           </a>
         </div>

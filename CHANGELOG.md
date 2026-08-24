@@ -5,9 +5,9 @@
 
 ## [1.4.0] — unreleased
 
-- The brand orange is darkened for light grounds and lifted for the navy ones;
-  white-on-orange was 2.67:1 (C-39). Focus rings are navy on light, cream on
-  dark (C-40).
+- Focus rings are navy on light grounds, cream on dark (C-40). The brand orange
+  stays the handoff `#e8862c` everywhere by decision; it misses AA on the light
+  grounds and C-59 says what that costs.
 - Headshot masters no longer answer a direct URL — the transformer gets them,
   everyone else gets the 1400px copy (C-51). One headshot generator, not two
   (C-52); `TG-DH-Louws.jpg` was the one built by the wrong one.

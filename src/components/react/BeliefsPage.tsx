@@ -14,8 +14,6 @@ function BeliefsContent() {
 
   const toggle = (id: string) => setOpen((s) => ({ ...s, [id]: !s[id] }));
 
-  let counter = 0;
-
   return (
     <div className="flex min-h-screen flex-col font-sans text-ink">
       <SubPageHeader backHome={t.backHome} />
@@ -42,7 +40,11 @@ function BeliefsContent() {
         </a>
       </section>
 
-      <div className="sticky top-[63px] z-40 border-b border-subtle bg-cream/95 backdrop-blur">
+      {/* Two offsets, because SubPageHeader has two heights: py-2.5 makes it 63px
+          and py-3.5 makes it 71.5px from sm up. A single 63px parked this bar
+          8.5px behind the header on every viewport above 640px, and the header
+          wins at z-50. C-42 */}
+      <div className="sticky top-[63px] sm:top-[71.5px] z-40 border-b border-subtle bg-cream/95 backdrop-blur">
         <div className="mx-auto flex max-w-content-narrow flex-wrap justify-center gap-2.5 px-7 py-3.5">
           {beliefCategories.map((cat, i) => (
             <a
@@ -64,7 +66,14 @@ function BeliefsContent() {
         >
           <div className="mb-8 border-l-[3px] border-blue-muted pl-4.5">
             <div className="mb-2.5 inline-flex rounded-pill bg-blue-muted/30 px-3 py-1 text-[11.5px] font-bold uppercase tracking-[.1em] text-navy">
-              {cat.items.length} {lang === 'af' ? 'Leerstellings' : cat.items.length === 1 ? 'Belief' : 'Beliefs'}
+              {cat.items.length}{' '}
+              {lang === 'af'
+                ? cat.items.length === 1
+                  ? 'Leerstelling'
+                  : 'Leerstellings'
+                : cat.items.length === 1
+                ? 'Belief'
+                : 'Beliefs'}
             </div>
             <h2 className="mb-2.5 font-serif text-3xl font-medium text-ink">{cat.name[lang]}</h2>
             <p className="max-w-[560px] text-[15px] leading-relaxed text-slate-muted">
@@ -73,8 +82,13 @@ function BeliefsContent() {
           </div>
 
           <div className="flex flex-col gap-2.5">
-            {cat.items.map((item) => {
-              counter += 1;
+            {cat.items.map((item, ii) => {
+              const counter =
+                beliefCategories
+                  .slice(0, ci)
+                  .reduce((n, c) => n + c.items.length, 0) +
+                ii +
+                1;
               const id = `belief-${counter}`;
               const isOpen = !!open[id];
               return (
@@ -101,14 +115,18 @@ function BeliefsContent() {
                       {isOpen ? '–' : '+'}
                     </span>
                   </button>
-                  {isOpen && (
-                    <div
-                      id={`${id}-panel`}
-                      className="px-5.5 pb-5.5 pl-15 text-[15px] leading-relaxed text-slate"
-                    >
-                      {item[lang].desc}
-                    </div>
-                  )}
+                  {/* Always rendered, hidden when collapsed. Rendering it only
+                      while open left aria-controls pointing at an id that was
+                      not in the document — an aria-valid-attr-value violation
+                      on all 28. It also means the text is in the served HTML,
+                      so a crawler and a reader without JavaScript get it. C-43 */}
+                  <div
+                    id={`${id}-panel`}
+                    hidden={!isOpen}
+                    className="px-5.5 pb-5.5 pl-15 text-[15px] leading-relaxed text-slate"
+                  >
+                    {item[lang].desc}
+                  </div>
                 </div>
               );
             })}

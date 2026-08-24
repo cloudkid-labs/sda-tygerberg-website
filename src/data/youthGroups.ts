@@ -20,10 +20,9 @@ export type YouthGroup = {
   /** The church's own name for the group, not a translation of the age band. */
   name: Record<Lang, string>;
   /**
-   * One line on what the group does. Drafted here, **not confirmed by the
-   * board** — the same standard `homeCopy.firstVisit` holds itself to. A group
-   * with an empty blurb renders as a name and an age band, so emptying one is
-   * how you retract a description you are not sure of, rather than deleting the
+   * One line on what the group does. Confirmed by the church. A group with an
+   * empty blurb renders as a name and an age band, so emptying one is how you
+   * retract a description you are no longer sure of, rather than deleting the
    * group and losing the age band with it.
    */
   blurb: Record<Lang, string>;
@@ -86,8 +85,12 @@ export const ageRange = (group: YouthGroup) => `${group.ages[0]} – ${group.age
  * deliberately not derived from it, because "the groups end when the sermon
  * starts" is a coincidence of the current timetable and not a rule.
  *
- * Restated in prose by `homeCopy.firstVisit` and by `public/llms.txt`, neither
- * of which can import it. Change it here and change it there too — C-35.
+ * Restated in prose by `public/llms.txt`, which is a flat file and cannot
+ * import it. Change it here and change it there too — C-35.
+ *
+ * `homeCopy.firstVisit` also states it, and used to hand-type it on the same
+ * excuse — but homeCopy imports from this file already, so it interpolates the
+ * constant now. C-53
  */
 export const SABBATH_GROUPS = { start: '09:30', end: '11:00' } as const;
 
@@ -101,6 +104,22 @@ export const YOUTH_EVENING = {
   day: { af: 'Vrydag', en: 'Friday' },
   start: '19:00',
   end: '21:00',
+} as const;
+
+/**
+ * The span the Sabbath classes cover, end to end. The /youth meta description
+ * stated "0 tot 18" in prose, which is only true for as long as nobody adds a
+ * group at either end. C-53
+ */
+export const YOUTH_AGE_SPAN = {
+  // `Math.min()` of nothing is Infinity, and this feeds a meta description.
+  // An empty roster is not a state the page can describe, so say nothing.
+  youngest: SABBATH_YOUTH_GROUPS.length
+    ? Math.min(...SABBATH_YOUTH_GROUPS.map((g) => g.ages[0]))
+    : 0,
+  oldest: SABBATH_YOUTH_GROUPS.length
+    ? Math.max(...SABBATH_YOUTH_GROUPS.map((g) => g.ages[1]))
+    : 0,
 } as const;
 
 export const sabbathGroupsRange = `${SABBATH_GROUPS.start} – ${SABBATH_GROUPS.end}`;

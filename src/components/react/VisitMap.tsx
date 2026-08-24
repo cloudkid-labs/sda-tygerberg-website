@@ -7,7 +7,7 @@ import { withBase } from '../../lib/base';
 export function VisitMap() {
   const { lang } = useLanguage();
   const t = homeCopy[lang];
-  const [copied, setCopied] = useState(false);
+  const [copyState, setCopyState] = useState<'idle' | 'copied' | 'failed'>('idle');
   const copyTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => () => {
@@ -15,14 +15,21 @@ export function VisitMap() {
   }, []);
 
   const copyAddress = async () => {
+    /*
+     * The outcome decides the label. `setCopied(true)` used to sit after the
+     * catch, so an insecure context or a refused permission still said
+     * "Gekopieer!" over an empty clipboard. The address is printed directly
+     * above, so a failure leaves the visitor something to select by hand.
+     */
+    let ok = true;
     try {
       await navigator.clipboard.writeText(SITE.address);
     } catch {
-      // Clipboard API unsupported — still show the confirmation.
+      ok = false;
     }
-    setCopied(true);
+    setCopyState(ok ? 'copied' : 'failed');
     if (copyTimer.current) clearTimeout(copyTimer.current);
-    copyTimer.current = setTimeout(() => setCopied(false), 2000);
+    copyTimer.current = setTimeout(() => setCopyState('idle'), 2000);
   };
 
   return (
@@ -42,17 +49,25 @@ export function VisitMap() {
             type="button"
             onClick={copyAddress}
             className={`mb-6 rounded-pill px-4 py-2 text-[12.5px] font-semibold ${
-              copied ? 'bg-navy text-white' : 'border border-strong text-ink hover:border-navy'
+              copyState === 'copied'
+                ? 'bg-navy text-white'
+                : 'border border-strong text-ink hover:border-navy'
             }`}
           >
-            {copied ? t.addressCopied : t.copyAddress}
+            {copyState === 'copied'
+              ? t.addressCopied
+              : copyState === 'failed'
+              ? t.addressCopyFailed
+              : t.copyAddress}
           </button>
 
           <div className="mb-6 flex flex-col gap-2 border-t border-subtle pt-5">
             {SERVICE_TIMES.map((entry) => (
               <div key={entry.en} className="flex justify-between text-sm">
                 <span className="text-slate">{entry[lang]}</span>
-                <span className="font-bold text-ink">Sat {serviceRange(entry)}</span>
+                <span className="font-bold text-ink">
+                  {t.saturdayShort} {serviceRange(entry)}
+                </span>
               </div>
             ))}
           </div>
@@ -77,9 +92,11 @@ export function VisitMap() {
 
         {/* Map carries no tile attribution, by decision — CONCERNS.md C-01. */}
         <div className="relative min-h-[300px] overflow-hidden rounded-card-lg">
+          {/* `/map/`, not `/map.html`: the map is a page now, so this loads
+              directly instead of taking a 307 first. C-47 */}
           <iframe
-            src={withBase('/map.html')}
-            title="Tygerberg SDA Kerk — kaart"
+            src={withBase('/map/')}
+            title={t.mapTitle}
             loading="lazy"
             className="absolute inset-0 h-full w-full border-0"
           />

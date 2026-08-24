@@ -3,7 +3,31 @@
 [Semantic Versioning](https://semver.org/). What the numbers mean: README,
 "Versioning and releases".
 
-## [1.3.2] — unreleased
+## [1.4.0] — unreleased
+
+- The brand orange is darkened for light grounds and lifted for the navy ones;
+  white-on-orange was 2.67:1 (C-39). Focus rings are navy on light, cream on
+  dark (C-40).
+- Headshot masters no longer answer a direct URL — the transformer gets them,
+  everyone else gets the 1400px copy (C-51). One headshot generator, not two
+  (C-52); `TG-DH-Louws.jpg` was the one built by the wrong one.
+- Security headers, a hash-based Content-Security-Policy, `immutable` on
+  `/_astro/*`, and SRI on Leaflet.
+- CI runs typecheck, tests and build on every pull request; 26 tests, none
+  before.
+- `cronWindow` parses `N/step` (C-15); the version guard fails on a shallow
+  clone instead of reading it as a first release (C-45).
+- The pre-hydration homepage no longer advertises a past blood drive (C-44).
+- `aria-controls` points at an element that exists (C-43); the beliefs category
+  bar clears the header at every width (C-42); the language toggle carries
+  `aria-pressed` (C-41).
+- The map is a page, not a public file, and reads the address from `site.ts`
+  (C-47); `/map.html` still 307s, now to `/map/`. The JSON-LD address is
+  derived, not retyped (C-49).
+- Workflow actions moved to their current majors; the four workflows were on
+  runners Node 20 had been deprecated on (C-58).
+
+## [1.3.2] — 2026-08-23
 
 - Lané Louw is Tiener Jeugleier, not Junior Jeugleier; no Junior Jeugleier
   office remains. The Jeug block is oldest-tier-first again.

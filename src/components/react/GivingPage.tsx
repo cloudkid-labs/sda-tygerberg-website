@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { LanguageProvider, useLanguage } from '../../context/LanguageContext';
 import { BANKING_DETAILS, ZAPPER, givingCopy } from '../../data/giving';
 import { withBase } from '../../lib/base';
@@ -12,12 +12,18 @@ import { SubPageFooter } from './SubPageFooter';
  */
 function CopyButton({ value, label, copiedLabel }: { value: string; label: string; copiedLabel: string }) {
   const [copied, setCopied] = useState(false);
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => () => {
+    if (timer.current) clearTimeout(timer.current);
+  }, []);
 
   const copy = async () => {
     try {
       await navigator.clipboard.writeText(value);
       setCopied(true);
-      window.setTimeout(() => setCopied(false), 2000);
+      if (timer.current) clearTimeout(timer.current);
+      timer.current = setTimeout(() => setCopied(false), 2000);
     } catch {
       // Insecure context, denied permission, or an old browser. Say nothing —
       // the number is on screen and can still be read.

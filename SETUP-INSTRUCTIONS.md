@@ -48,7 +48,7 @@ To run the site the way production actually serves it (static assets **plus**
 the Worker), use Wrangler:
 
 ```sh
-npm run worker:dev     # builds, then wrangler dev on http://localhost:8788
+npm run worker:dev     # builds, then wrangler dev on http://localhost:8787
 ```
 
 For local secrets, copy the example file — `.dev.vars` is gitignored, so it
@@ -355,10 +355,15 @@ embeds the channel's auto-generated uploads playlist.
 5. Put the key in the `YOUTUBE_API_KEY` Worker secret (step 4).
 
 **Watch the quota.** `search.list` costs 100 units against a 10,000/day
-default, and there's no server-side caching by design, so cost scales with
-concurrent viewers rather than with time. The Saturday-morning window in
-`wrangler.jsonc` is what keeps this affordable — see the README's LIVE badge
-section before widening it.
+default. One upstream answer is shared across a Cloudflare colo for 60 seconds
+(`src/worker/liveStatusCache.ts`, CONCERNS.md C-16), so cost scales with *time
+inside the window*, not with concurrent viewers: roughly 60 calls an hour per
+colo that has anyone watching, whatever the audience. Sizing the key's quota
+off viewer numbers will overshoot by a wide margin.
+
+The Saturday-morning window in `wrangler.jsonc` is what bounds it — outside the
+window no call is made at all. See the README's LIVE badge section before
+widening it.
 
 ---
 

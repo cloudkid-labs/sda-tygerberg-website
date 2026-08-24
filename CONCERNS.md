@@ -15,8 +15,9 @@ file covers the traps.
 
 ### C-01 — The map carries no tile attribution
 
-`public/map.html` sets `attributionControl: false`, and nothing renders an
-OpenStreetMap credit anywhere on the page.
+`src/pages/map.astro` sets `attributionControl: false`, and nothing renders an
+OpenStreetMap credit anywhere on the page. (It was `public/map.html` until
+C-47 moved it; the decision below is unchanged.)
 
 **This is a known breach**, decided by the repo owner. OSM tiles come under the
 ODbL and the [OSMF tile usage policy](https://operations.osmfoundation.org/policies/tiles/),
@@ -56,7 +57,7 @@ The current values assume the card sits in `max-w-content px-7` (1180px cap,
 
 ### C-04 — The fallback copies must not be narrower than the widest srcset entry
 
-`MASTER_WIDTH` in `tools/build-headshots.mjs` must stay ≥ the largest
+`WIDTH` in `scripts/headshot-fallbacks.mjs` must stay ≥ the largest
 `HEADSHOT_WIDTHS` entry. `fit=scale-down` never upscales, so a smaller master
 silently serves a smaller image than the layout asked for.
 
@@ -85,8 +86,8 @@ The image is positioned `absolute inset-0` against the box instead. Do not
 
 ### C-07 — The two image qualities are set to different numbers on purpose
 
-`IMAGE_TRANSFORM_OPTIONS` uses `quality=82`; `tools/build-headshots.mjs` uses
-90. They pay for different things.
+`IMAGE_TRANSFORM_OPTIONS` uses `quality=82`; `scripts/headshot-fallbacks.mjs`
+uses 90. They pay for different things.
 
 A transform is per request, and AVIF stops being cheap right after 85. Measured
 live at `width=640`: 21 kB at q75, 24 kB at 82, 27 kB at 85, 46 kB at 90,
@@ -111,7 +112,7 @@ is the right answer and the component reaches it on its own.
 Two mechanisms pick between a transform URL and a fallback copy:
 
 1. `PUBLIC_IMAGE_CDN=false` at build time, for an environment known to have no
-   transformer (the devtest Pages build — C-21).
+   transformer (the devtest Pages build — C-22).
 2. One `HEAD` to a `/cdn-cgi/image/...` URL on hydration, shared by every card.
 
 Without the probe each card discovers the answer by failing: a 404 per photo,
@@ -327,9 +328,24 @@ Three things about what is stored:
 - **The client sends `lang`** so the record holds the sentence actually on
   screen. Anything unrecognised falls back to `af` rather than rejecting an
   otherwise good enquiry over a language tag.
-- **The free-text `message` is deliberately not stored.** It is the most
+- **The free-text `message` is deliberately not stored *here*.** It is the most
   sensitive thing a visitor types and it is not part of demonstrating consent.
   C-20's "minimum needed" binds harder on storage at rest than on an inbox.
+
+  **But the deployment stores it anyway, and this entry used to claim
+  otherwise.** Every enquiry is blind-copied to `CONTACT_EMAIL_BCC`
+  (`notifications@cloudkid.link`), which Email Routing hands to the
+  `cloudkid-link-r2-explorer` Worker, and that Worker is configured with
+  `targetBucket: "email-notifications"` — so the full message body is persisted
+  to R2 as a raw `.txt` dump, in a different bucket, with no retention rule, that
+  `wrangler.jsonc`'s own comment says nobody reads. `ConsentRecord` having no
+  `message` field is true and beside the point.
+
+  Two places in this repo already suggest dropping that BCC. This is the reason
+  to: it is the difference between the paragraph above being a design decision
+  and being a POPIA claim the deployment contradicts. Until it is dropped, read
+  this bullet as "the *consent record* does not hold the message", not as "the
+  message is not stored".
 
 Retention is a dashboard-only R2 lifecycle rule and **is not configured by this
 repo** — SETUP-INSTRUCTIONS.md §3.6. Personal data with no expiry is the failure
@@ -664,3 +680,329 @@ Absolute production URLs throughout, deliberately. The file is copied verbatim
 to whatever origin serves it, so a devtest build advertises the production
 addresses rather than its own — the same call as C-23, and for the same reason:
 a preview must not invite anyone to treat it as the real site.
+
+---
+
+## The August 2026 audit
+
+C-39 through C-56 all come from one review of the whole repository. Several of
+them are the same shape: a comment stating something the code had stopped doing.
+Where that happened the comment is now either true or gone.
+
+### C-39 — Two oranges, because one cannot serve both grounds
+
+The handoff's `#e8862c` measured 2.39:1 as text on cream and 2.67:1 under a
+white button label — the fill on every primary call to action. Both fail
+WCAG 1.4.3 (4.5:1). Darkening it far enough for the light grounds pushes it to
+2.02:1 on navy, where orange text also lives, so no single value works.
+
+- `--color-orange: #924e0f` — the light-ground value. White on it is 6.33:1.
+- `--color-orange-on-navy: #f0a15a` — 5.50:1 on navy, 7.09:1 on navy-deep, and
+  visually the brand orange, which is why the dark sections keep it.
+
+The exact light-ground value is set by the tightest ground on the site, which is
+not the page: an eyebrow on a `bg-orange/10` panel has only the 10% tint between
+it and its own colour. `#9a5410` measured 4.47:1 there. `#924e0f` measures 4.94.
+
+`--color-slate-muted` went `#5c6b73` → `#55646b` for the same reason: 4.48:1 on
+tan was the one body colour that missed.
+
+Anything on a navy ground takes the `-on-navy` token, and a filled control there
+takes a `text-navy-deep` label rather than white.
+
+### C-40 — The focus ring is two rules
+
+One `:focus-visible` rule painted a 3px orange outline everywhere. On an orange
+button that is **1.00:1** — the same colour — so a keyboard user tabbing onto the
+primary CTA saw nothing at all, and it failed SC 1.4.11 (3:1) on every light
+ground besides.
+
+The comment above it said orange "is the only token in the palette with enough
+contrast against both the cream page and the navy bands and buttons". Navy on
+cream is 10.39:1 against orange's 2.39:1, so navy is strictly better on light;
+and orange on orange is 1.00:1, the one case the rule existed to cover.
+
+Navy is the default; `:is(.bg-navy, .bg-navy-deep, .bg-black) :focus-visible`
+inverts it to cream inside the dark sections. Keyed off the background utility
+so a new dark section gets the right ring without anyone remembering.
+
+`outline-offset: 2px` is load-bearing: the ring is drawn clear of the element,
+so what it must contrast with is the ground behind it, not the fill it surrounds.
+For the same reason the language toggle carries no `overflow-hidden` — it clipped
+each pill's ring to a sliver — and rounds its end buttons instead.
+
+Two rules cover everything that takes the default outline. The form inputs opt
+out on purpose: `RequestForm` sets `focus:outline-none` and draws its own
+`focus:ring-2 focus:ring-navy/15` with a `focus:border-navy`, which is a stronger
+signal on a field than an outline around it. That is a deliberate exception, not
+a gap.
+
+### C-41 — The language toggle says which language is active
+
+`bg-orange text-white` on the selected pill and nothing else — no `aria-pressed`,
+no `aria-current`, no ARIA of any kind. A screen-reader user could not tell which
+language was on, and the control leaned on colour to carry state (SC 1.4.1).
+Both buttons now carry `aria-pressed`, the pattern the carousel's pause button
+already used.
+
+### C-42 — The sticky category bar has two offsets
+
+`SubPageHeader` is 63px at `py-2.5` and 71.5px from `sm` up at `py-3.5`. The
+beliefs category bar was pinned at `top-[63px]` alone, so from 640px up it parked
+8.5px behind the header, which wins at `z-50` against the bar's `z-40`. Measured
+at 390/640/768/1280.
+
+### C-43 — A disclosure panel is always rendered, and hidden when closed
+
+The accordions set `aria-controls` unconditionally but rendered the panel only
+while open, so every collapsed control referenced an id that was not in the
+document — 28 of 28 on `/beliefs`, 5 of 6 on the homepage. `hidden` when closed
+instead. It also puts the belief text in the served HTML, where a crawler reads
+it — a reader without JavaScript still cannot open a panel, but the words are now
+in the document rather than absent from it.
+
+### C-44 — What the page says before it hydrates has to be defensible
+
+C-36 explains why the clock is read after mount. It does not address what the
+un-narrowed first render *says*: seeded with the whole roster, the static HTML
+named a blood drive four months past and 27 sessions where the mounted page says
+12. That is what a crawler indexes.
+
+`PUBLIC_BUILD_DATE` is set once in `astro.config.mjs` and read as
+`import.meta.env.PUBLIC_BUILD_DATE`, so it is the same value in the static HTML
+and in the bundle and cannot cause a hydration mismatch. The drive list, the
+sitemap's `lastmod` and the footer's copyright year all read it.
+
+**Not `vite.define`.** That was the first attempt and it fails in exactly one
+place: Vite applies user defines to the *server* consumer under `astro dev`, so
+the client module was served with a bare `__BUILD_DATE__` identifier and every
+island on the homepage threw `ReferenceError` on hydration. The built site was
+fine, which is the worst shape for a bug like this. A `PUBLIC_` variable is
+inlined for both.
+
+### C-45 — A checkout with no tags is not a first release
+
+`git tag -l "v*"` on a shallow clone succeeds with empty output — it does not
+throw — so `check-version.mjs`'s `try/catch`, whose message named that exact
+case, could never fire for it. The script read zero tags as "first release" and
+exited 0, waving through a version that was already released: the silent
+promotion it exists to stop. It asks `git rev-parse --is-shallow-repository`
+now, and a genuine first release still passes, loudly.
+
+### C-46 — The player is deferred, the poster frame is the next step
+
+The hero `<iframe>` carried no `loading` attribute while the map below it was
+lazy. On a phone the player stacks under the hero copy and starts offscreen, so
+`loading="lazy"` genuinely withholds the YouTube bundle — which is larger than
+the entire first-party homepage — until it is scrolled to. On a desktop it is
+above the fold and lazy does nothing; a click-to-load poster would.
+
+### C-47 — The map is a page, not a file in `public/`
+
+`public/map.html` answered a 307 to `/map` in production before the iframe began
+loading Leaflet, and retyped the coordinates and the address that `site.ts`
+already held. As `src/pages/map.astro` it is served at its own URL with no
+redirect and reads both from the same place as everything else.
+
+**`/map.html` still resolves**, which was not obvious and was worth checking
+rather than assuming. Workers static assets default to
+`html_handling: "auto-trailing-slash"` and `wrangler.jsonc` sets no override; that
+handler's `.html` branch falls through to `<path>/index.html` and redirects to
+`<path>/`, which `dist/map/index.html` matches. Confirmed against the real asset
+worker under `wrangler dev`: `/map.html` → 307 → `/map/` → 200. No public URL was
+removed, so MINOR is right by the letter of the README's table rather than in
+spite of it.
+
+Two things the move broke and had to be put back:
+
+- The marker path had to become absolute. A relative `map-marker.svg` resolved
+  against `/map/` once this stopped being a file at the root.
+- The `<style>` block needs `is:global`. Every selector in it targets an element
+  Leaflet creates at runtime, and Astro's default scoping rewrites them to
+  `.church-marker[data-astro-cid-…]`, which matches nothing a script appends
+  after hydration. The marker lost its cream ring and the popup its type styling,
+  with no error anywhere.
+
+### C-48 — Leaflet is pinned and hash-checked
+
+The map loaded `leaflet@1.9.4` from unpkg with no `integrity`, so anything that
+host served would have run with full access to the document. The hashes are of
+the exact bytes; `crossorigin="anonymous"` is required for SRI to be enforced at
+all on a cross-origin fetch.
+
+The CSP in `public/_headers` is generated by `scripts/build-headers.mjs`, which
+hashes every inline script in the build — Astro's island loader and this page's
+`define:vars` block — because a `script-src` without `'unsafe-inline'` allows an
+inline script only by hash.
+
+### C-49 — The address exists once, in parts
+
+`structuredData.ts` said "both read from `src/data/site.ts`, so there is nothing
+to sync" above five hardcoded literals, one of which had already drifted: the
+JSON-LD said `Boston, Bellville` where the site displayed `Boston, Cape Town`.
+
+`SITE.addressParts` holds street, suburb, town, city, region, postal code and
+country. `SITE.address` composes the published string from them and the JSON-LD
+`PostalAddress` takes the schema.org fields from the same object. A test asserts
+both, so the comment cannot go stale again.
+
+The two still name **different levels of the same hierarchy**, and that is
+deliberate: the printed address ends "Cape Town, 7530" because that is how the
+church writes it, while `addressLocality` is `Bellville`, which is the town
+schema.org is asking for. Boston is the suburb and rides on the street line. What
+was wrong before was not that the two differed — it was that they were two
+unconnected literals, so nobody could tell whether a difference was a decision or
+a typo.
+
+### C-50 — A pause button is only shown when there is autoplay to pause
+
+Under `prefers-reduced-motion` the deck never advances, but the pause control
+still rendered and pressing it flipped `aria-pressed` and the label while
+controlling nothing — the pause branch cleared a timer that did not exist and the
+resume branch was gated behind `!reduceMotion`. It reported playing/paused state
+for a carousel that was never playing. Not rendered under reduced motion; the
+prev/next controls still work.
+
+### C-51 — The masters are closed to everything but the transformer
+
+C-02 says the originals "exist to be Cloudflare's transform source and nothing
+else". That was true of every path the site's own markup takes and false of the
+plain URL: 14 files, 104 MB, each a ~21 MP portrait with camera EXIF intact,
+every one a 200 with a week-long cache, and the filenames are in the srcset.
+
+The Worker rewrites `/images/hod/*.jpg` to the `fallback/` copy unless the
+request carries `image-resizing` in `Via`, which is how Cloudflare marks its own
+transform subrequest.
+
+**This needs `run_worker_first` to work at all.** By default a URL that matches a
+file in the assets directory is served straight from the asset store and the
+Worker is never invoked — so the guard sat in `index.ts` doing nothing until
+`wrangler.jsonc` named the path. The negative pattern keeps `fallback/` on the
+default asset path: those are what a browser is meant to get, and every Worker
+invocation there is a billable request for an image that needs no logic.
+
+**A rewrite rather than a 404, and that is the safety margin.** If the marker
+ever does not arrive, the transformer reads the 1400px fallback as its source
+instead of an error page — and the widest srcset candidate is 1280, so the
+result is the same picture. There is no failure mode here that breaks a card.
+
+**It is not a security boundary.** `Via` is a request header and anyone can send
+one. This closes the accidental door — browsers, crawlers, anyone reading the
+srcset. Moving the masters off the public origin is the real fix and needs an
+account change this repo cannot make.
+
+The devtest Pages artifact drops them entirely: `PUBLIC_IMAGE_CDN=false` sends
+every card to `fallback/`, so they were 104 MB uploaded and served to nobody.
+
+### C-52 — One headshot generator
+
+`scripts/headshot-fallbacks.mjs` and `tools/build-headshots.mjs` wrote the same
+files from the same sources and disagreed on three things: quality (82 against
+C-07's measured 90), whether to apply EXIF rotation, and whether to validate.
+`npm run headshots` pointed at the one that had all three wrong.
+
+The missing `.rotate()` was the sharper risk. Every current master is orientation
+1, so nothing was broken — but a photo straight off a camera at orientation 6
+would have written a sideways fallback while Cloudflare's transform rendered it
+upright, so the card would be correct in production and rotated 90° everywhere
+there is no transformer, with nothing reporting it.
+
+Not hypothetical, and the attribution is the interesting part: regenerating all
+fourteen with the settings this script now carries reproduced thirteen byte for
+byte — `tools/build-headshots.mjs` had written those — and changed
+`TG-DH-Louws.jpg`, the one file this script had built itself, at its old q82.
+Verified by reproducing both recipes with sharp against the committed bytes.
+
+So the generator `package.json` pointed at is the one that had produced exactly
+one of the fourteen, and it produced the only wrong one. The settings that
+survive here are the deleted script's.
+
+The validation used to sit below the `existsSync` skip, so the only files ever
+checked were the ones being created in that same run. It runs on every file now,
+and checks that an existing fallback is the width it should be.
+
+### C-53 — A clock time or a service name is typed once
+
+Four separate places restated values they could import:
+
+- `homeCopy.firstVisit` hand-typed "09:30 tot 11:00" and "Erediens" on the
+  strength of a comment in `youthGroups.ts` saying neither file could import
+  it — while `homeCopy.ts`'s second line already imported from that file. The
+  service name had to be corrected by hand in v1.3.1 for exactly this reason.
+- The midweek card times were typed once per language, although a clock time is
+  not language-specific — with the Jeugaand entry three lines below importing
+  its range instead, so the right pattern was inside the same literal.
+- `youthCopy`'s meta descriptions hardcoded the evening range and "0 tot 18",
+  punctuating the range differently from `youthEveningRange` as they did it.
+- `homeCopy.beliefTitles` / `beliefDescs` held the six theme names and
+  descriptions in both languages that `beliefCategories` already held — 24
+  strings that happened to match with nothing keeping them that way.
+
+`SERVICE_TIMES` entries carry a stable `id` so prose can name one without
+depending on array order.
+
+### C-54 — The skip link is bilingual
+
+It is server-rendered because it has to work on the first Tab press, before any
+island hydrates, so it cannot read the language context. It was Afrikaans only,
+including for a reader who had toggled — and the toggle switches
+`documentElement.lang` to `en`, so a screen reader announced Afrikaans words
+with English pronunciation. Both, each in its own `lang`, the way `404.astro`
+already answered the same constraint.
+
+### C-55 — The sitemap carries `lastmod`
+
+It emitted `<priority>` and no `<lastmod>`, which is the element crawlers
+actually read. The build date, not a per-page timestamp: every page ships in one
+deploy, and a hand-maintained per-page date is how a `lastmod` starts lying.
+
+### C-56 — The consent metadata identifies nobody, on purpose
+
+The comment claimed the R2 `customMetadata` was "enough to audit a date range or
+find one person's records from a listing alone". It holds `topic`, `submittedAt`
+and `consentVersion`. Nothing there identifies a person, so a POPIA access or
+deletion request means reading the object bodies.
+
+The code is right and the comment was wrong. Putting a name or an email into
+object metadata would make every listing a disclosure — the worse fix.
+
+### C-57 — The six themes live apart from the 28 beliefs
+
+`BeliefsSummary` renders the six theme names and summaries on the homepage.
+Reading them from `beliefCategories` deduplicated the strings and cost the
+homepage 8.1 kB gzipped: a static import pulled `beliefs.ts` — all 28 beliefs,
+both languages, full descriptions — into `Home.js` to render six lines.
+
+`beliefThemes.ts` holds the six name/desc pairs and nothing else. `beliefs.ts`
+imports it and composes each category from a theme plus its items, so the names
+still exist once, and the homepage imports only the small module. Vite splits on
+the module boundary, so this only works while the two stay in separate files.
+
+### C-58 — The workflow actions sit on floating major tags
+
+All four workflows ran on actions whose majors pinned the Node 20 runner, which
+GitHub has deprecated. Bumped to `checkout@v7`, `setup-node@v7`,
+`configure-pages@v6`, `upload-pages-artifact@v5`, `deploy-pages@v5` and
+`wrangler-action@v4` — every one of them a node24 runner.
+
+Two of those majors carry a behaviour change rather than just a runner bump, and
+both are inert here:
+
+- `upload-pages-artifact@v5` excludes dotfiles from the artifact unless
+  `include-hidden-files: true`. `dist/` has none, and nothing wants a
+  `.nojekyll` — the artifact path to Pages does not run Jekyll.
+- `wrangler-action@v4` changes `DEFAULT_WRANGLER_VERSION` from `3.90.0` to `4`.
+  The deploy job does not set `wranglerVersion`, and the action returns the
+  already-installed CLI when that input is absent, so `npm ci` decides the
+  version and `package.json` pins `wrangler@^4`. The default is never reached.
+  Set `wranglerVersion` and it would be, so leave it unset.
+
+`setup-node@v7` drops `always-auth` (unused) and adds `package-manager-cache`,
+which auto-enables caching off a `packageManager` field in `package.json`. There
+isn't one, so the explicit `cache: npm` is still what caches.
+
+Floating majors rather than pinned SHAs, which is what the repo already did.
+That trades supply-chain pinning for not having to bump a patch by hand; a repo
+holding no secrets on the PR path is the case where that trade is defensible,
+and the production workflow's secrets are the reason to revisit it if it ever
+stops being.

@@ -32,6 +32,10 @@ export function websiteJsonLd(site: URL) {
  * schema.org description of the congregation, emitted on every page, so a search
  * engine can answer "when does Tygerberg SDA meet". Restates what is already on
  * the page; both read from src/data/site.ts, so there is nothing to sync.
+ *
+ * That last sentence used to be false. Every address field was a literal here,
+ * and the locality had drifted from the one the site displays. They are derived
+ * now, so the claim holds. C-49
  */
 export function churchJsonLd(site: URL) {
   return {
@@ -43,11 +47,12 @@ export function churchJsonLd(site: URL) {
     url: site.href,
     address: {
       '@type': 'PostalAddress',
-      streetAddress: '54 Boston St',
-      addressLocality: 'Boston, Bellville',
-      addressRegion: 'Western Cape',
-      postalCode: '7530',
-      addressCountry: 'ZA',
+      // Suburb rides with the street line; addressLocality is the town.
+      streetAddress: `${SITE.addressParts.street}, ${SITE.addressParts.suburb}`,
+      addressLocality: SITE.addressParts.town,
+      addressRegion: SITE.addressParts.region,
+      postalCode: SITE.addressParts.postalCode,
+      addressCountry: SITE.addressParts.country,
     },
     geo: {
       '@type': 'GeoCoordinates',

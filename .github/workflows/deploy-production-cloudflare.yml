@@ -46,14 +46,14 @@ jobs:
       url: https://tygerberg-sda.cloudkid.link
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           # Full history: `gh release create --generate-notes` needs the previous
           # tag to diff against, and a shallow clone has neither tags nor commits.
           fetch-depth: 0
 
       - name: Set up Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
           # `cache: npm` restores ~/.npm (the tarball cache) keyed on
           # package-lock.json. This is the caching layer that matters here —
@@ -110,7 +110,7 @@ jobs:
           PUBLIC_APP_COMMIT: ${{ github.sha }}
 
       - name: Deploy to Cloudflare Workers
-        uses: cloudflare/wrangler-action@v3
+        uses: cloudflare/wrangler-action@v4
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}

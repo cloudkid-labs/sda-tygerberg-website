@@ -81,8 +81,19 @@ const jsonLd = {
     <script type="application/ld+json" is:inline set:html={JSON.stringify(jsonLd)} />
   </head>
   <body>
-    <!-- Server-rendered: must work on the first Tab press, pre-hydration. -->
-    <a class="skip-link" href="#main">Slaan oor na inhoud</a>
+    <!--
+      Server-rendered: it must work on the first Tab press, before any island
+      has hydrated, so it cannot read the language context. Both languages at
+      once rather than Afrikaans alone — the toggle switches documentElement.lang
+      to `en` and this text stayed Afrikaans, so a screen reader announced it
+      with the wrong pronunciation. 404.astro already answers the same
+      constraint the same way. C-54
+    -->
+    <a class="skip-link" href="#main">
+      <span lang="af">Slaan oor na inhoud</span>
+      <span aria-hidden="true"> · </span>
+      <span lang="en">Skip to content</span>
+    </a>
     <slot />
   </body>
 </html>

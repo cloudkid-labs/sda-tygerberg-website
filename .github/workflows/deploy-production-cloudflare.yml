@@ -148,6 +148,19 @@ jobs:
         # version of it hung a deploy for twenty minutes because `fetch` has no
         # default timeout. GitHub would not have reaped that job for six hours.
         timeout-minutes: 5
+        # Advisory, not a gate, and that is a retreat from the original intent.
+        #
+        # The check cannot do its job from here: Cloudflare answers this runner
+        # 403 on every request, so the run it reports on is one it never
+        # actually observed. Blocking a release on a check that structurally
+        # cannot pass buys nothing and costs every deploy — three in a row were
+        # held up by it, one of them for a fault the check itself had.
+        #
+        # It still runs, still prints, and still annotates the summary, so a
+        # real failure is visible to anyone reading the log. Delete this line
+        # the day a WAF skip rule for the Actions ranges exists and it becomes
+        # a gate again. C-60
+        continue-on-error: true
         run: npm run smoke -- https://tygerberg-sda.cloudkid.link
 
       # Only after Cloudflare has accepted the deploy. Tagging first would leave

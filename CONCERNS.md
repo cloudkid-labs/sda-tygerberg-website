@@ -1157,11 +1157,23 @@ Two honest limits:
   entirely; that is the better fix and is not done here.
 - `fetch` has no default timeout, so the script carries three bounds: 10s per
   request, a 150s whole-run deadline past which every remaining request fails
-  immediately, and `timeout-minutes: 5` on both workflow steps. None of these
-  was load-bearing for a real incident — a run that looked hung for twenty
-  minutes turned out to be the GitHub jobs API lagging, not the script — but a
-  liveness check that *can* hang blocks a release without ever saying why, and
-  the bounds cost nothing.
+  immediately, and `timeout-minutes: 5` on both workflow steps.
+- **The success path has to call `process.exit(0)`, and the reason is worth
+  keeping.** It used to fall off the end and rely on Node's event loop
+  draining, which `fetch` does not guarantee: undici keeps its connection pool
+  alive after the last response, and a socket the far side has not closed keeps
+  a process running with no work left to do. Two production deploys in a row
+  then sat on this step indefinitely *after the deploy itself had succeeded*.
+  The diagnostic that cracked it: the runs that **failed** finished cleanly,
+  because failure and inconclusive both exit explicitly and only the all-passed
+  path did not. A check whose healthy outcome is the one that hangs is the
+  worst possible shape — it blocks the release precisely when nothing is wrong.
+  It also cost two wrong diagnoses along the way, one blaming Cloudflare and
+  one blaming GitHub, before the evidence was read properly.
+- The production step is `continue-on-error: true`. That is a retreat from the
+  original intent and is meant to be temporary: a check that Cloudflare answers
+  403 reports on a deployment it never observed, so gating on it buys nothing
+  and costs every release. Delete that line once a WAF skip rule exists.
 - It cannot catch the `frame-src` half. The blocked frame is constructed by the
   YouTube player at runtime; the static check here compares `frame-src` against
   the iframes in the markup, and `google.com` is not one of them. Only a real

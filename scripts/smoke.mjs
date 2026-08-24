@@ -303,3 +303,19 @@ if (failures.length) {
 }
 
 console.log(`\n✔ all smoke checks passed against ${base}`);
+
+/*
+ * Explicit, and load-bearing. Every other terminal path here calls
+ * process.exit; this one used to fall off the end and depend on Node's event
+ * loop draining, which `fetch` does not guarantee — undici keeps its
+ * connection pool alive after the last response, and a socket the far side has
+ * not closed keeps the process running with no work left to do.
+ *
+ * That is not theoretical. Two production deploys in a row sat on this step
+ * indefinitely, past `timeout-minutes`, after the deploy itself had succeeded
+ * — and the tell was that the *failing* runs finished fine, because failure
+ * and inconclusive both exit explicitly and only the all-passed path did not.
+ * A check whose healthy outcome is the one that hangs is the worst shape it
+ * could have: it blocks a release precisely when nothing is wrong.
+ */
+process.exit(0);

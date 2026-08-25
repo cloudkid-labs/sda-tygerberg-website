@@ -353,13 +353,15 @@ mode to watch here.
 
 ### C-21 — Abuse protection is Cloudflare's, and it is off by default
 
-The Worker validates and forwards; it does no bot detection. Bot Fight Mode and
-a WAF rate-limiting rule sit in front of `/api/contact` at the edge.
+The Worker validates and forwards; it does no bot detection. The edge options in
+front of `/api/contact` are Bot Fight Mode and a WAF rate-limiting rule, neither
+on by default, both needing a custom domain — a `*.workers.dev` URL gets no zone
+protection.
 
-Neither is on by default, and both need a custom domain — a `*.workers.dev` URL
-gets no zone protection. Until they are enabled the endpoint is unprotected.
-Turnstile is the next step up and needs code: a widget plus a `siteverify` call
-before forwarding.
+The WAF half is not available here: this zone does not use it (C-60). So the
+endpoint is unprotected, and the realistic step up is Turnstile, which needs
+code rather than dashboard access — a widget plus a `siteverify` call before
+forwarding.
 
 ---
 
@@ -1076,12 +1078,59 @@ policy only changed the failure from silent to loud. `frame-src` is back to the
 C-48 value, which is the state a visitor is least badly served by, and the video
 not playing is recorded here as open rather than as fixed.
 
-Whoever picks it up: the redirect is JS-driven inside the player, so it does not
-show in the HTTP response — `curl -L` on the embed URL is a clean 200 with zero
-redirects, and `videoseries?list=`, `?listType=playlist&list=` and the
-`youtube.com` host all return the same bytes. It needs a real browser with
-network access on the actual page. Do not re-add `google.com` on the strength of
-the console message alone; that is exactly the reasoning that produced this.
+Do not re-add `google.com` on the strength of the console message alone; that is
+exactly the reasoning that produced this. What that message is — and is not — has
+since been measured, below.
+
+### The embed is fine. The `google.com` frame is not ours
+
+The `curl` evidence above was read wrong, and the wrong reading is the more
+useful half of this entry. `curl` sends no `Referer`, and without one YouTube
+refuses the embed outright:
+
+    previewPlayabilityStatus.status  ERROR
+    reason                           "Video player configuration error" / "Error 153"
+    errorCode                        PLAYABILITY_ERROR_CODE_EMBEDDER_IDENTITY_MISSING_REFERRER
+
+So "every URL shape returns the same bytes" was measuring that refusal, not the
+embed. Send the `Referer` a browser sends and the same URL answers with a working
+player:
+
+    previewPlayabilityStatus.status  OK
+    playableInEmbed                  true
+    playlist                         "Uploads from Tygerberg Kommunikasie", 200 videos
+    first item                       22 Augustus 2026 – Erediens: Youthfest Xtreme
+
+`@SDATygerberg` resolves to `UCtZlioPBBORWMMMSJ9BE1Wg`, so the `UU…` uploads
+playlist in `site.ts` is right. Nothing about the embed as configured is broken.
+
+The `www.google.com` frame is not produced by this repo or by YouTube's shipped
+code, and all three are checkable without a browser:
+
+- Nothing on the page frames `google.com`. The only references are a JSON-LD
+  `hasMap` string and the directions `<a href>`. The `/map/` iframe is
+  same-origin, 4KB, Leaflet and OpenStreetMap, with no Google reference at all.
+- Neither embed response contains a `google.com` URL, and the player bundle
+  (`player_embed_es6.vflset/en_US/base.js`, 1.6MB) contains no `www.google.com`
+  anywhere — only `support.`, `play.`, `accounts.` and some corp hosts.
+- Error 153 is not the path either. Its own error screen links to `youtube.com`
+  and `support.google.com`.
+
+That leaves a runtime redirect on YouTube's side — a consent or account bounce,
+which is region- and session-dependent — or something in the reporting browser.
+Neither reproduces from here: this sandbox's Chromium has no outbound network
+even through the proxy, and `ERR_CONNECTION_RESET` on `example.com` shows that is
+the environment rather than the site. The test that settles it is a browser on
+the live page, then the same page in a private window with extensions off.
+
+Blocking that frame stays correct and costs nothing — it is a console warning,
+not a playback failure — so `frame-src` stays at the C-48 value.
+
+The one failure mode still reachable from this side is the missing referrer, and
+`Hero.tsx` now pins `referrerPolicy="strict-origin-when-cross-origin"` on the
+iframe rather than inheriting it. The response header already supplies the same
+value; the attribute means an edit to `build-headers.mjs` cannot silently take
+the player out with an error whose text names neither the header nor the site.
 
 ### What actually let both reach production
 
@@ -1133,11 +1182,17 @@ genuinely down does not also refuse the request that would prove it. Any mixed
 result means the edge is letting this client see the site, so a failure among
 those is real and still exits 1.
 
-**The proper fix is on the Cloudflare side** and needs dashboard access: a WAF
-skip rule for the GitHub Actions IP ranges, or for a shared secret header the
-script sends. Add one and the `process.exit(0)` branch stops being reachable and
-the gate becomes real. Until then the production run reports and does not
-block.
+**The fix is not a WAF rule.** That was the standing plan here — a skip rule for
+the GitHub Actions ranges or a shared secret header — and it is ruled out: this
+zone does not use the WAF, so waiting on dashboard access is waiting on something
+that is not coming. The block is Cloudflare's default bot handling of datacenter
+IPs, which no rule of ours removes.
+
+The fix is to stop asking the production edge at all. A `wrangler dev` job in CI,
+running the same script against a local Worker, catches the `run_worker_first`
+class of bug before it ships instead of after, and never meets the edge that does
+the blocking. That is the real gate; the production run stays a post-deploy
+report and does not block.
 
 The general lesson is the one this file keeps relearning: a check that has only
 ever been run against one shape of target has only been tested against one shape
@@ -1171,9 +1226,11 @@ Two honest limits:
   It also cost two wrong diagnoses along the way, one blaming Cloudflare and
   one blaming GitHub, before the evidence was read properly.
 - The production step is `continue-on-error: true`. That is a retreat from the
-  original intent and is meant to be temporary: a check that Cloudflare answers
-  403 reports on a deployment it never observed, so gating on it buys nothing
-  and costs every release. Delete that line once a WAF skip rule exists.
+  original intent: a check that Cloudflare answers 403 reports on a deployment it
+  never observed, so gating on it buys nothing and costs every release. It is no
+  longer temporary in the sense first written — the WAF rule that was going to
+  lift it is not coming (see above), so the line stays until the `wrangler dev`
+  job exists and takes over as the real gate.
 - It cannot catch the `frame-src` half. The blocked frame is constructed by the
   YouTube player at runtime; the static check here compares `frame-src` against
   the iframes in the markup, and `google.com` is not one of them. Only a real

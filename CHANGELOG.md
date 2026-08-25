@@ -3,6 +3,15 @@
 [Semantic Versioning](https://semver.org/). What the numbers mean: README,
 "Versioning and releases".
 
+## [1.4.3] — 2026-08-25
+
+- The homepage video iframe pins `referrerPolicy="strict-origin-when-cross-origin"`.
+  Without a referrer YouTube refuses the embed with Error 153 (C-60).
+- C-60 corrects the record: the embed is playable and the `google.com` frame
+  comes from neither this site nor YouTube's player bundle.
+- A WAF skip rule is no longer the plan for the blocked production smoke check;
+  the zone does not use the WAF (C-21, C-60).
+
 ## [1.4.2] — 2026-08-24
 
 - The post-deploy smoke check exits when every check passes; it used to fall off

@@ -58,10 +58,19 @@ export function Hero() {
                 withholds the YouTube bundle — which is larger than the whole
                 first-party homepage — until it is scrolled to. A click-to-load
                 poster would defer it on desktop too. C-46 */}
+            {/* referrerPolicy is pinned here rather than inherited from the
+                document. YouTube refuses to play an embed whose embedder it
+                cannot identify — Error 153,
+                PLAYABILITY_ERROR_CODE_EMBEDDER_IDENTITY_MISSING_REFERRER — and
+                the only thing supplying that identity today is the
+                Referrer-Policy response header, which is one edit to
+                build-headers.mjs away from `no-referrer` or `same-origin`.
+                Either would silently take the player out. C-60 */}
             <iframe
               src={SITE.youtubeUploadsEmbedUrl}
               title="Tygerberg SDA YouTube"
               loading="lazy"
+              referrerPolicy="strict-origin-when-cross-origin"
               allow="autoplay; encrypted-media; picture-in-picture"
               allowFullScreen
               className="absolute inset-0 h-full w-full border-0"

@@ -157,9 +157,12 @@ jobs:
         # held up by it, one of them for a fault the check itself had.
         #
         # It still runs, still prints, and still annotates the summary, so a
-        # real failure is visible to anyone reading the log. Delete this line
-        # the day a WAF skip rule for the Actions ranges exists and it becomes
-        # a gate again. C-60
+        # real failure is visible to anyone reading the log.
+        #
+        # A WAF skip rule was going to lift this. It is not coming — the zone
+        # does not use the WAF, and the block is Cloudflare's default handling
+        # of datacenter IPs. The line goes when a `wrangler dev` job in CI takes
+        # over as the real gate. C-60
         continue-on-error: true
         run: npm run smoke -- https://tygerberg-sda.cloudkid.link
 

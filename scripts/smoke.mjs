@@ -271,11 +271,13 @@ for (const n of notes) console.log(`note: ${n}`);
  * letting this client see the site, and a failure among those is real. That
  * still exits 1.
  *
- * The proper fix is on the Cloudflare side: a WAF skip rule for the GitHub
- * Actions ranges, or for a shared header this script sends. Until someone with
- * dashboard access adds one, the production run cannot gate anything, and
- * pretending otherwise would mean either a permanently red pipeline or a gate
- * everyone has learned to ignore.
+ * A WAF skip rule was the standing plan and is ruled out — this zone does not
+ * use the WAF, and the block is Cloudflare's default handling of datacenter IPs
+ * rather than a rule anyone here can lift. So the production run cannot gate
+ * anything, and pretending otherwise would mean either a permanently red
+ * pipeline or a gate everyone has learned to ignore. The real gate is a
+ * `wrangler dev` job in CI running these same checks against a local Worker,
+ * which never meets the edge that does the blocking. C-60
  */
 const everythingFailed = failures.length >= totalChecks && totalChecks > 0;
 if (lastEdgeStatus && everythingFailed) {
@@ -284,8 +286,8 @@ if (lastEdgeStatus && everythingFailed) {
       `${lastEdgeStatus} even after retries.\n` +
       `  Cloudflare is blocking this runner, so the deployment was never actually observed.\n` +
       `  Not treated as a failure: a site that is down does not also refuse the request\n` +
-      `  that would prove it. Verify in a browser, and see C-60 for the WAF skip rule\n` +
-      `  that would let this check do its job.`,
+      `  that would prove it. Verify in a browser; see C-60 for why this cannot gate\n` +
+      `  from a runner and what replaces it.`,
   );
   if (process.env.GITHUB_ACTIONS) {
     console.log(`::warning::Smoke test inconclusive against ${base}: edge returned ${lastEdgeStatus} to every request. The deployment was not verified.`);

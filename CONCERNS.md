@@ -1367,9 +1367,15 @@ Two things the deploy cannot do for itself, both on the new
   the Worker's master guard then serves the pre-resized fallback, so the failure
   mode is softer sharpness, not a broken page.
 
-Cutover order matters: `tygerberg-sda.cloudkid.link` is attached to the
-production Worker until the first production deploy releases it, so production
-must deploy (claiming the apex, freeing the old host) before devtest deploys
-(claiming the old host). The `CLOUDFLARE_API_TOKEN` must reach both zones.
+Cutover order matters, and it is manual: `tygerberg-sda.cloudkid.link` starts
+attached to the production Worker, and `wrangler` does NOT detach it when the
+route is dropped from config — it only ever adds the custom domains it finds,
+never removes one. So deploying production to the apex leaves the old host still
+bound to the production Worker, and the devtest deploy — which fires first, on
+the merge to `dev` — fails to claim it ("custom domain already assigned to
+another Worker"). The handoff is: promote to `main` (production attaches the
+apex), then detach `tygerberg-sda.cloudkid.link` from `tygerberg-sda-website` in
+the dashboard, then re-run the devtest deploy so it attaches the freed host.
+The `CLOUDFLARE_API_TOKEN` must reach both zones. See SETUP-INSTRUCTIONS §3.3.
 
 Supersedes C-22; updates C-23 (no Pages base path to strip any more).

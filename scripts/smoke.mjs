@@ -14,7 +14,7 @@
  * deployment. Anything a unit test or the build can prove belongs there
  * instead — this file costs deploy time and a false failure blocks a release.
  *
- * Usage: node scripts/smoke.mjs <base-url> [--no-edge]
+ * Usage: node scripts/smoke.mjs <base-url> [--no-edge] [--expect-noindex]
  *   --no-edge  the target has no Cloudflare edge in front of it — a plain
  *              static host. That removes two things at once, and conflating
  *              them is how the first version of this script red-failed a
@@ -30,6 +30,11 @@
 
 const base = process.argv[2]?.replace(/\/$/, '');
 const noEdge = process.argv.includes('--no-edge');
+// The devtest build is noindex; production is not. The flag says which this
+// target is, so the check can fail either way — a missing noindex on devtest
+// (a preview that would compete with production, C-23/C-61) and, just as much,
+// an accidental noindex shipped to production.
+const expectNoindex = process.argv.includes('--expect-noindex');
 
 if (!base) {
   console.error('usage: node scripts/smoke.mjs <base-url> [--no-edge]');
@@ -269,6 +274,43 @@ if (noEdge) {
   }
 } catch (err) {
   fail('header checks', err.message);
+}
+
+/* ---- canonical host and indexing (C-23 / C-61) ------------------------- */
+console.log('\nindexing');
+try {
+  const html = await (await get('/')).text();
+
+  // The canonical host must be the production origin on every build, devtest
+  // included (C-23). This is the one check that would catch an edit to
+  // astro.config.mjs `site` — the single place the domain is named — before it
+  // shipped a preview advertising the wrong canonical or a production site
+  // pointing at the old host.
+  const canonical = (html.match(/<link[^>]+rel="canonical"[^>]+href="([^"]+)"/i) ??
+    html.match(/<link[^>]+href="([^"]+)"[^>]+rel="canonical"/i))?.[1];
+  if (!canonical) {
+    fail('canonical', 'no <link rel="canonical"> on the homepage');
+  } else {
+    const host = new URL(canonical).host;
+    if (host !== 'sdatygerberg.co.za') fail('canonical', `points at ${host}, not sdatygerberg.co.za`);
+    else pass('canonical', canonical);
+  }
+
+  // noindex is the devtest half of the same guarantee: the preview must carry
+  // it and production must NOT. `--expect-noindex` says which target this is,
+  // so a dropped PUBLIC_INDEXABLE on devtest and an accidental one on
+  // production both fail here rather than shipping green.
+  const robots = html.match(/<meta[^>]+name="robots"[^>]+content="([^"]*)"/i)?.[1] ?? '';
+  const isNoindex = /noindex/i.test(robots);
+  if (expectNoindex && !isNoindex) {
+    fail('robots noindex', 'expected noindex on this preview build, found none (C-23)');
+  } else if (!expectNoindex && isNoindex) {
+    fail('robots noindex', `production build carries "${robots}" — it must be indexable`);
+  } else {
+    pass('robots', expectNoindex ? `noindex present ("${robots}")` : 'indexable, as production should be');
+  }
+} catch (err) {
+  fail('indexing checks', err.message);
 }
 
 /* ---- verdict ------------------------------------------------------------ */

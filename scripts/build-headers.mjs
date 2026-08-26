@@ -90,7 +90,10 @@ const CSP = [
   // belongs. Blocked, the same failure is silent. Neither plays the video —
   // that is a problem with the embed itself and needs a browser to diagnose,
   // not a wider policy. Do not re-add google.com without one. C-60
-  "frame-src 'self' https://www.youtube-nocookie.com",
+  // Both hosts: the embed is on youtube.com while the nocookie domain is under
+  // test (C-60), and keeping the old one listed makes reverting a one-liner.
+  // Neither admits google.com — that was tried and loops rather than plays.
+  "frame-src 'self' https://www.youtube.com https://www.youtube-nocookie.com",
   'upgrade-insecure-requests',
 ].join('; ');
 

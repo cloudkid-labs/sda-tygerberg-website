@@ -1158,14 +1158,40 @@ hosts answer `previewPlayabilityStatus: OK`, which is why every measurement
 from this sandbox said "healthy" while every screenshot from Cape Town said
 otherwise. This congregation is in Cape Town.
 
-So the homepage card is a facade: a play button linking to the channel, styled
-as the player was. It cannot fail in any region, fetches no third-party bytes,
-and does what C-46 wanted and could not have — the YouTube bundle, larger than
-the whole first-party homepage, is never fetched rather than merely deferred.
-`youtubeUploadsEmbedUrl` stays in `site.ts` marked not rendered, so restoring
-the embed is one line if Google's behaviour changes; `frame-src` keeps both
-YouTube hosts for the same reason, and google.com stays out of it — allowing it
-was the first wrong fix, and it un-hides this loop rather than completing it.
+So the homepage card became a facade first, and then — at the church's
+instruction that a facade was not enough — the adaptive preview that replaced
+it:
+
+- **`/api/latest-video`** resolves the newest upload's id and title
+  server-side: the Data API when `YOUTUBE_API_KEY` is configured, else the
+  embed page itself, whose `embedded_player_response` carries the playlist
+  panel when fetched with a Referer (`src/lib/latestVideo.ts`, one parser
+  shared with the build). YouTube's RSS feed would have been the clean keyless
+  source and answers 404 now, for every channel — checked against YouTube's
+  own. Answers are cached edge-side for 30 minutes, nulls included; the build
+  bakes a seed so the card is a real preview pre-hydration and on Pages.
+- **The browser never hits a Google data API.** The id and title come from the
+  Worker. Two lightweight Google requests do fire before a click — the
+  thumbnail from `i.ytimg.com` (a cookieless CDN, now in `img-src`) and the
+  no-cors reachability ping below (which returns no readable body) — but
+  neither is the cookie-bearing player, and the visitor's identity is never
+  sent to a data endpoint.
+- **A reachability probe decides the click** (`useEmbedVerdict`, the C-09
+  pattern): a no-cors fetch of the embed URL from the visitor's own network.
+  On a looping network the redirect chain either trips the browser's loop
+  limit or leaves `connect-src` — which now allows `www.youtube.com` and
+  deliberately nothing else of Google's, so the rejection is itself the
+  verdict. Probe passes → the click swaps in the iframe and plays inline.
+  Anything else → the click opens the video on YouTube, where the consent flow
+  can complete at top level. Wrong-in-a-safe-direction both ways.
+- The player bundle is fetched only after a deliberate click on a proven
+  network — C-46's wish, delivered. Latest-content links point at the
+  channel's `/streams` tab by the church's instruction.
+
+`frame-src` keeps both YouTube hosts, and google.com stays out of it — allowing
+it was the first wrong fix, and it un-hides this loop rather than completing
+it. If Google's behaviour ever changes, the probe simply starts passing and the
+card plays inline everywhere; nothing needs reverting.
 
 The one failure mode still reachable from this side is the missing referrer, and
 `Hero.tsx` now pins `referrerPolicy="strict-origin-when-cross-origin"` on the

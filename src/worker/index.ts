@@ -2,9 +2,11 @@
 
 import { type LiveStatusEnv } from './liveStatus';
 import { getLiveStatusCached } from './liveStatusCache';
+import { getLatestVideoCached, LATEST_VIDEO_CACHE_SECONDS, type LatestVideoEnv } from './latestVideo';
 import { handleContact, type ContactEnv } from './contact';
 
 export type Env = LiveStatusEnv &
+  LatestVideoEnv &
   ContactEnv & {
     ASSETS: Fetcher;
   };
@@ -65,6 +67,23 @@ export default {
             // where it can be bounded, and a pinned badge in someone's tab
             // could not be.
             'Cache-Control': 'no-store',
+          },
+        },
+      );
+    }
+
+    if (pathname === '/api/latest-video') {
+      // The homepage preview card's data: the newest upload's id and title,
+      // resolved server-side so the visitor's browser never asks Google —
+      // which is what the embed's consent loop makes impossible (C-60).
+      const { video, cached } = await getLatestVideoCached(request, env, ctx);
+      return Response.json(
+        { video, cached },
+        {
+          headers: {
+            // Unlike live-status this MAY sit in the browser: the newest
+            // upload changes weekly, and a stale title costs nothing.
+            'Cache-Control': `public, max-age=${LATEST_VIDEO_CACHE_SECONDS / 2}`,
           },
         },
       );

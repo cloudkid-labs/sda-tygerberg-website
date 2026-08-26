@@ -158,6 +158,25 @@ if (noEdge) {
     fail('/api/live-status', err.message);
   }
 
+  // Shape only, not content: the endpoint answers { video: null } when
+  // YouTube is unreachable from the Worker's egress, and a CI runner or a
+  // sandbox must not fail a healthy deploy over Google's availability.
+  try {
+    const res = await get('/api/latest-video');
+    const type = res.headers.get('content-type') ?? '';
+    if (!res.ok) {
+      fail('/api/latest-video', `HTTP ${res.status}${/html/i.test(type) ? ' and served HTML — the Worker is not being invoked for /api/* (C-60)' : ''}`);
+    } else if (!/application\/json/i.test(type)) {
+      fail('/api/latest-video', `expected JSON, got ${type || 'no content-type'}`);
+    } else {
+      const body = await res.json();
+      if (!('video' in body)) fail('/api/latest-video', `no "video" key in ${JSON.stringify(body).slice(0, 140)}`);
+      else pass('/api/latest-video', `JSON, video=${body.video ? body.video.videoId : 'null'}`);
+    }
+  } catch (err) {
+    fail('/api/latest-video', err.message);
+  }
+
   // GET on a POST-only route must still reach the Worker. A 404 here means the
   // same routing failure; the Worker's own rejection is a 4xx that is not 404.
   try {

@@ -26,10 +26,7 @@ on:
 
 permissions:
   # `contents: write` so a successful deploy can create the release tag.
-  # `deployments: write` for the `environment:` block below, which is what
-  # populates the repo's Environments tab.
   contents: write
-  deployments: write
 
 concurrency:
   group: production-deploy
@@ -38,12 +35,12 @@ concurrency:
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
-    # Records each run in the Environments tab with a link to the live site, so
-    # "what is deployed right now" is answerable from GitHub. Costs nothing and
-    # needs no third-party action.
-    environment:
-      name: production
-      url: https://sdatygerberg.co.za
+    # No `environment:` key: GitHub Environments (and their secrets/protection)
+    # are unavailable on a private repo on the Free plan, so an environment
+    # secret silently resolves empty and the deploy fails at the token step.
+    # The Cloudflare and YouTube secrets are repository secrets instead, which
+    # every job can read; the Environments-tab record was the only thing the
+    # key bought and it is not worth a broken deploy (C-61).
     steps:
       - name: Checkout
         uses: actions/checkout@v7

@@ -42,9 +42,15 @@ export const SITE = {
   // redirects it to whatever the channel is streaming.
   youtubeLiveUrl: 'https://www.youtube.com/@SDATygerberg/live',
   // Auto-generated "uploads" playlist: always the latest video, no maintenance.
-  // youtube-nocookie.com because the regular embed domain needs third-party
-  // storage access that iOS Safari blocks, leaving a blank black box.
-  youtubeUploadsEmbedUrl: 'https://www.youtube-nocookie.com/embed/videoseries?list=UUtZlioPBBORWMMMSJ9BE1Wg',
+  //
+  // youtube.com, not youtube-nocookie.com, and that is the change under test.
+  // The nocookie domain was chosen because the regular one needs third-party
+  // storage that iOS Safari blocks — but the failure now in front of us is the
+  // opposite shape: Google bounces the embed to google.com/index?continue=...
+  // and back, carrying an abuse/consent cookie *in the URL* because it cannot
+  // set one, and loops until Chrome gives up. A domain built to withhold
+  // cookies is a plausible reason that flow never completes. C-60
+  youtubeUploadsEmbedUrl: 'https://www.youtube.com/embed/videoseries?list=UUtZlioPBBORWMMMSJ9BE1Wg',
   // Self-hosted so the download works without depending on an external site.
   beliefsPdfPath: '/SDA-28-Fundamental-Beliefs.pdf',
 } as const;

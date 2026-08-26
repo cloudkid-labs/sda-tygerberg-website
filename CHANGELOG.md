@@ -3,11 +3,13 @@
 [Semantic Versioning](https://semver.org/). What the numbers mean: README,
 "Versioning and releases".
 
-## [1.4.4] — 2026-08-25
+## [1.5.0] — 2026-08-26
 
-- The homepage video card links to YouTube instead of embedding: the embed
-  redirect-loops through Google's consent flow from South Africa on both
-  YouTube hosts (C-60).
+- The homepage video card is a real preview: the latest service's thumbnail
+  and title via `/api/latest-video` (new), playing inline where a probe shows
+  the embed works and opening on YouTube where Google's consent flow loops it
+  (C-60).
+- Latest-content links point at the channel's /streams tab.
 - CI runs the smoke checks against `wrangler dev` on every pull request
   (`worker` job), so a `run_worker_first` regression fails the PR rather than
   the release (C-60).

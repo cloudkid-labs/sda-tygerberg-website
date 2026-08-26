@@ -34,19 +34,21 @@ export const SITE = {
     'https://www.google.com/maps/dir//Tygerberg+SDA+Kerk,+54+Boston+St,+Boston,+Cape+Town,+7530',
   appleMapsUrl: 'https://maps.apple.com/?address=54%20Boston%20St,%20Boston,%20Cape%20Town,%207530',
   youtubeChannelUrl: 'https://www.youtube.com/@SDATygerberg',
-  // "Featured", not /videos — /videos surfaced an old section, not what the
-  // channel curates.
-  youtubeFeaturedUrl: 'https://www.youtube.com/@SDATygerberg/featured',
+  // /streams, by the church's instruction: the services are streamed, so the
+  // streams tab is where the latest content actually is — /featured and
+  // /videos both surfaced older sections.
+  youtubeStreamsUrl: 'https://www.youtube.com/@SDATygerberg/streams',
   // Fallback only. The live CTA normally links to the video id the YouTube API
   // named; this catches a live answer that arrived without one, and YouTube
   // redirects it to whatever the channel is streaming.
   youtubeLiveUrl: 'https://www.youtube.com/@SDATygerberg/live',
-  // NOT RENDERED. The homepage card is a facade linking to YouTube. The embed
-  // redirect-loops through Google's consent endpoint from South Africa — where
-  // this congregation is — and the test that settled it was run on BOTH hosts:
-  // youtube-nocookie.com and youtube.com loop identically, so the domain was
-  // never the variable and no embed URL fixes it from our side. C-60.
-  // Kept so restoring the embed is one line if Google's behaviour changes.
+  // The uploads playlist, used three ways by the preview card: the Worker and
+  // the build read this page server-side for the latest video's id and title
+  // (src/lib/latestVideo.ts), and a proven-clean network plays inline with
+  // this list as its "next services" context. Never loaded blind in an iframe:
+  // the embed redirect-loops through Google's consent endpoint on some
+  // networks — the congregation's region among them, on both YouTube hosts —
+  // so the card probes the visitor's own network first. C-60.
   youtubeUploadsEmbedUrl: 'https://www.youtube.com/embed/videoseries?list=UUtZlioPBBORWMMMSJ9BE1Wg',
   // Self-hosted so the download works without depending on an external site.
   beliefsPdfPath: '/SDA-28-Fundamental-Beliefs.pdf',

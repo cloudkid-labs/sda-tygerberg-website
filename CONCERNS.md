@@ -1170,9 +1170,12 @@ it:
   source and answers 404 now, for every channel — checked against YouTube's
   own. Answers are cached edge-side for 30 minutes, nulls included; the build
   bakes a seed so the card is a real preview pre-hydration and on Pages.
-- **The visitor's browser never asks Google for data.** The one pre-click
-  Google request is the thumbnail from `i.ytimg.com`, a cookieless CDN, now in
-  `img-src`.
+- **The browser never hits a Google data API.** The id and title come from the
+  Worker. Two lightweight Google requests do fire before a click — the
+  thumbnail from `i.ytimg.com` (a cookieless CDN, now in `img-src`) and the
+  no-cors reachability ping below (which returns no readable body) — but
+  neither is the cookie-bearing player, and the visitor's identity is never
+  sent to a data endpoint.
 - **A reachability probe decides the click** (`useEmbedVerdict`, the C-09
   pattern): a no-cors fetch of the embed URL from the visitor's own network.
   On a looping network the redirect chain either trips the browser's loop

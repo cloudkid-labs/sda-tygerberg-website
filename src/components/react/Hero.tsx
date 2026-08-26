@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState, type RefObject } from 'react';
 import { useLanguage } from '../../context/LanguageContext';
 import { homeCopy } from '../../data/homeCopy';
 import { SITE } from '../../data/site';
@@ -35,10 +35,17 @@ function useEmbedVerdict(videoId: string | null): EmbedVerdict {
   useEffect(() => {
     if (!videoId) return;
     let cancelled = false;
-    fetch(`https://www.youtube.com/embed/${videoId}`, {
-      mode: 'no-cors',
-      signal: AbortSignal.timeout(5000),
-    })
+    // AbortSignal.timeout is 2022-baseline; guard it. This effect runs inside
+    // the one island the whole homepage hydrates into, so a synchronous throw
+    // here on an older browser would take the entire page down, not just the
+    // card. Without a signal the probe simply has no client-side deadline —
+    // acceptable, since a hung fetch never resolves 'ok' and the card stays on
+    // its safe click-to-YouTube default.
+    const signal =
+      typeof AbortSignal !== 'undefined' && typeof AbortSignal.timeout === 'function'
+        ? AbortSignal.timeout(5000)
+        : undefined;
+    fetch(`https://www.youtube.com/embed/${videoId}`, { mode: 'no-cors', signal })
       .then(() => !cancelled && setVerdict('ok'))
       .catch(() => !cancelled && setVerdict('blocked'));
     return () => {
@@ -55,7 +62,10 @@ function useEmbedVerdict(videoId: string | null): EmbedVerdict {
  * Worker where one exists — same seed-then-refresh contract as the blood
  * drives (C-36).
  */
-function useLatestVideo(seed: LatestVideo | null): LatestVideo | null {
+function useLatestVideo(
+  seed: LatestVideo | null,
+  frozen: RefObject<boolean>,
+): LatestVideo | null {
   const [video, setVideo] = useState(seed);
 
   useEffect(() => {
@@ -66,7 +76,11 @@ function useLatestVideo(seed: LatestVideo | null): LatestVideo | null {
         const res = await fetch('/api/latest-video');
         if (!res.ok) return;
         const data = (await res.json()) as { video?: LatestVideo | null };
-        if (!cancelled && data.video?.videoId) setVideo(data.video);
+        // Never swap once playing: the mounted iframe's src is derived from
+        // this, so a slow refresh (cold colo, up to ~13s) that resolves after
+        // a click would otherwise remount and restart the video someone is
+        // already watching.
+        if (!cancelled && !frozen.current && data.video?.videoId) setVideo(data.video);
       } catch {
         // The seed stands; a failed refresh must not blank a working card.
       }
@@ -74,7 +88,7 @@ function useLatestVideo(seed: LatestVideo | null): LatestVideo | null {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [frozen]);
 
   return video;
 }
@@ -84,7 +98,11 @@ export function Hero({ latestVideo = null }: { latestVideo?: LatestVideo | null 
   const t = homeCopy[lang];
   const { isLive, watchUrl } = useLiveStatus();
 
-  const video = useLatestVideo(latestVideo);
+  // A ref, not state: it must be readable inside useLatestVideo's async
+  // refresh (to stop swapping a playing video) and settable synchronously in
+  // the click handler alongside setPlaying, without adding a render.
+  const playingRef = useRef(false);
+  const video = useLatestVideo(latestVideo, playingRef);
   const verdict = useEmbedVerdict(video?.videoId ?? null);
   const [playing, setPlaying] = useState(false);
 
@@ -141,13 +159,17 @@ export function Hero({ latestVideo = null }: { latestVideo?: LatestVideo | null 
               where the service belongs, and no embed URL fixes that from our
               side (C-60, with the whole investigation).
 
-              So: the latest service's real thumbnail and title, resolved
-              server-side so the visitor's browser never asks Google for data.
-              A probe from the visitor's own network then decides the click —
-              inline playback where the embed works, YouTube in a new tab where
-              Google blocks it. The YouTube player bundle is only ever fetched
-              after a deliberate click on a network where it can actually play
-              — which is also C-46's wish, delivered. */}
+              So: the latest service's real thumbnail and title, the id and
+              title resolved server-side so the browser never hits a Google
+              data API. Two lightweight Google requests do happen before a
+              click — the thumbnail image from i.ytimg.com and a no-cors
+              reachability ping to youtube.com that returns no readable body —
+              but neither is the cookie-bearing player. A probe from the
+              visitor's own network then decides the click: inline playback
+              where the embed works, YouTube in a new tab where Google blocks
+              it. The heavy player bundle is only ever fetched after a
+              deliberate click on a network where it can actually play — C-46's
+              wish, delivered. */}
           <div className="relative bg-navy-deep" style={{ aspectRatio: '16/9' }}>
             {playing && video ? (
               <iframe
@@ -164,11 +186,24 @@ export function Hero({ latestVideo = null }: { latestVideo?: LatestVideo | null 
                 target="_blank"
                 rel="noopener"
                 onClick={(event) => {
+                  // A modified or non-primary click is a deliberate "open the
+                  // link my way" — new tab, new window, download — and must
+                  // reach the href untouched, not be captured into inline play.
+                  if (
+                    event.button !== 0 ||
+                    event.metaKey ||
+                    event.ctrlKey ||
+                    event.shiftKey ||
+                    event.altKey
+                  ) {
+                    return;
+                  }
                   // Inline only on a proven network. 'unknown' and 'blocked'
                   // both fall through to the href — a new tab is the outcome
                   // that cannot fail.
                   if (verdict === 'ok' && video) {
                     event.preventDefault();
+                    playingRef.current = true;
                     setPlaying(true);
                   }
                 }}

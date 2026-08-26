@@ -203,11 +203,19 @@ export function Hero({ latestVideo = null }: { latestVideo?: LatestVideo | null 
                   {!video && (
                     <span className="font-serif text-xl text-white">{t.watchCardTitle}</span>
                   )}
-                  {verdict !== 'ok' && (
-                    <span className="text-[12.5px] font-semibold text-white/85 [text-shadow:0_1px_8px_rgba(0,0,0,.6)]">
-                      {t.watchCardHint}
-                    </span>
-                  )}
+                  {/* `invisible`, not unmounted: the hint vanishes when the
+                      probe proves inline playback (it would be false then),
+                      and removing the element would re-centre the play button
+                      mid-view — a one-time but visible jump. Hidden keeps the
+                      geometry; server and first client render both show it,
+                      because the verdict starts 'unknown' (C-36). */}
+                  <span
+                    className={`text-[12.5px] font-semibold text-white/85 [text-shadow:0_1px_8px_rgba(0,0,0,.6)] ${
+                      verdict === 'ok' ? 'invisible' : ''
+                    }`}
+                  >
+                    {t.watchCardHint}
+                  </span>
                 </span>
                 {video && (
                   /* The title sits on its own gradient so it stays legible on

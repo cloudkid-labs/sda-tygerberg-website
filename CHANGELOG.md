@@ -3,6 +3,12 @@
 [Semantic Versioning](https://semver.org/). What the numbers mean: README,
 "Versioning and releases".
 
+## [1.4.4] — 2026-08-25
+
+- CI runs the smoke checks against `wrangler dev` on every pull request
+  (`worker` job), so a `run_worker_first` regression fails the PR rather than
+  the release (C-60).
+
 ## [1.4.3] — 2026-08-25
 
 - The homepage video iframe pins `referrerPolicy="strict-origin-when-cross-origin"`.

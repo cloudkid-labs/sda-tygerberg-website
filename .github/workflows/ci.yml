@@ -71,3 +71,95 @@ jobs:
       # file that is missing and then report success.
       - name: Check the headshot fallbacks
         run: npm run headshots -- --check
+
+  # The gate C-60 was missing.
+  #
+  # Every check that existed examined the artifact; none examined a running
+  # deployment. So `run_worker_first` could take `/api/live-status` and
+  # `/api/contact` out of service — the contact form answering with the 404 page
+  # — while the typecheck, twenty-six tests, the build and `wrangler deploy` all
+  # reported success. What eventually found it was `wrangler dev` on a laptop.
+  #
+  # This is that laptop step, automated. It runs the same `scripts/smoke.mjs`
+  # the deploys run, against a Worker started from this commit, so a routing
+  # regression fails the pull request instead of the release.
+  #
+  # It replaces the plan recorded until now, which was a Cloudflare WAF skip
+  # rule letting the *production* smoke run gate. That is not coming — the zone
+  # does not use the WAF, and the block is Cloudflare's default handling of
+  # datacenter IPs. Running the checks locally sidesteps the edge entirely,
+  # which is the better answer anyway: it fails before the deploy rather than
+  # after it.
+  worker:
+    name: Worker smoke
+    runs-on: ubuntu-latest
+    # `wrangler dev` is a server: if it comes up but never answers, the wait
+    # loop below is what ends the job, and this is the backstop under that.
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Set up Node
+        uses: actions/setup-node@v7
+        with:
+          node-version-file: '.nvmrc'
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci --prefer-offline --no-audit --fund=false
+
+      # `wrangler dev` serves `dist/`, so the build has to happen first. Not
+      # shared with the `check` job: passing dist between jobs costs an artifact
+      # upload and download, which is slower than rebuilding this project.
+      - name: Build
+        run: npm run build
+
+      # `--local` runs the Worker in workerd on this runner. No account, no API
+      # token, no deploy — which is the point: the check cannot be blocked by
+      # the edge, and it cannot touch production.
+      #
+      # Backgrounded with its log on disk, because the wait loop needs to be
+      # able to print why it never came up.
+      - name: Start the Worker
+        run: |
+          npx wrangler dev --local --port 8787 > wrangler.log 2>&1 &
+          echo $! > wrangler.pid
+        env:
+          WRANGLER_SEND_METRICS: 'false'
+
+      # Poll rather than sleep a fixed amount: it is ready in a couple of
+      # seconds locally, and a fixed sleep is either wasted time or a flake.
+      # Sixty seconds is the give-up point, and the log goes to the annotation
+      # so a failure here says what happened.
+      - name: Wait for the Worker
+        run: |
+          for i in $(seq 1 60); do
+            # stderr silenced: curl writes a connection-refused line on every
+            # attempt before it is up, which buries the real failure if there
+            # is one.
+            if curl -fsS -o /dev/null --max-time 3 http://127.0.0.1:8787/ 2>/dev/null; then
+              echo "Worker answering after ${i}s"
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "::error::wrangler dev did not answer on 127.0.0.1:8787 within 60s"
+          cat wrangler.log
+          exit 1
+
+      # The full set, no `--no-edge`: this target has the Worker *and* applies
+      # `public/_headers`, so the API, the headshot guard and the security
+      # headers are all in scope. The devtest run cannot check any of them.
+      - name: Smoke-test the Worker
+        timeout-minutes: 5
+        run: npm run smoke -- http://127.0.0.1:8787
+
+      # `always()`: a failed smoke run still has to release the port and let the
+      # job finish rather than hold the runner to its timeout.
+      - name: Stop the Worker
+        if: always()
+        run: |
+          [ -f wrangler.pid ] && kill "$(cat wrangler.pid)" 2>/dev/null || true
+          echo "--- wrangler log ---"
+          cat wrangler.log 2>/dev/null || true

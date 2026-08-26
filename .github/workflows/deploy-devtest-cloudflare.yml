@@ -31,9 +31,9 @@ concurrency:
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
-    environment:
-      name: devtest
-      url: https://tygerberg-sda.cloudkid.link
+    # No `environment:` key — see deploy-production-cloudflare.yml. Environment
+    # secrets do not resolve on a private Free-plan repo; the Cloudflare secrets
+    # are repository secrets, and this job reads them directly (C-61).
     steps:
       - name: Checkout
         uses: actions/checkout@v7

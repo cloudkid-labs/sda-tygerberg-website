@@ -5,6 +5,9 @@
 
 ## [1.5.0] — 2026-08-26
 
+- Production moves to `sdatygerberg.co.za`; devtest takes over
+  `tygerberg-sda.cloudkid.link` as a Cloudflare Worker, replacing the sunset
+  GitHub Pages preview and mirroring production's `/api/*` and headers (C-61).
 - The homepage video card is a real preview: the latest service's thumbnail
   and title via `/api/latest-video` (new), playing inline where a probe shows
   the embed works and opening on YouTube where Google's consent flow loops it

@@ -15,15 +15,17 @@
  * instead — this file costs deploy time and a false failure blocks a release.
  *
  * Usage: node scripts/smoke.mjs <base-url> [--no-edge]
- *   --no-edge  the target has no Cloudflare edge in front of it. That removes
- *              two things at once, and conflating them is how the first version
- *              of this script red-failed a healthy devtest deploy: there is no
- *              Worker, so /api/* is absent by design (PUBLIC_HAS_API=false),
- *              AND `public/_headers` is a Cloudflare mechanism that GitHub
- *              Pages never interprets — it uploads as a plain file and answers
- *              200, while the response carries no CSP and no security headers
- *              at all. Checking for either against Pages tests nothing about
- *              the build and only produces noise.
+ *   --no-edge  the target has no Cloudflare edge in front of it — a plain
+ *              static host. That removes two things at once, and conflating
+ *              them is how the first version of this script red-failed a
+ *              healthy edgeless deploy: with no Worker, /api/* is absent by
+ *              design (PUBLIC_HAS_API=false), AND `public/_headers` is a
+ *              Cloudflare mechanism a plain host never interprets — it serves
+ *              as a plain file while the response carries no CSP or security
+ *              headers. Checking either against such a target tests nothing
+ *              about the build and only produces noise. Both production and
+ *              devtest are Workers now (C-61), so no workflow passes this flag;
+ *              it stays for a bare `astro build` served locally.
  */
 
 const base = process.argv[2]?.replace(/\/$/, '');
@@ -233,7 +235,7 @@ try {
 /* ---- security headers and the CSP -------------------------------------- */
 console.log('\nheaders');
 if (noEdge) {
-  notes.push('Header and CSP checks skipped (--no-edge): `_headers` is a Cloudflare mechanism and Pages does not apply it.');
+  notes.push('Header and CSP checks skipped (--no-edge): `_headers` is a Cloudflare mechanism a plain static host does not apply.');
   console.log('  – skipped, no Cloudflare edge on this target');
 } else try {
   const res = await get('/');

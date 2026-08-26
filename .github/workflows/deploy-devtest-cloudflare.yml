@@ -81,4 +81,7 @@ jobs:
       # on it. The gating check remains the `worker` job in ci.yml (C-60).
       - name: Smoke-test the preview
         timeout-minutes: 5
-        run: npm run smoke -- https://tygerberg-sda.cloudkid.link
+        # --expect-noindex: this build is the preview, so the check fails if the
+        # noindex meta is missing (a preview that would compete with production,
+        # C-23/C-61). The canonical-host check runs regardless.
+        run: npm run smoke -- https://tygerberg-sda.cloudkid.link --expect-noindex

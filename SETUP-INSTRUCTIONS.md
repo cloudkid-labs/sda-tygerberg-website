@@ -142,7 +142,7 @@ without merging it. Keep that trigger in place.
 
 Cloudflare dashboard → **Workers & Pages**. The account ID is in the right-hand
 sidebar (and in the URL: `dash.cloudflare.com/<account-id>/...`). Copy it into
-the `CLOUDFLARE_ACCOUNT_ID` GitHub secret from step 2.3.
+the `CLOUDFLARE_ACCOUNT_ID` GitHub secret from step 2.2.
 
 ### 3.2 Create the API token
 
@@ -209,6 +209,24 @@ record must exist for the rule to have something to match.
 enabled on the `sdatygerberg.co.za` zone. Without it those requests 404 and the
 cards fall back to the pre-resized copies. The `cloudkid.link` zone already has
 it, so devtest needs nothing.
+
+**Cutover order (one-time, only when moving the hostname between Workers).**
+`tygerberg-sda.cloudkid.link` starts out attached to the **production** Worker.
+Deploying production to the apex does **not** release it — `wrangler` adds the
+custom domains in the config but never detaches one you removed. So the handoff
+is manual and ordered:
+
+1. Deploy **production** first (promote `dev` → `main`). It attaches
+   `sdatygerberg.co.za`; the apex is now live. `tygerberg-sda.cloudkid.link` is
+   still attached to the production Worker at this point.
+2. In the dashboard, **detach** `tygerberg-sda.cloudkid.link` from the
+   `tygerberg-sda-website` Worker (Worker → Settings → Domains & Routes → remove).
+3. Re-run the **devtest** deploy (Actions → *Deploy devtest (Cloudflare)* →
+   Run workflow). It can now attach the freed hostname to
+   `tygerberg-sda-website-devtest`.
+
+Until step 2, the devtest deploy fails with "custom domain already assigned to
+another Worker" — expected, not a build error.
 
 ### 3.4 First deploy
 
@@ -567,8 +585,7 @@ receiving it — and `via` tells you which channel did the work.
 
 | Symptom | Cause | Fix |
 |---|---|---|
-| Devtest deploy fails on "Get Pages site" | Pages source isn't GitHub Actions | Step 2.2 |
-| Devtest CSS/links 404 under a subpath | `ASTRO_BASE` not applied | The workflow sets it; only an issue when building Pages by hand |
+| Devtest deploy fails: custom domain already assigned to another Worker | `tygerberg-sda.cloudkid.link` is still attached to the production Worker | Detach it from `tygerberg-sda-website` (§3.3 cutover), then re-run the devtest deploy — `wrangler` never auto-detaches a removed custom domain |
 | Production deploy fails with a 10000/authentication error on `/r2/buckets/...` | Token is missing **Workers R2 Storage: Edit** | Add that one row to the existing token — §3.2. No need to reissue it or touch the GitHub secret |
 | Production deploy fails with a 10000/authentication error anywhere else | Token lacks scope, wrong account ID, or an IP filter is set on the token | Check the §3.2 table, then recreate the token if it still fails |
 | `/api/*` 404s in production | Worker didn't deploy, or the route isn't attached | Check the Actions run, then the Worker's Triggers tab |

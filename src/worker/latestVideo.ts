@@ -3,7 +3,9 @@
 import {
   embedPageUrl,
   parseLatestFromEmbedHtml,
+  pickLatestFromApiItems,
   uploadsPlaylistFor,
+  type ApiPlaylistItem,
   type LatestVideo,
 } from '../lib/latestVideo';
 
@@ -31,28 +33,28 @@ type CachedVideo = { video: LatestVideo | null };
 /**
  * The Data API when the key is configured — stable, documented, one quota
  * unit. `playlistItems` on the auto-generated uploads playlist, newest first.
+ *
+ * `part=snippet,status` and a handful of results, not one: the uploads
+ * playlist lists private and deleted uploads too (each still carrying a
+ * videoId), and the newest can be one. `pickLatestFromApiItems` takes the
+ * first genuinely viewable entry so a "Private video" is never featured.
  */
 async function askApi(apiKey: string, channelId: string): Promise<LatestVideo | null> {
   const playlist = uploadsPlaylistFor(channelId);
   if (!playlist) return null;
 
   const url = new URL('https://www.googleapis.com/youtube/v3/playlistItems');
-  url.searchParams.set('part', 'snippet');
+  url.searchParams.set('part', 'snippet,status');
   url.searchParams.set('playlistId', playlist);
-  url.searchParams.set('maxResults', '1');
+  url.searchParams.set('maxResults', '10');
   url.searchParams.set('key', apiKey);
 
   try {
     // Same deadline reasoning as askYouTube in liveStatus.ts.
     const res = await fetch(url.toString(), { signal: AbortSignal.timeout(5000) });
     if (!res.ok) return null;
-    const data = (await res.json()) as {
-      items?: { snippet?: { title?: string; resourceId?: { videoId?: string } } }[];
-    };
-    const snippet = data.items?.[0]?.snippet;
-    const videoId = snippet?.resourceId?.videoId;
-    if (!videoId) return null;
-    return { videoId, title: snippet?.title ?? '' };
+    const data = (await res.json()) as { items?: ApiPlaylistItem[] };
+    return pickLatestFromApiItems(data.items);
   } catch {
     return null;
   }

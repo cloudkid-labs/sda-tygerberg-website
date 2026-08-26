@@ -8,7 +8,8 @@
 - The homepage video card is a real preview: the latest service's thumbnail
   and title via `/api/latest-video` (new), playing inline where a probe shows
   the embed works and opening on YouTube where Google's consent flow loops it
-  (C-60).
+  (C-60). The API path skips private and deleted uploads so a "Private video"
+  is never featured.
 - Latest-content links point at the channel's /streams tab.
 - CI runs the smoke checks against `wrangler dev` on every pull request
   (`worker` job), so a `run_worker_first` regression fails the PR rather than

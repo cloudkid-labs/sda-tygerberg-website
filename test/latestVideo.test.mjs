@@ -3,6 +3,7 @@ import { test, describe } from 'node:test';
 import {
   embedPageUrl,
   parseLatestFromEmbedHtml,
+  pickLatestFromApiItems,
   uploadsPlaylistFor,
 } from '../src/lib/latestVideo.ts';
 
@@ -74,6 +75,56 @@ describe('parseLatestFromEmbedHtml', () => {
   test('malformed inner JSON is null, not a throw', () => {
     const html = '<html>"embedded_player_response":"{broken"</html>';
     assert.equal(parseLatestFromEmbedHtml(html), null);
+  });
+});
+
+describe('pickLatestFromApiItems', () => {
+  const item = (videoId, privacyStatus, title = 't') => ({
+    snippet: { title, resourceId: { videoId } },
+    status: { privacyStatus },
+  });
+
+  test('takes the newest public entry', () => {
+    assert.deepEqual(
+      pickLatestFromApiItems([item('e7rN_P9-n2I', 'public', 'Latest service')]),
+      { videoId: 'e7rN_P9-n2I', title: 'Latest service' },
+    );
+  });
+
+  test('skips a leading private/deleted upload and takes the first viewable', () => {
+    const items = [
+      item('AAAAAAAAAAA', 'private', 'Private video'),
+      { snippet: { title: 'Deleted video', resourceId: { videoId: 'BBBBBBBBBBB' } }, status: {} },
+      item('e7rN_P9-n2I', 'public', 'Real service'),
+    ];
+    assert.deepEqual(pickLatestFromApiItems(items), {
+      videoId: 'e7rN_P9-n2I',
+      title: 'Real service',
+    });
+  });
+
+  test('accepts unlisted, since it plays for anyone with the link', () => {
+    assert.deepEqual(pickLatestFromApiItems([item('e7rN_P9-n2I', 'unlisted')]), {
+      videoId: 'e7rN_P9-n2I',
+      title: 't',
+    });
+  });
+
+  test('returns null when nothing viewable remains — the fallback chain takes over', () => {
+    const items = [
+      item('AAAAAAAAAAA', 'private'),
+      { snippet: { title: 'Deleted video', resourceId: { videoId: 'BBBBBBBBBBB' } } },
+    ];
+    assert.equal(pickLatestFromApiItems(items), null);
+  });
+
+  test('an entry with no videoId is skipped, not featured', () => {
+    assert.equal(pickLatestFromApiItems([{ snippet: { title: 'x' }, status: { privacyStatus: 'public' } }]), null);
+  });
+
+  test('empty or missing input is null', () => {
+    assert.equal(pickLatestFromApiItems([]), null);
+    assert.equal(pickLatestFromApiItems(undefined), null);
   });
 });
 

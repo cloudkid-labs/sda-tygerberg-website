@@ -1123,8 +1123,31 @@ even through the proxy, and `ERR_CONNECTION_RESET` on `example.com` shows that i
 the environment rather than the site. The test that settles it is a browser on
 the live page, then the same page in a private window with extensions off.
 
-Blocking that frame stays correct and costs nothing — it is a console warning,
-not a playback failure — so `frame-src` stays at the C-48 value.
+Blocking that frame stays correct — allowing it was tried and loops — so
+`frame-src` stays at the C-48 value.
+
+**The embed is gone.** Calling the blocked frame "a console warning, not a
+playback failure" was wrong, and the screenshot that disproved it came from an
+incognito window with no extensions and no cookies: the card renders Chrome's
+blocked-content box where the service should be. The "it must be that browser"
+reading was wrong too, for the same reason.
+
+What the sandbox could never see is the one thing that mattered: its egress is
+geolocated `GL: "US"`, where the embed answers `previewPlayabilityStatus: OK`
+and plays. The report is from South Africa, which is where this congregation is,
+so the embed fails for very nearly its entire audience while looking healthy
+from every angle available here. No embed-level fix — the `origin` parameter,
+the `youtube.com` host, a direct video id — is verifiable from a US egress, and
+all three answer `OK` there, so shipping one would be a guess for someone else
+to test.
+
+So the card is a facade: a play button linking to the channel, styled as the
+player was. It cannot fail in any region, fetches no third-party bytes, and does
+what C-46 wanted and could not have — the YouTube bundle, larger than the whole
+first-party homepage, is now never fetched rather than merely deferred.
+
+`youtubeUploadsEmbedUrl` stays in `site.ts`, marked as not rendered, so
+restoring the embed is one line if YouTube's behaviour ever changes.
 
 The one failure mode still reachable from this side is the missing referrer, and
 `Hero.tsx` now pins `referrerPolicy="strict-origin-when-cross-origin"` on the

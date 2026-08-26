@@ -52,29 +52,41 @@ export function Hero() {
         <div className="overflow-hidden rounded-card-lg bg-navy-deep shadow-deep">
           {/* No badge over the video: it sat on top of the title and channel
               name YouTube draws in that corner. It lives in the bar below. */}
-          <div className="relative bg-black" style={{ aspectRatio: '16/9' }}>
-            {/* Deferred like the map below it. On a phone the player stacks
-                under the hero copy and starts offscreen, so this genuinely
-                withholds the YouTube bundle — which is larger than the whole
-                first-party homepage — until it is scrolled to. A click-to-load
-                poster would defer it on desktop too. C-46 */}
-            {/* referrerPolicy is pinned here rather than inherited from the
-                document. YouTube refuses to play an embed whose embedder it
-                cannot identify — Error 153,
-                PLAYABILITY_ERROR_CODE_EMBEDDER_IDENTITY_MISSING_REFERRER — and
-                the only thing supplying that identity today is the
-                Referrer-Policy response header, which is one edit to
-                build-headers.mjs away from `no-referrer` or `same-origin`.
-                Either would silently take the player out. C-60 */}
-            <iframe
-              src={SITE.youtubeUploadsEmbedUrl}
-              title="Tygerberg SDA YouTube"
-              loading="lazy"
-              referrerPolicy="strict-origin-when-cross-origin"
-              allow="autoplay; encrypted-media; picture-in-picture"
-              allowFullScreen
-              className="absolute inset-0 h-full w-full border-0"
-            />
+          {/* A facade, not an embed, and the reason is measured rather than
+              stylistic. The `youtube-nocookie` player redirects itself to
+              https://www.google.com/ in at least some regions; `frame-src`
+              blocks that, so the card rendered Chrome's blocked-content box
+              where the service should be. Allowing google.com was tried and is
+              worse — the consent flow cannot complete inside a third-party
+              frame, so it loops (C-60).
+
+              It is not diagnosable from a US egress: the embed answers
+              `previewPlayabilityStatus: OK` and `GL: "US"` there, and the same
+              page is broken in an incognito window in South Africa, which is
+              where this congregation is. An embed that fails for its entire
+              audience is worse than a link that works everywhere.
+
+              This also does what C-46 wished for and could not have: the
+              YouTube bundle — larger than the whole first-party homepage — is
+              now never fetched at all, on any viewport, rather than merely
+              deferred until scrolled to. */}
+          <div className="relative bg-navy-deep" style={{ aspectRatio: '16/9' }}>
+            <a
+              href={SITE.youtubeFeaturedUrl}
+              target="_blank"
+              rel="noopener"
+              className="group absolute inset-0 flex flex-col items-center justify-center gap-3 px-6 text-center"
+            >
+              <span className="flex h-16 w-16 items-center justify-center rounded-full bg-orange transition-colors group-hover:bg-orange-hover">
+                {/* translate-x: a triangle centred by its bounding box reads
+                    off-centre, because its mass sits left of that box. */}
+                <svg viewBox="0 0 24 24" aria-hidden="true" className="h-7 w-7 translate-x-[2px] fill-white">
+                  <path d="M8 5v14l11-7z" />
+                </svg>
+              </span>
+              <span className="font-serif text-xl text-white">{t.watchCardTitle}</span>
+              <span className="text-[12.5px] text-blue-muted">{t.watchCardHint}</span>
+            </a>
           </div>
           <div className="flex items-center gap-3 p-4">
             {isLive && (

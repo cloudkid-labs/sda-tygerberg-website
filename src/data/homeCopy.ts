@@ -45,6 +45,8 @@ export type HomeCopy = {
   ctaVisit: string;
   ctaWatch: string;
   liveLabel: string;
+  watchCardTitle: string;
+  watchCardHint: string;
   tabReplay: string;
   timesLabel: string;
   week: WeekEntry[];
@@ -124,6 +126,8 @@ export const homeCopy: Record<Lang, HomeCopy> = {
     ctaVisit: 'Besoek ons gemeente',
     ctaWatch: 'Kyk Lewendig',
     liveLabel: 'LEWENDIG',
+    watchCardTitle: 'Kyk ons jongste diens',
+    watchCardHint: 'Maak op YouTube oop',
     tabReplay: 'Onlangse Dienste',
     timesLabel: 'Sabbatdienste',
     week: [
@@ -223,6 +227,8 @@ export const homeCopy: Record<Lang, HomeCopy> = {
     ctaVisit: 'Visit our church',
     ctaWatch: 'Watch Live',
     liveLabel: 'LIVE',
+    watchCardTitle: 'Watch our latest service',
+    watchCardHint: 'Opens on YouTube',
     tabReplay: 'Recent Services',
     timesLabel: 'Sabbath Services',
     week: [

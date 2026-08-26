@@ -5,6 +5,9 @@
 
 ## [1.4.4] — 2026-08-25
 
+- The homepage video card is a link to YouTube, not an embed. The player
+  redirects itself to google.com in at least some regions, so the card showed
+  Chrome's blocked-content box where the service should be (C-60).
 - CI runs the smoke checks against `wrangler dev` on every pull request
   (`worker` job), so a `run_worker_first` regression fails the PR rather than
   the release (C-60).

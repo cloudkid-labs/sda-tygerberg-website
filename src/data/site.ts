@@ -41,6 +41,11 @@ export const SITE = {
   // named; this catches a live answer that arrived without one, and YouTube
   // redirects it to whatever the channel is streaming.
   youtubeLiveUrl: 'https://www.youtube.com/@SDATygerberg/live',
+  // NOT RENDERED. The homepage card is a facade linking to YouTube, because the
+  // player redirects itself to google.com in at least some regions and the card
+  // showed Chrome's blocked-content box instead of the service — see C-60. Kept
+  // so restoring the embed is one line if that ever resolves.
+  //
   // Auto-generated "uploads" playlist: always the latest video, no maintenance.
   // youtube-nocookie.com because the regular embed domain needs third-party
   // storage access that iOS Safari blocks, leaving a blank black box.

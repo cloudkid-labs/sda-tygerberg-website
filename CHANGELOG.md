@@ -5,9 +5,9 @@
 
 ## [1.4.4] — 2026-08-25
 
-- The homepage video embeds from `youtube.com` rather than
-  `youtube-nocookie.com`, under test: the nocookie domain redirect-loops
-  through Google's consent flow (C-60).
+- The homepage video card links to YouTube instead of embedding: the embed
+  redirect-loops through Google's consent flow from South Africa on both
+  YouTube hosts (C-60).
 - CI runs the smoke checks against `wrangler dev` on every pull request
   (`worker` job), so a `run_worker_first` regression fails the PR rather than
   the release (C-60).

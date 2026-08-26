@@ -1123,8 +1123,49 @@ even through the proxy, and `ERR_CONNECTION_RESET` on `example.com` shows that i
 the environment rather than the site. The test that settles it is a browser on
 the live page, then the same page in a private window with extensions off.
 
-Blocking that frame stays correct and costs nothing — it is a console warning,
-not a playback failure — so `frame-src` stays at the C-48 value.
+### The embed is dead, and the domain was never the variable
+
+"A console warning, not a playback failure" was wrong, and so was "something in
+the reporting browser" — an incognito window with no extensions and no cookies
+renders Chrome's blocked-content box where the service belongs. The paragraph
+above survives because its measurements were right; its conclusion did not.
+
+A network trace from devtest showed the mechanism:
+
+    videoseries?list=UU...                                          302
+    google.com/index?continue=https://www.youtube-nocookie.com/...  302
+    videoseries?list=UU...&google_a...le.com; expires=...           302
+                           ^ a cookie in the URL because it cannot be set
+
+Google bounces the embed to its consent endpoint and back, carrying an
+abuse/consent cookie as a query parameter because it cannot write one as a
+third-party cookie, and loops until the browser gives up.
+
+Three exonerations, each earned the hard way:
+
+- **Not the CSP.** Devtest applies no CSP at all — Pages never interprets
+  `public/_headers`, this entry's own `--no-edge` finding — and it loops there.
+  On production the policy only changed the symptom, loop into blocked box.
+- **Not the v1.4.x deploys.** `git show v1.3.2:src/data/site.ts` carries a
+  byte-identical embed URL; devtest ran that embed with no policy and looped.
+- **Not the nocookie domain.** The obvious suspect — a domain built to withhold
+  cookies, failing on a cookie that cannot be set — was tested from South
+  Africa on plain `youtube.com`, and it loops identically. Both hosts, same
+  loop; the domain was never the variable.
+
+The failure is regional. From a `GL: "US"` egress no consent flow runs and both
+hosts answer `previewPlayabilityStatus: OK`, which is why every measurement
+from this sandbox said "healthy" while every screenshot from Cape Town said
+otherwise. This congregation is in Cape Town.
+
+So the homepage card is a facade: a play button linking to the channel, styled
+as the player was. It cannot fail in any region, fetches no third-party bytes,
+and does what C-46 wanted and could not have — the YouTube bundle, larger than
+the whole first-party homepage, is never fetched rather than merely deferred.
+`youtubeUploadsEmbedUrl` stays in `site.ts` marked not rendered, so restoring
+the embed is one line if Google's behaviour changes; `frame-src` keeps both
+YouTube hosts for the same reason, and google.com stays out of it — allowing it
+was the first wrong fix, and it un-hides this loop rather than completing it.
 
 The one failure mode still reachable from this side is the missing referrer, and
 `Hero.tsx` now pins `referrerPolicy="strict-origin-when-cross-origin"` on the

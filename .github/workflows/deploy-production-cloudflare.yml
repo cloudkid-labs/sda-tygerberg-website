@@ -161,8 +161,12 @@ jobs:
         #
         # A WAF skip rule was going to lift this. It is not coming — the zone
         # does not use the WAF, and the block is Cloudflare's default handling
-        # of datacenter IPs. The line goes when a `wrangler dev` job in CI takes
-        # over as the real gate. C-60
+        # of datacenter IPs.
+        #
+        # The real gate is the `worker` job in ci.yml, which runs these same
+        # checks against `wrangler dev` on every pull request and never meets
+        # the edge. That exists now, so this step is a post-deploy report by
+        # design rather than a retreat, and the line stays. C-60
         continue-on-error: true
         run: npm run smoke -- https://tygerberg-sda.cloudkid.link
 

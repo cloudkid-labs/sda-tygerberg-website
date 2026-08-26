@@ -1188,11 +1188,18 @@ zone does not use the WAF, so waiting on dashboard access is waiting on somethin
 that is not coming. The block is Cloudflare's default bot handling of datacenter
 IPs, which no rule of ours removes.
 
-The fix is to stop asking the production edge at all. A `wrangler dev` job in CI,
-running the same script against a local Worker, catches the `run_worker_first`
-class of bug before it ships instead of after, and never meets the edge that does
-the blocking. That is the real gate; the production run stays a post-deploy
-report and does not block.
+The fix is to stop asking the production edge at all, and that job now exists:
+`worker` in `ci.yml` builds this commit, starts `wrangler dev --local`, and runs
+the same script against it. It catches the `run_worker_first` class of bug before
+it ships instead of after, and never meets the edge that does the blocking.
+
+It was verified the way this file keeps insisting on: the bug was put back —
+`/api/*` removed from `run_worker_first` — and the job failed with exit 1 naming
+C-60 on both API routes, then passed again once restored. A gate that has never
+failed is a gate nobody has tested.
+
+So the production run is now a post-deploy report by design rather than by
+retreat, and does not block.
 
 The general lesson is the one this file keeps relearning: a check that has only
 ever been run against one shape of target has only been tested against one shape
@@ -1207,9 +1214,9 @@ Two honest limits:
 - The devtest run passes `--no-edge`, because Pages has neither a Worker nor the
   headers. That run cannot catch this class of bug — and with the production run
   reduced to advisory by the block above, **nothing in CI currently catches it**.
-  The `wrangler dev` check that found it is a local step. Making that automatic
-  means a `wrangler dev` job in CI, which would also sidestep Cloudflare
-  entirely; that is the better fix and is not done here.
+  The `wrangler dev` check that found it was a local step. It is automatic now —
+  the `worker` job in `ci.yml` — so this class of bug fails a pull request
+  rather than a release.
 - `fetch` has no default timeout, so the script carries three bounds: 10s per
   request, a 150s whole-run deadline past which every remaining request fails
   immediately, and `timeout-minutes: 5` on both workflow steps.

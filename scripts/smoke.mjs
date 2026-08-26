@@ -275,9 +275,9 @@ for (const n of notes) console.log(`note: ${n}`);
  * use the WAF, and the block is Cloudflare's default handling of datacenter IPs
  * rather than a rule anyone here can lift. So the production run cannot gate
  * anything, and pretending otherwise would mean either a permanently red
- * pipeline or a gate everyone has learned to ignore. The real gate is a
- * `wrangler dev` job in CI running these same checks against a local Worker,
- * which never meets the edge that does the blocking. C-60
+ * pipeline or a gate everyone has learned to ignore. The real gate is the
+ * `worker` job in ci.yml, which runs these same checks against `wrangler dev`
+ * on every pull request and never meets the edge that does the blocking. C-60
  */
 const everythingFailed = failures.length >= totalChecks && totalChecks > 0;
 if (lastEdgeStatus && everythingFailed) {

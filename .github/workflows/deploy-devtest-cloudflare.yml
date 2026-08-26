@@ -1,0 +1,87 @@
+name: Deploy devtest (Cloudflare)
+
+# The integration preview, deployed from `dev`. A second Cloudflare Worker
+# (`tygerberg-sda-website-devtest`, see `env.devtest` in wrangler.jsonc) on
+# `tygerberg-sda.cloudkid.link` — the old production hostname, freed when
+# production moved to sdatygerberg.co.za. It replaces the sunset GitHub Pages
+# preview (C-61).
+#
+# Why a Worker and not Pages: Pages could not run `/api/*` or apply the
+# security headers, so the C-60 class of routing bug could only ever surface in
+# production. A devtest Worker is a faithful mirror — same `run_worker_first`,
+# same edge — so the post-deploy smoke here exercises the real thing.
+#
+# Uses the same two secrets as production:
+#   CLOUDFLARE_API_TOKEN   (Workers Scripts:Edit + the tygerberg-sda.cloudkid.link zone)
+#   CLOUDFLARE_ACCOUNT_ID
+# and deliberately NO YouTube secrets — the devtest Worker runs keyless
+# (see wrangler.jsonc env.devtest for why).
+on:
+  push:
+    branches: [dev]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: devtest-deploy
+  cancel-in-progress: true
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: devtest
+      url: https://tygerberg-sda.cloudkid.link
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Set up Node
+        uses: actions/setup-node@v7
+        with:
+          # Restores ~/.npm keyed on package-lock.json. See the production
+          # workflow for why node_modules itself is not cached on top.
+          node-version-file: '.nvmrc'
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci --prefer-offline --no-audit --fund=false
+
+      - name: Build (root base path)
+        run: npm run build
+        env:
+          # The only build flag that differs from production: the preview is
+          # kept out of search results. Its canonical still points at
+          # production (C-23), so the two never compete. PUBLIC_HAS_API and
+          # PUBLIC_IMAGE_CDN are left at their defaults (enabled) now that a
+          # Worker and the Cloudflare edge are in front of devtest, unlike the
+          # old Pages preview.
+          PUBLIC_INDEXABLE: 'false'
+          # Stamped so `curl -s <devtest>/ | grep app-commit` says which commit
+          # the preview is serving. No version tag — devtest is never a release.
+          PUBLIC_APP_COMMIT: ${{ github.sha }}
+
+      - name: Deploy to Cloudflare Workers
+        uses: cloudflare/wrangler-action@v4
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          # --env devtest selects the named environment in wrangler.jsonc:
+          # a distinct Worker on tygerberg-sda.cloudkid.link with no email or
+          # consent bindings.
+          command: deploy --env devtest
+
+      # Same script as production, and now with the edge checks it could never
+      # run against Pages: /api/* routing, the security headers, and the
+      # headshot master guard. It may still come back inconclusive — Cloudflare
+      # answers this runner 403 on the devtest zone exactly as it does on
+      # production — but a mixed result is a real failure and the script exits 1
+      # on it. The gating check remains the `worker` job in ci.yml (C-60).
+      - name: Smoke-test the preview
+        timeout-minutes: 5
+        # --expect-noindex: this build is the preview, so the check fails if the
+        # noindex meta is missing (a preview that would compete with production,
+        # C-23/C-61). The canonical-host check runs regardless.
+        run: npm run smoke -- https://tygerberg-sda.cloudkid.link --expect-noindex

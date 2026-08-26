@@ -469,20 +469,26 @@ just a newline.
 
 ## Environments
 
-### C-22 — The devtest build has no Worker and no transformer
+### C-22 — The devtest build has no Worker and no transformer — SUPERSEDED by C-61
 
-GitHub Pages serves static files only, so `/api/*` and `/cdn-cgi/*` do not
-exist there. `PUBLIC_HAS_API=false` skips the live-status poll and renders the
-contact form read-only; `PUBLIC_IMAGE_CDN=false` serves the fallback headshots
-(C-09).
+Held only while devtest was GitHub Pages. Pages served static files only, so
+`/api/*` and `/cdn-cgi/*` did not exist there: `PUBLIC_HAS_API=false` skipped
+the live-status poll and rendered the contact form read-only, and
+`PUBLIC_IMAGE_CDN=false` served the fallback headshots (C-09).
+
+Devtest is a Cloudflare Worker now (C-61), so both exist there and both flags
+are back at their defaults. The one gap that remains is the contact channel,
+withheld deliberately rather than by the platform — see C-61.
 
 ### C-23 — The preview advertises production canonicals
 
-The Pages copy is publicly crawlable and cannot be covered by a `robots.txt` —
-that only works at a domain root we do not own. `PUBLIC_INDEXABLE=false` emits
-`noindex,nofollow` and `canonicalPath` strips the Pages base so canonicals point
-at production. Both exist to stop the preview competing with the real site in
-search results.
+The devtest copy is publicly crawlable, so it must not compete with the real
+site in search. `PUBLIC_INDEXABLE=false` emits `noindex,nofollow`, and
+`Astro.site` is the production origin on every build (astro.config.mjs) so
+canonicals and Open Graph URLs point at production regardless of which host
+served the page. Both exist to keep the preview out of the index. (Under the
+old Pages preview `canonicalPath` also stripped the Pages base path; devtest
+serves from a domain root now, so there is no base to strip — C-61.)
 
 ### C-24 — Unhashed assets get `max-age=0` unless told otherwise
 
@@ -1123,8 +1129,81 @@ even through the proxy, and `ERR_CONNECTION_RESET` on `example.com` shows that i
 the environment rather than the site. The test that settles it is a browser on
 the live page, then the same page in a private window with extensions off.
 
-Blocking that frame stays correct and costs nothing — it is a console warning,
-not a playback failure — so `frame-src` stays at the C-48 value.
+### The embed is dead, and the domain was never the variable
+
+"A console warning, not a playback failure" was wrong, and so was "something in
+the reporting browser" — an incognito window with no extensions and no cookies
+renders Chrome's blocked-content box where the service belongs. The paragraph
+above survives because its measurements were right; its conclusion did not.
+
+A network trace from devtest showed the mechanism:
+
+    videoseries?list=UU...                                          302
+    google.com/index?continue=https://www.youtube-nocookie.com/...  302
+    videoseries?list=UU...&google_a...le.com; expires=...           302
+                           ^ a cookie in the URL because it cannot be set
+
+Google bounces the embed to its consent endpoint and back, carrying an
+abuse/consent cookie as a query parameter because it cannot write one as a
+third-party cookie, and loops until the browser gives up.
+
+Three exonerations, each earned the hard way:
+
+- **Not the CSP.** Devtest applies no CSP at all — Pages never interprets
+  `public/_headers`, this entry's own `--no-edge` finding — and it loops there.
+  On production the policy only changed the symptom, loop into blocked box.
+- **Not the v1.4.x deploys.** `git show v1.3.2:src/data/site.ts` carries a
+  byte-identical embed URL; devtest ran that embed with no policy and looped.
+- **Not the nocookie domain.** The obvious suspect — a domain built to withhold
+  cookies, failing on a cookie that cannot be set — was tested from South
+  Africa on plain `youtube.com`, and it loops identically. Both hosts, same
+  loop; the domain was never the variable.
+
+The failure is regional. From a `GL: "US"` egress no consent flow runs and both
+hosts answer `previewPlayabilityStatus: OK`, which is why every measurement
+from this sandbox said "healthy" while every screenshot from Cape Town said
+otherwise. This congregation is in Cape Town.
+
+So the homepage card became a facade first, and then — at the church's
+instruction that a facade was not enough — the adaptive preview that replaced
+it:
+
+- **`/api/latest-video`** resolves the newest upload's id and title
+  server-side: the Data API when `YOUTUBE_API_KEY` is configured, else the
+  embed page itself, whose `embedded_player_response` carries the playlist
+  panel when fetched with a Referer (`src/lib/latestVideo.ts`, one parser
+  shared with the build). YouTube's RSS feed would have been the clean keyless
+  source and answers 404 now, for every channel — checked against YouTube's
+  own. Answers are cached edge-side for 30 minutes, nulls included; the build
+  bakes a seed so the card is a real preview pre-hydration and on Pages. The
+  API path filters on `status.privacyStatus` (public or unlisted) and skips the
+  rest: the uploads playlist lists private and deleted uploads too, each still
+  carrying a `videoId`, so `items[0]` blindly could feature a dead "Private
+  video" card — cached up to 45 minutes, and worse than the keyless path, whose
+  embed panel lists only playable entries. `pickLatestFromApiItems` reconciles
+  the two.
+- **The browser never hits a Google data API.** The id and title come from the
+  Worker. Two lightweight Google requests do fire before a click — the
+  thumbnail from `i.ytimg.com` (a cookieless CDN, now in `img-src`) and the
+  no-cors reachability ping below (which returns no readable body) — but
+  neither is the cookie-bearing player, and the visitor's identity is never
+  sent to a data endpoint.
+- **A reachability probe decides the click** (`useEmbedVerdict`, the C-09
+  pattern): a no-cors fetch of the embed URL from the visitor's own network.
+  On a looping network the redirect chain either trips the browser's loop
+  limit or leaves `connect-src` — which now allows `www.youtube.com` and
+  deliberately nothing else of Google's, so the rejection is itself the
+  verdict. Probe passes → the click swaps in the iframe and plays inline.
+  Anything else → the click opens the video on YouTube, where the consent flow
+  can complete at top level. Wrong-in-a-safe-direction both ways.
+- The player bundle is fetched only after a deliberate click on a proven
+  network — C-46's wish, delivered. Latest-content links point at the
+  channel's `/streams` tab by the church's instruction.
+
+`frame-src` keeps both YouTube hosts, and google.com stays out of it — allowing
+it was the first wrong fix, and it un-hides this loop rather than completing
+it. If Google's behaviour ever changes, the probe simply starts passing and the
+card plays inline everywhere; nothing needs reverting.
 
 The one failure mode still reachable from this side is the missing referrer, and
 `Hero.tsx` now pins `referrerPolicy="strict-origin-when-cross-origin"` on the
@@ -1188,11 +1267,18 @@ zone does not use the WAF, so waiting on dashboard access is waiting on somethin
 that is not coming. The block is Cloudflare's default bot handling of datacenter
 IPs, which no rule of ours removes.
 
-The fix is to stop asking the production edge at all. A `wrangler dev` job in CI,
-running the same script against a local Worker, catches the `run_worker_first`
-class of bug before it ships instead of after, and never meets the edge that does
-the blocking. That is the real gate; the production run stays a post-deploy
-report and does not block.
+The fix is to stop asking the production edge at all, and that job now exists:
+`worker` in `ci.yml` builds this commit, starts `wrangler dev --local`, and runs
+the same script against it. It catches the `run_worker_first` class of bug before
+it ships instead of after, and never meets the edge that does the blocking.
+
+It was verified the way this file keeps insisting on: the bug was put back —
+`/api/*` removed from `run_worker_first` — and the job failed with exit 1 naming
+C-60 on both API routes, then passed again once restored. A gate that has never
+failed is a gate nobody has tested.
+
+So the production run is now a post-deploy report by design rather than by
+retreat, and does not block.
 
 The general lesson is the one this file keeps relearning: a check that has only
 ever been run against one shape of target has only been tested against one shape
@@ -1207,9 +1293,9 @@ Two honest limits:
 - The devtest run passes `--no-edge`, because Pages has neither a Worker nor the
   headers. That run cannot catch this class of bug — and with the production run
   reduced to advisory by the block above, **nothing in CI currently catches it**.
-  The `wrangler dev` check that found it is a local step. Making that automatic
-  means a `wrangler dev` job in CI, which would also sidestep Cloudflare
-  entirely; that is the better fix and is not done here.
+  The `wrangler dev` check that found it was a local step. It is automatic now —
+  the `worker` job in `ci.yml` — so this class of bug fails a pull request
+  rather than a release.
 - `fetch` has no default timeout, so the script carries three bounds: 10s per
   request, a 150s whole-run deadline past which every remaining request fails
   immediately, and `timeout-minutes: 5` on both workflow steps.
@@ -1236,3 +1322,60 @@ Two honest limits:
   the iframes in the markup, and `google.com` is not one of them. Only a real
   browser loading the page would see it. That check is worth adding if a second
   CSP surprise ever ships.
+
+### C-61 — Production moves to sdatygerberg.co.za, and devtest becomes a Worker
+
+The church has its own domain now. Production moved from
+`tygerberg-sda.cloudkid.link` to `sdatygerberg.co.za`, and the old hostname was
+handed to devtest — which stopped being a GitHub Pages preview and became a
+second Cloudflare Worker (GitHub Pages was disabled when the repo went private,
+so the old preview was already dead).
+
+The production origin is named once, in `astro.config.mjs` (`site`); everything
+absolute — canonical tags, Open Graph, the sitemap, JSON-LD, the build-time
+embed `Referer` — derives from it. `wrangler.jsonc` carries the two routes: the
+apex as a top-level `custom_domain`, and `tygerberg-sda.cloudkid.link` under
+`env.devtest`. Both zones live in the same account, so `wrangler deploy`
+provisions each on its own deploy.
+
+Why devtest-as-Worker matters, not just cosmetics: the Pages preview could not
+run `/api/*` or apply the security headers, so the whole C-60 class of routing
+bug could surface only in production. A devtest Worker is a faithful mirror —
+same `run_worker_first`, same edge — so its post-deploy smoke exercises the real
+thing. Named environments inherit `main`, `assets` and `observability` but not
+bindings, vars or routes (those are per-environment), so `env.devtest`
+redeclares only its route and the two `LIVE_CHECK_*` vars.
+
+What devtest deliberately does NOT carry: `send_email`, the `CONSENT` R2 bucket,
+and the `CONTACT_EMAIL_*` vars. A preview must never email the church or write
+consent records to the production bucket, so `/api/contact` answers
+`not-configured` there (the form says so). It also carries no `YOUTUBE_API_KEY`,
+so the LIVE badge never lights and the latest-video card falls back to the
+keyless embed-page scrape, which needs no secret. This is the one place devtest
+is not a faithful mirror, and it is withheld on purpose.
+
+Two things the deploy cannot do for itself, both on the new
+`sdatygerberg.co.za` zone (`cloudkid.link` already has them):
+
+- **www → apex.** `run_worker_first` is path-scoped, so a whole-host redirect
+  cannot live in the Worker — a request to `www/` for an asset path never
+  reaches the Worker to be redirected. It is a zone Redirect Rule instead
+  (SETUP-INSTRUCTIONS §domains). The `canonical` tag pointing at the apex is the
+  backstop if the rule is ever missing.
+- **Image Resizing.** Production headshots are served through `/cdn-cgi/image/*`
+  (C-09, C-51). That transform must be enabled on the zone or the requests 404;
+  the Worker's master guard then serves the pre-resized fallback, so the failure
+  mode is softer sharpness, not a broken page.
+
+Cutover order matters, and it is manual: `tygerberg-sda.cloudkid.link` starts
+attached to the production Worker, and `wrangler` does NOT detach it when the
+route is dropped from config — it only ever adds the custom domains it finds,
+never removes one. So deploying production to the apex leaves the old host still
+bound to the production Worker, and the devtest deploy — which fires first, on
+the merge to `dev` — fails to claim it ("custom domain already assigned to
+another Worker"). The handoff is: promote to `main` (production attaches the
+apex), then detach `tygerberg-sda.cloudkid.link` from `tygerberg-sda-website` in
+the dashboard, then re-run the devtest deploy so it attaches the freed host.
+The `CLOUDFLARE_API_TOKEN` must reach both zones. See SETUP-INSTRUCTIONS §3.3.
+
+Supersedes C-22; updates C-23 (no Pages base path to strip any more).

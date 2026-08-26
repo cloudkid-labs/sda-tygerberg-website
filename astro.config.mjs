@@ -15,15 +15,16 @@ import tailwindcss from '@tailwindcss/vite';
  */
 process.env.PUBLIC_BUILD_DATE ??= new Date().toISOString().slice(0, 10);
 
-// Set ASTRO_BASE (e.g. "/sda-tygerberg-website") when building for a GitHub
-// Pages project site; leave unset for the Cloudflare production deploy,
-// which serves from the domain root.
+// ASTRO_BASE serves the build under a subpath; left unset both deploys serve
+// from the domain root (production and devtest are Cloudflare Workers on their
+// own custom domains — C-61).
 export default defineConfig({
   // The origin every absolute URL is built from — canonical tags, Open Graph
-  // URLs and the sitemap. This is the domain the Worker actually serves (see
-  // `routes` in wrangler.jsonc); change it here and nowhere else if the church
-  // moves to its own domain.
-  site: 'https://tygerberg-sda.cloudkid.link',
+  // URLs and the sitemap. The production domain, and deliberately the same on
+  // every build including devtest (C-23): a noindex preview whose canonical
+  // points at production is what keeps the two from competing in search.
+  // Change it here and nowhere else if the church moves domains again.
+  site: 'https://sdatygerberg.co.za',
   base: process.env.ASTRO_BASE || '/',
   output: 'static',
   integrations: [react()],

@@ -20,7 +20,7 @@ dashboards; never commit them to the repository.
 |---|---|---|
 | **GitHub account** with admin on the repo | Pages, Actions secrets, branch rules | Admin is required — Settings pages are hidden otherwise |
 | **Cloudflare account** | Hosts the Worker and the live site | Free plan is enough |
-| **A domain in that Cloudflare account** | The production URL | Currently `cloudkid.link`, serving `tygerberg-sda.cloudkid.link` |
+| **Two domains in that Cloudflare account** | Production and the devtest preview | `sdatygerberg.co.za` (production) and `cloudkid.link` (serving the `tygerberg-sda.cloudkid.link` devtest preview) |
 | **Google account** | YouTube Data API key for the LIVE badge | Optional — everything else works without it |
 | **Somewhere to receive form submissions** | The contact form's destination | A church inbox verified in Cloudflare, or any JSON webhook |
 | **Node 24 LTS + git** | Local development only | Version is pinned in `.nvmrc` |
@@ -88,35 +88,27 @@ Two long-lived branches, and the workflows key off them:
 
 | Branch | Role | Deploys to |
 |---|---|---|
-| `dev` | Integration. Feature PRs target this. | GitHub Pages devtest preview |
-| `main` | Production. Only moves via a reviewed `dev` → `main` promotion PR. | Cloudflare (the live site) |
+| `dev` | Integration. Feature PRs target this. | Cloudflare devtest Worker (`tygerberg-sda.cloudkid.link`) |
+| `main` | Production. Only moves via a reviewed `dev` → `main` promotion PR. | Cloudflare (the live site, `sdatygerberg.co.za`) |
 
 Create them if they don't exist, and set **`dev` as the repository's default
 branch** (Settings → General → Default branch) so new PRs target it
 automatically.
 
-### 2.2 Enable GitHub Pages
-
-Settings → **Pages** → *Build and deployment* → **Source: GitHub Actions**.
-
-Do this before the first `dev` push, or the devtest workflow fails at its
-deploy step with a "Pages is not enabled" error. Nothing else on the Pages
-screen needs changing — the workflow supplies the artifact.
-
-### 2.3 Add the Actions secrets
+### 2.2 Add the Actions secrets
 
 Settings → **Secrets and variables → Actions** → *New repository secret*.
-Both are needed only by the production workflow:
+Both workflows — devtest and production — use the same two:
 
 | Secret | Value |
 |---|---|
-| `CLOUDFLARE_API_TOKEN` | The API token from step 3.2 |
+| `CLOUDFLARE_API_TOKEN` | The API token from step 3.2 — must reach **both** the `sdatygerberg.co.za` and `cloudkid.link` zones |
 | `CLOUDFLARE_ACCOUNT_ID` | Your Cloudflare account ID from step 3.1 |
 
 > These are **build-time** credentials for deploying. They are *not* how the
 > Worker gets its own secrets — see step 4, and the warning there.
 
-### 2.4 Branch protection (recommended)
+### 2.3 Branch protection (recommended)
 
 Settings → **Rules → Rulesets** (or Branches → Protection rules) on `main`:
 
@@ -127,15 +119,15 @@ Settings → **Rules → Rulesets** (or Branches → Protection rules) on `main`
 The point is that production only ever moves through a reviewed promotion PR,
 which is the whole reason `main` is separate from `dev`.
 
-### 2.5 The two workflows
+### 2.4 The two workflows
 
 Both live in `.github/workflows/` and read the Node version from `.nvmrc`, so
 bumping that file is enough to move CI to a newer Node LTS.
 
 | Workflow | Trigger | What it does |
 |---|---|---|
-| `deploy-devtest-pages.yml` | push to `dev`, or manual | Static preview on GitHub Pages. No secrets needed. Builds with `ASTRO_BASE=/<repo-name>/` (Pages project sites serve from a subpath) and `PUBLIC_HAS_API=false` (no Worker here). |
-| `deploy-production-cloudflare.yml` | push to `main`, or manual | The real site: static assets + Worker + `/api/*`. |
+| `deploy-devtest-cloudflare.yml` | push to `dev`, or manual | The devtest preview: a second Worker (`tygerberg-sda-website-devtest`, via `env.devtest`) on `tygerberg-sda.cloudkid.link`. A faithful mirror — static assets + Worker + `/api/*` — but `noindex` and with no email/consent bindings. |
+| `deploy-production-cloudflare.yml` | push to `main`, or manual | The real site on `sdatygerberg.co.za`: static assets + Worker + `/api/*`. |
 
 Both also expose **`workflow_dispatch`**, so you can re-run either from the
 Actions tab without pushing a new commit — useful for redeploying after
@@ -150,7 +142,7 @@ without merging it. Keep that trigger in place.
 
 Cloudflare dashboard → **Workers & Pages**. The account ID is in the right-hand
 sidebar (and in the URL: `dash.cloudflare.com/<account-id>/...`). Copy it into
-the `CLOUDFLARE_ACCOUNT_ID` GitHub secret from step 2.3.
+the `CLOUDFLARE_ACCOUNT_ID` GitHub secret from step 2.2.
 
 ### 3.2 Create the API token
 
@@ -196,12 +188,45 @@ first run from `wrangler.jsonc`, which already pins:
 - **main** — `src/worker/index.ts`
 - **assets** — the Astro build in `./dist`, bound as `ASSETS`
 - **vars** — `LIVE_CHECK_CRON`, `LIVE_CHECK_TZ` (non-secret, safe in git)
-- **routes** — `tygerberg-sda.cloudkid.link` as a `custom_domain`
+- **routes** — `sdatygerberg.co.za` as a `custom_domain` (production, top-level);
+  `tygerberg-sda.cloudkid.link` as a `custom_domain` under `env.devtest`
 
-Because the zone already lives in the same Cloudflare account, that route is
-provisioned and attached automatically on deploy — there's no separate DNS
+Because both zones already live in the same Cloudflare account, each route is
+provisioned and attached automatically on its deploy — there's no separate DNS
 record to add. To use a different domain, change the `routes` entry, make sure
 that zone is in the same account, and redeploy.
+
+**www → apex.** The apex `sdatygerberg.co.za` is canonical. `www` is not a
+Worker route — `run_worker_first` is path-scoped, so a whole-host redirect
+cannot live in the Worker. Add a **Redirect Rule** instead (Cloudflare
+dashboard → the `sdatygerberg.co.za` zone → Rules → Redirect Rules): when
+hostname equals `www.sdatygerberg.co.za`, a 301 to
+`https://sdatygerberg.co.za${http.request.uri.path}`. A proxied `www` DNS
+record must exist for the rule to have something to match.
+
+**Image Resizing.** Production headshots are served through
+`/cdn-cgi/image/*`, which requires **Image Resizing (Transform via URL)**
+enabled on the `sdatygerberg.co.za` zone. Without it those requests 404 and the
+cards fall back to the pre-resized copies. The `cloudkid.link` zone already has
+it, so devtest needs nothing.
+
+**Cutover order (one-time, only when moving the hostname between Workers).**
+`tygerberg-sda.cloudkid.link` starts out attached to the **production** Worker.
+Deploying production to the apex does **not** release it — `wrangler` adds the
+custom domains in the config but never detaches one you removed. So the handoff
+is manual and ordered:
+
+1. Deploy **production** first (promote `dev` → `main`). It attaches
+   `sdatygerberg.co.za`; the apex is now live. `tygerberg-sda.cloudkid.link` is
+   still attached to the production Worker at this point.
+2. In the dashboard, **detach** `tygerberg-sda.cloudkid.link` from the
+   `tygerberg-sda-website` Worker (Worker → Settings → Domains & Routes → remove).
+3. Re-run the **devtest** deploy (Actions → *Deploy devtest (Cloudflare)* →
+   Run workflow). It can now attach the freed hostname to
+   `tygerberg-sda-website-devtest`.
+
+Until step 2, the devtest deploy fails with "custom domain already assigned to
+another Worker" — expected, not a build error.
 
 ### 3.4 First deploy
 
@@ -527,17 +552,18 @@ After the first production deploy:
 
 ```sh
 # Worker is serving and the LIVE-badge window resolves
-curl https://tygerberg-sda.cloudkid.link/api/live-status
+curl https://sdatygerberg.co.za/api/live-status
 
 # Contact route rejects a submission with no consent (should be 400)
-curl -i -X POST https://tygerberg-sda.cloudkid.link/api/contact \
+curl -i -X POST https://sdatygerberg.co.za/api/contact \
   -H 'Content-Type: application/json' \
   -d '{"topic":"connect","name":"Test","email":"test@example.com"}'
 ```
 
 A green setup looks like:
 
-- [ ] `https://tygerberg-sda.cloudkid.link` loads the homepage
+- [ ] `https://sdatygerberg.co.za` loads the homepage
+- [ ] `https://www.sdatygerberg.co.za` 301-redirects to the apex
 - [ ] `/api/live-status` returns JSON with a `source` field — `outside-window`
       on most days is correct, not an error
 - [ ] `/connect` and `/bible-studies` load and show the form
@@ -545,8 +571,9 @@ A green setup looks like:
 - [ ] That submission's response says `"via":"email"` — if it says
       `"via":"webhook"`, the email channel is not configured and the fallback
       carried it; if it says `not-configured`, neither is set (step 6)
-- [ ] The devtest Pages URL loads, with the form shown read-only behind its
-      preview notice (expected — no Worker there)
+- [ ] `https://tygerberg-sda.cloudkid.link` (devtest) loads and `/api/*`
+      answers, with the contact form reporting `not-configured` on submit
+      (expected — devtest carries no email binding)
 
 Send one real submission through the form rather than by `curl`. It is the only
 check that proves the whole chain — validation, delivery, and a human actually
@@ -558,8 +585,7 @@ receiving it — and `via` tells you which channel did the work.
 
 | Symptom | Cause | Fix |
 |---|---|---|
-| Devtest deploy fails on "Get Pages site" | Pages source isn't GitHub Actions | Step 2.2 |
-| Devtest CSS/links 404 under a subpath | `ASTRO_BASE` not applied | The workflow sets it; only an issue when building Pages by hand |
+| Devtest deploy fails: custom domain already assigned to another Worker | `tygerberg-sda.cloudkid.link` is still attached to the production Worker | Detach it from `tygerberg-sda-website` (§3.3 cutover), then re-run the devtest deploy — `wrangler` never auto-detaches a removed custom domain |
 | Production deploy fails with a 10000/authentication error on `/r2/buckets/...` | Token is missing **Workers R2 Storage: Edit** | Add that one row to the existing token — §3.2. No need to reissue it or touch the GitHub secret |
 | Production deploy fails with a 10000/authentication error anywhere else | Token lacks scope, wrong account ID, or an IP filter is set on the token | Check the §3.2 table, then recreate the token if it still fails |
 | `/api/*` 404s in production | Worker didn't deploy, or the route isn't attached | Check the Actions run, then the Worker's Triggers tab |

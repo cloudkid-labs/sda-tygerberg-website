@@ -14,20 +14,27 @@
  * deployment. Anything a unit test or the build can prove belongs there
  * instead — this file costs deploy time and a false failure blocks a release.
  *
- * Usage: node scripts/smoke.mjs <base-url> [--no-edge]
- *   --no-edge  the target has no Cloudflare edge in front of it. That removes
- *              two things at once, and conflating them is how the first version
- *              of this script red-failed a healthy devtest deploy: there is no
- *              Worker, so /api/* is absent by design (PUBLIC_HAS_API=false),
- *              AND `public/_headers` is a Cloudflare mechanism that GitHub
- *              Pages never interprets — it uploads as a plain file and answers
- *              200, while the response carries no CSP and no security headers
- *              at all. Checking for either against Pages tests nothing about
- *              the build and only produces noise.
+ * Usage: node scripts/smoke.mjs <base-url> [--no-edge] [--expect-noindex]
+ *   --no-edge  the target has no Cloudflare edge in front of it — a plain
+ *              static host. That removes two things at once, and conflating
+ *              them is how the first version of this script red-failed a
+ *              healthy edgeless deploy: with no Worker, /api/* is absent by
+ *              design (PUBLIC_HAS_API=false), AND `public/_headers` is a
+ *              Cloudflare mechanism a plain host never interprets — it serves
+ *              as a plain file while the response carries no CSP or security
+ *              headers. Checking either against such a target tests nothing
+ *              about the build and only produces noise. Both production and
+ *              devtest are Workers now (C-61), so no workflow passes this flag;
+ *              it stays for a bare `astro build` served locally.
  */
 
 const base = process.argv[2]?.replace(/\/$/, '');
 const noEdge = process.argv.includes('--no-edge');
+// The devtest build is noindex; production is not. The flag says which this
+// target is, so the check can fail either way — a missing noindex on devtest
+// (a preview that would compete with production, C-23/C-61) and, just as much,
+// an accidental noindex shipped to production.
+const expectNoindex = process.argv.includes('--expect-noindex');
 
 if (!base) {
   console.error('usage: node scripts/smoke.mjs <base-url> [--no-edge]');
@@ -158,6 +165,25 @@ if (noEdge) {
     fail('/api/live-status', err.message);
   }
 
+  // Shape only, not content: the endpoint answers { video: null } when
+  // YouTube is unreachable from the Worker's egress, and a CI runner or a
+  // sandbox must not fail a healthy deploy over Google's availability.
+  try {
+    const res = await get('/api/latest-video');
+    const type = res.headers.get('content-type') ?? '';
+    if (!res.ok) {
+      fail('/api/latest-video', `HTTP ${res.status}${/html/i.test(type) ? ' and served HTML — the Worker is not being invoked for /api/* (C-60)' : ''}`);
+    } else if (!/application\/json/i.test(type)) {
+      fail('/api/latest-video', `expected JSON, got ${type || 'no content-type'}`);
+    } else {
+      const body = await res.json();
+      if (!('video' in body)) fail('/api/latest-video', `no "video" key in ${JSON.stringify(body).slice(0, 140)}`);
+      else pass('/api/latest-video', `JSON, video=${body.video ? body.video.videoId : 'null'}`);
+    }
+  } catch (err) {
+    fail('/api/latest-video', err.message);
+  }
+
   // GET on a POST-only route must still reach the Worker. A 404 here means the
   // same routing failure; the Worker's own rejection is a 4xx that is not 404.
   try {
@@ -214,7 +240,7 @@ try {
 /* ---- security headers and the CSP -------------------------------------- */
 console.log('\nheaders');
 if (noEdge) {
-  notes.push('Header and CSP checks skipped (--no-edge): `_headers` is a Cloudflare mechanism and Pages does not apply it.');
+  notes.push('Header and CSP checks skipped (--no-edge): `_headers` is a Cloudflare mechanism a plain static host does not apply.');
   console.log('  – skipped, no Cloudflare edge on this target');
 } else try {
   const res = await get('/');
@@ -250,6 +276,43 @@ if (noEdge) {
   fail('header checks', err.message);
 }
 
+/* ---- canonical host and indexing (C-23 / C-61) ------------------------- */
+console.log('\nindexing');
+try {
+  const html = await (await get('/')).text();
+
+  // The canonical host must be the production origin on every build, devtest
+  // included (C-23). This is the one check that would catch an edit to
+  // astro.config.mjs `site` — the single place the domain is named — before it
+  // shipped a preview advertising the wrong canonical or a production site
+  // pointing at the old host.
+  const canonical = (html.match(/<link[^>]+rel="canonical"[^>]+href="([^"]+)"/i) ??
+    html.match(/<link[^>]+href="([^"]+)"[^>]+rel="canonical"/i))?.[1];
+  if (!canonical) {
+    fail('canonical', 'no <link rel="canonical"> on the homepage');
+  } else {
+    const host = new URL(canonical).host;
+    if (host !== 'sdatygerberg.co.za') fail('canonical', `points at ${host}, not sdatygerberg.co.za`);
+    else pass('canonical', canonical);
+  }
+
+  // noindex is the devtest half of the same guarantee: the preview must carry
+  // it and production must NOT. `--expect-noindex` says which target this is,
+  // so a dropped PUBLIC_INDEXABLE on devtest and an accidental one on
+  // production both fail here rather than shipping green.
+  const robots = html.match(/<meta[^>]+name="robots"[^>]+content="([^"]*)"/i)?.[1] ?? '';
+  const isNoindex = /noindex/i.test(robots);
+  if (expectNoindex && !isNoindex) {
+    fail('robots noindex', 'expected noindex on this preview build, found none (C-23)');
+  } else if (!expectNoindex && isNoindex) {
+    fail('robots noindex', `production build carries "${robots}" — it must be indexable`);
+  } else {
+    pass('robots', expectNoindex ? `noindex present ("${robots}")` : 'indexable, as production should be');
+  }
+} catch (err) {
+  fail('indexing checks', err.message);
+}
+
 /* ---- verdict ------------------------------------------------------------ */
 console.log('');
 for (const n of notes) console.log(`note: ${n}`);
@@ -275,9 +338,9 @@ for (const n of notes) console.log(`note: ${n}`);
  * use the WAF, and the block is Cloudflare's default handling of datacenter IPs
  * rather than a rule anyone here can lift. So the production run cannot gate
  * anything, and pretending otherwise would mean either a permanently red
- * pipeline or a gate everyone has learned to ignore. The real gate is a
- * `wrangler dev` job in CI running these same checks against a local Worker,
- * which never meets the edge that does the blocking. C-60
+ * pipeline or a gate everyone has learned to ignore. The real gate is the
+ * `worker` job in ci.yml, which runs these same checks against `wrangler dev`
+ * on every pull request and never meets the edge that does the blocking. C-60
  */
 const everythingFailed = failures.length >= totalChecks && totalChecks > 0;
 if (lastEdgeStatus && everythingFailed) {

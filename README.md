@@ -2,7 +2,7 @@
 
 Bilingual (Afrikaans/English) site for Tygerberg Seventh-day Adventist Church
 (Boston, Bellville, Cape Town). Astro static output + React islands, served by a
-Cloudflare Worker at `tygerberg-sda.cloudkid.link`.
+Cloudflare Worker at `sdatygerberg.co.za`.
 
 - **How to run, deploy and maintain it** — this file.
 - **Why the code is shaped the way it is, and what breaks if you change it
@@ -86,22 +86,25 @@ send is rejected ([C-31](./CONCERNS.md#c-31--email-is-tried-first-and-the-webhoo
 ## Branch strategy and CI/CD
 
 - **`dev`** — integration. Feature PRs target `dev`; each merge deploys the
-  GitHub Pages preview.
+  devtest Worker at `tygerberg-sda.cloudkid.link`.
 - **`main`** — production. Moves only via a reviewed `dev` → `main` promotion PR;
-  merging deploys to Cloudflare.
+  merging deploys the production Worker at `sdatygerberg.co.za`.
 
 | Workflow | Target | Trigger | Build env |
 |---|---|---|---|
-| `deploy-devtest-pages.yml` | GitHub Pages | push to `dev`, manual | `ASTRO_BASE`, `PUBLIC_HAS_API=false`, `PUBLIC_INDEXABLE=false`, `PUBLIC_IMAGE_CDN=false` |
+| `deploy-devtest-cloudflare.yml` | Cloudflare Workers (`…-devtest`) | push to `dev`, manual | `PUBLIC_INDEXABLE=false` |
 | `deploy-production-cloudflare.yml` | Cloudflare Workers | push to `main`, manual | — |
 
-Both read the Node version from `.nvmrc`. One-time setup: Settings → Pages →
-Source = **GitHub Actions**; repo secrets `CLOUDFLARE_API_TOKEN` (Workers
-Scripts + Account Settings: Edit) and `CLOUDFLARE_ACCOUNT_ID`. The custom domain
-attaches itself on deploy via `routes` in `wrangler.jsonc`.
+Both read the Node version from `.nvmrc` and use the same repo secrets —
+`CLOUDFLARE_API_TOKEN` (Workers Scripts:Edit + access to both the
+`sdatygerberg.co.za` and `cloudkid.link` zones) and `CLOUDFLARE_ACCOUNT_ID`.
+Each environment's custom domain attaches itself on deploy via `routes` in
+`wrangler.jsonc` (production top-level, devtest under `env.devtest`).
 
-The Pages preview has no Worker and no image transformer — see
-[C-22](./CONCERNS.md#c-22--the-devtest-build-has-no-worker-and-no-transformer).
+devtest is a faithful mirror now — a real Worker with `/api/*` and the security
+headers — replacing the sunset GitHub Pages preview. Its only differences from
+production are `noindex` and no email/consent bindings, so a preview never
+emails the church ([C-61](./CONCERNS.md#c-61--production-moves-to-sdatygerbergcoza-and-devtest-becomes-a-worker)).
 
 ## Versioning and releases
 
@@ -169,7 +172,7 @@ failed deploy leaves no tag behind.
 **What's live?** Three ways, in increasing order of trust:
 
 ```sh
-curl -s https://tygerberg-sda.cloudkid.link | grep -o '<meta name="app-[^>]*>'
+curl -s https://sdatygerberg.co.za | grep -o '<meta name="app-[^>]*>'
 ```
 
 The production build stamps `app-version` and `app-commit` into every page's
@@ -180,7 +183,7 @@ every tagged version.
 
 ## Diagnostics
 
-`curl https://tygerberg-sda.cloudkid.link/api/live-status` returns the resolved
+`curl https://sdatygerberg.co.za/api/live-status` returns the resolved
 window and a `source`:
 
 | `source` | Meaning |

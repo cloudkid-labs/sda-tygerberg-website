@@ -3,6 +3,21 @@
 [Semantic Versioning](https://semver.org/). What the numbers mean: README,
 "Versioning and releases".
 
+## [1.5.0] — 2026-08-26
+
+- Production moves to `sdatygerberg.co.za`; devtest takes over
+  `tygerberg-sda.cloudkid.link` as a Cloudflare Worker, replacing the sunset
+  GitHub Pages preview and mirroring production's `/api/*` and headers (C-61).
+- The homepage video card is a real preview: the latest service's thumbnail
+  and title via `/api/latest-video` (new), playing inline where a probe shows
+  the embed works and opening on YouTube where Google's consent flow loops it
+  (C-60). The API path skips private and deleted uploads so a "Private video"
+  is never featured.
+- Latest-content links point at the channel's /streams tab.
+- CI runs the smoke checks against `wrangler dev` on every pull request
+  (`worker` job), so a `run_worker_first` regression fails the PR rather than
+  the release (C-60).
+
 ## [1.4.3] — 2026-08-25
 
 - The homepage video iframe pins `referrerPolicy="strict-origin-when-cross-origin"`.

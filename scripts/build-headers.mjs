@@ -78,9 +78,16 @@ const CSP = [
   "style-src 'self' 'unsafe-inline' https://unpkg.com https://fonts.googleapis.com",
   "font-src 'self' https://fonts.gstatic.com",
   // Transform URLs are same-origin (/cdn-cgi/image/...); the tiles are not.
-  "img-src 'self' data: https://*.tile.openstreetmap.org",
+  // i.ytimg.com: the preview card's thumbnail. A cookieless CDN, and the one
+  // Google host the visitor's browser touches before a deliberate click — the
+  // video data itself comes through /api/latest-video (C-60).
+  "img-src 'self' data: https://*.tile.openstreetmap.org https://i.ytimg.com",
   // /api/live-status, /api/contact and the transformer probe are all same-origin.
-  "connect-src 'self'",
+  // www.youtube.com: the card's reachability probe (no-cors fetch of the
+  // embed URL). Deliberately the ONLY Google host here: on a looping network
+  // the probe's redirect leaves this allowlist, the fetch rejects, and that
+  // rejection IS the verdict the card wants (C-60).
+  "connect-src 'self' https://www.youtube.com",
   // 'self' is /map/; youtube-nocookie.com is where the embed is served from.
   //
   // google.com was added here and then taken back out. The console said
@@ -90,7 +97,10 @@ const CSP = [
   // belongs. Blocked, the same failure is silent. Neither plays the video —
   // that is a problem with the embed itself and needs a browser to diagnose,
   // not a wider policy. Do not re-add google.com without one. C-60
-  "frame-src 'self' https://www.youtube-nocookie.com",
+  // Both hosts: the embed is on youtube.com while the nocookie domain is under
+  // test (C-60), and keeping the old one listed makes reverting a one-liner.
+  // Neither admits google.com — that was tried and loops rather than plays.
+  "frame-src 'self' https://www.youtube.com https://www.youtube-nocookie.com",
   'upgrade-insecure-requests',
 ].join('; ');
 

@@ -469,20 +469,26 @@ just a newline.
 
 ## Environments
 
-### C-22 — The devtest build has no Worker and no transformer
+### C-22 — The devtest build has no Worker and no transformer — SUPERSEDED by C-61
 
-GitHub Pages serves static files only, so `/api/*` and `/cdn-cgi/*` do not
-exist there. `PUBLIC_HAS_API=false` skips the live-status poll and renders the
-contact form read-only; `PUBLIC_IMAGE_CDN=false` serves the fallback headshots
-(C-09).
+Held only while devtest was GitHub Pages. Pages served static files only, so
+`/api/*` and `/cdn-cgi/*` did not exist there: `PUBLIC_HAS_API=false` skipped
+the live-status poll and rendered the contact form read-only, and
+`PUBLIC_IMAGE_CDN=false` served the fallback headshots (C-09).
+
+Devtest is a Cloudflare Worker now (C-61), so both exist there and both flags
+are back at their defaults. The one gap that remains is the contact channel,
+withheld deliberately rather than by the platform — see C-61.
 
 ### C-23 — The preview advertises production canonicals
 
-The Pages copy is publicly crawlable and cannot be covered by a `robots.txt` —
-that only works at a domain root we do not own. `PUBLIC_INDEXABLE=false` emits
-`noindex,nofollow` and `canonicalPath` strips the Pages base so canonicals point
-at production. Both exist to stop the preview competing with the real site in
-search results.
+The devtest copy is publicly crawlable, so it must not compete with the real
+site in search. `PUBLIC_INDEXABLE=false` emits `noindex,nofollow`, and
+`Astro.site` is the production origin on every build (astro.config.mjs) so
+canonicals and Open Graph URLs point at production regardless of which host
+served the page. Both exist to keep the preview out of the index. (Under the
+old Pages preview `canonicalPath` also stripped the Pages base path; devtest
+serves from a domain root now, so there is no base to strip — C-61.)
 
 ### C-24 — Unhashed assets get `max-age=0` unless told otherwise
 
@@ -1316,3 +1322,54 @@ Two honest limits:
   the iframes in the markup, and `google.com` is not one of them. Only a real
   browser loading the page would see it. That check is worth adding if a second
   CSP surprise ever ships.
+
+### C-61 — Production moves to sdatygerberg.co.za, and devtest becomes a Worker
+
+The church has its own domain now. Production moved from
+`tygerberg-sda.cloudkid.link` to `sdatygerberg.co.za`, and the old hostname was
+handed to devtest — which stopped being a GitHub Pages preview and became a
+second Cloudflare Worker (GitHub Pages was disabled when the repo went private,
+so the old preview was already dead).
+
+The production origin is named once, in `astro.config.mjs` (`site`); everything
+absolute — canonical tags, Open Graph, the sitemap, JSON-LD, the build-time
+embed `Referer` — derives from it. `wrangler.jsonc` carries the two routes: the
+apex as a top-level `custom_domain`, and `tygerberg-sda.cloudkid.link` under
+`env.devtest`. Both zones live in the same account, so `wrangler deploy`
+provisions each on its own deploy.
+
+Why devtest-as-Worker matters, not just cosmetics: the Pages preview could not
+run `/api/*` or apply the security headers, so the whole C-60 class of routing
+bug could surface only in production. A devtest Worker is a faithful mirror —
+same `run_worker_first`, same edge — so its post-deploy smoke exercises the real
+thing. Named environments inherit `main`, `assets` and `observability` but not
+bindings, vars or routes (those are per-environment), so `env.devtest`
+redeclares only its route and the two `LIVE_CHECK_*` vars.
+
+What devtest deliberately does NOT carry: `send_email`, the `CONSENT` R2 bucket,
+and the `CONTACT_EMAIL_*` vars. A preview must never email the church or write
+consent records to the production bucket, so `/api/contact` answers
+`not-configured` there (the form says so). It also carries no `YOUTUBE_API_KEY`,
+so the LIVE badge never lights and the latest-video card falls back to the
+keyless embed-page scrape, which needs no secret. This is the one place devtest
+is not a faithful mirror, and it is withheld on purpose.
+
+Two things the deploy cannot do for itself, both on the new
+`sdatygerberg.co.za` zone (`cloudkid.link` already has them):
+
+- **www → apex.** `run_worker_first` is path-scoped, so a whole-host redirect
+  cannot live in the Worker — a request to `www/` for an asset path never
+  reaches the Worker to be redirected. It is a zone Redirect Rule instead
+  (SETUP-INSTRUCTIONS §domains). The `canonical` tag pointing at the apex is the
+  backstop if the rule is ever missing.
+- **Image Resizing.** Production headshots are served through `/cdn-cgi/image/*`
+  (C-09, C-51). That transform must be enabled on the zone or the requests 404;
+  the Worker's master guard then serves the pre-resized fallback, so the failure
+  mode is softer sharpness, not a broken page.
+
+Cutover order matters: `tygerberg-sda.cloudkid.link` is attached to the
+production Worker until the first production deploy releases it, so production
+must deploy (claiming the apex, freeing the old host) before devtest deploys
+(claiming the old host). The `CLOUDFLARE_API_TOKEN` must reach both zones.
+
+Supersedes C-22; updates C-23 (no Pages base path to strip any more).

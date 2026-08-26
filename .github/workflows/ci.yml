@@ -150,7 +150,9 @@ jobs:
 
       # The full set, no `--no-edge`: this target has the Worker *and* applies
       # `public/_headers`, so the API, the headshot guard and the security
-      # headers are all in scope. The devtest run cannot check any of them.
+      # headers are all in scope. This runs on every PR against a local Worker
+      # that no edge can block, so it — not the post-deploy runs, which
+      # Cloudflare answers 403 — is the real gate (C-60).
       - name: Smoke-test the Worker
         timeout-minutes: 5
         run: npm run smoke -- http://127.0.0.1:8787

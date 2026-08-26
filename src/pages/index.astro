@@ -21,9 +21,10 @@ let latestVideo: LatestVideo | null = null;
 try {
   const list = new URL(SITE.youtubeUploadsEmbedUrl).searchParams.get('list') ?? '';
   // The Referer is required: without one YouTube answers Error 153 and the
-  // playlist panel this parses is absent (C-60).
+  // playlist panel this parses is absent (C-60). Taken from Astro.site so the
+  // production origin is named in one place (astro.config.mjs) — C-61.
   const res = await fetch(embedPageUrl(list), {
-    headers: { Referer: 'https://tygerberg-sda.cloudkid.link/' },
+    headers: { Referer: new URL('/', Astro.site).href },
     signal: AbortSignal.timeout(8000),
   });
   if (res.ok) latestVideo = parseLatestFromEmbedHtml(await res.text());

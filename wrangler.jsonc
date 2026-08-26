@@ -148,8 +148,42 @@
     }
   ],
   "routes": [
-    // Production custom domain (zone already lives in the Cloudflare
-    // account) — `wrangler deploy` provisions/attaches this automatically.
-    { "pattern": "tygerberg-sda.cloudkid.link", "custom_domain": true }
-  ]
+    // Production custom domain (the sdatygerberg.co.za zone lives in the
+    // Cloudflare account) — `wrangler deploy` provisions/attaches this
+    // automatically. The apex is canonical; www -> apex is a zone Redirect
+    // Rule, not a Worker route (run_worker_first is path-scoped, so a host
+    // redirect cannot live in the Worker). See SETUP-INSTRUCTIONS §domains
+    // and C-61.
+    { "pattern": "sdatygerberg.co.za", "custom_domain": true }
+  ],
+
+  // Devtest — the integration preview, deployed from `dev` by
+  // deploy-devtest-cloudflare.yml. A SECOND Worker
+  // (`tygerberg-sda-website-devtest`) on the old production hostname,
+  // replacing the sunset GitHub Pages preview (C-61). It inherits `main`,
+  // `assets` (so `run_worker_first` routes /api/* here too) and
+  // `observability`; only the non-inheritable keys below are redeclared.
+  //
+  // Deliberately no `send_email`, `r2_buckets` or CONTACT_EMAIL_* vars: a
+  // preview must never email the church or write consent records to the
+  // production bucket, so /api/contact answers `not-configured` here. The LIVE
+  // badge never lights either — the devtest Worker carries no YOUTUBE_API_KEY,
+  // so liveStatus stays not-live and the latest-video card falls back to the
+  // keyless embed-page scrape, which needs no secret.
+  "env": {
+    "devtest": {
+      "name": "tygerberg-sda-website-devtest",
+      "routes": [{ "pattern": "tygerberg-sda.cloudkid.link", "custom_domain": true }],
+      "vars": {
+        "LIVE_CHECK_CRON": "* 9-12 * * 6",
+        "LIVE_CHECK_TZ": "Africa/Johannesburg"
+      }
+      // No send_email, r2_buckets or CONTACT_EMAIL_* here on purpose: a preview
+      // sends no church email and writes no consent records, so /api/contact
+      // answers `not-configured` (C-61). wrangler prints an advisory warning
+      // that these top-level bindings are not inherited — expected and correct;
+      // declaring them empty only makes the warning noisier, so they are simply
+      // omitted.
+    }
+  }
 }

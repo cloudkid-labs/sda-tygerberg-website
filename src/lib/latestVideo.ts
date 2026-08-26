@@ -25,6 +25,39 @@ export function uploadsPlaylistFor(channelId: string): string | null {
 /** An 11-char YouTube video id, and nothing that merely resembles one. */
 const VIDEO_ID = /^[\w-]{11}$/;
 
+/** One `playlistItems` entry, the subset this cares about (`part=snippet,status`). */
+export type ApiPlaylistItem = {
+  snippet?: { title?: string; resourceId?: { videoId?: string } };
+  status?: { privacyStatus?: string };
+};
+
+/**
+ * The newest genuinely viewable upload from a `playlistItems` response.
+ *
+ * The uploads playlist includes private and deleted uploads — the API still
+ * lists them, each carrying a `videoId`, titled "Private video" / "Deleted
+ * video" — so taking `items[0]` blindly can feature one: a grey placeholder
+ * whose every click dead-ends on "Video unavailable". Only `public` and
+ * `unlisted` actually play for a visitor, so the first of those wins. This
+ * matches the keyless embed-page path, whose playlist panel already lists only
+ * playable entries — the two sources agree instead of the configured deploy
+ * degrading worse. Requires `part=snippet,status`.
+ */
+export function pickLatestFromApiItems(items: ApiPlaylistItem[] | undefined): LatestVideo | null {
+  for (const item of items ?? []) {
+    const privacy = item.status?.privacyStatus;
+    const videoId = item.snippet?.resourceId?.videoId;
+    if (
+      (privacy === 'public' || privacy === 'unlisted') &&
+      typeof videoId === 'string' &&
+      VIDEO_ID.test(videoId)
+    ) {
+      return { videoId, title: item.snippet?.title ?? '' };
+    }
+  }
+  return null;
+}
+
 /**
  * Pull the first playlist entry out of an embed page.
  *

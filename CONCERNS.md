@@ -1169,7 +1169,13 @@ it:
   shared with the build). YouTube's RSS feed would have been the clean keyless
   source and answers 404 now, for every channel — checked against YouTube's
   own. Answers are cached edge-side for 30 minutes, nulls included; the build
-  bakes a seed so the card is a real preview pre-hydration and on Pages.
+  bakes a seed so the card is a real preview pre-hydration and on Pages. The
+  API path filters on `status.privacyStatus` (public or unlisted) and skips the
+  rest: the uploads playlist lists private and deleted uploads too, each still
+  carrying a `videoId`, so `items[0]` blindly could feature a dead "Private
+  video" card — cached up to 45 minutes, and worse than the keyless path, whose
+  embed panel lists only playable entries. `pickLatestFromApiItems` reconciles
+  the two.
 - **The browser never hits a Google data API.** The id and title come from the
   Worker. Two lightweight Google requests do fire before a click — the
   thumbnail from `i.ytimg.com` (a cookieless CDN, now in `img-src`) and the

@@ -75,6 +75,23 @@ function pass(what, detail = '') {
 const UA =
   'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36';
 
+/*
+ * Cloudflare Access service-token headers, sent on every request when the
+ * target is gated (devtest, C-62). Without them Access refuses this runner at
+ * the edge — every check would read the login redirect, not the site — and the
+ * Worker's own guard would 403 the direct hit besides. The pair is the CI
+ * service token minted by `npm run access:setup`, passed in from repo secrets
+ * by the devtest workflow. Unset — production, or devtest before the gate is
+ * switched on — sends nothing, so this is a no-op there. See SETUP §3.7.
+ */
+const ACCESS_HEADERS =
+  process.env.CF_ACCESS_CLIENT_ID && process.env.CF_ACCESS_CLIENT_SECRET
+    ? {
+        'CF-Access-Client-Id': process.env.CF_ACCESS_CLIENT_ID,
+        'CF-Access-Client-Secret': process.env.CF_ACCESS_CLIENT_SECRET,
+      }
+    : {};
+
 const REQUEST_TIMEOUT_MS = 10_000;
 
 /*
@@ -108,7 +125,7 @@ async function get(path, init = {}) {
         redirect: 'follow',
         signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
         ...init,
-        headers: { 'User-Agent': UA, ...(init.headers ?? {}) },
+        headers: { 'User-Agent': UA, ...ACCESS_HEADERS, ...(init.headers ?? {}) },
       });
       if (res.status !== 403 && res.status !== 429 && res.status < 500) return res;
       last = new Error(`HTTP ${res.status}`);

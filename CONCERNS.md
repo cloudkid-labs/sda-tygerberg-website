@@ -1379,3 +1379,68 @@ the dashboard, then re-run the devtest deploy so it attaches the freed host.
 The `CLOUDFLARE_API_TOKEN` must reach both zones. See SETUP-INSTRUCTIONS §3.3.
 
 Supersedes C-22; updates C-23 (no Pages base path to strip any more).
+
+### C-62 — The devtest preview is gated by Zero Trust; production is not
+
+The devtest preview `tygerberg-sda.cloudkid.link` is closed to everyone but an
+allow-list: no inbound except the identities and the CI service token named in a
+Cloudflare Access application, and outbound untouched (the Worker still reaches
+YouTube, R2 and anywhere else). Production `sdatygerberg.co.za` is deliberately
+**not** gated — it is a public church site that must stay reachable and
+indexable (C-20) — and it runs the same Worker code. One codebase gates the
+preview and leaves production open; the difference is two vars.
+
+**Two locks, on purpose.** Access in front of the hostname refuses an
+un-allowed request at the edge, before the Worker or a static page. That alone
+is not a boundary the origin can trust: a `*.workers.dev` route, or any hop that
+reaches the script without passing Access, would skip it. So `guardAccess`
+(`src/worker/accessGuard.ts`) re-validates the signed assertion Access stamps in
+`Cf-Access-Jwt-Assertion` — RS256 against the team's JWKS
+(`<team>/cdn-cgi/access/certs`), checking `iss` and `aud` — and serves nothing
+without it. Cloudflare's own guidance is explicit that protecting the hostname
+is not enough without this check. `jose` does the verification; the remote key
+set is cached at module scope.
+
+**Why it is env-gated, not a flag.** The guard enforces only when both
+`ACCESS_AUD` and `ACCESS_TEAM_DOMAIN` are set, and they live only on
+`env.devtest`. Unset is production's configuration, and unset means pass-through
+— the same "absent binding ⇒ not configured ⇒ do nothing" shape the contact form
+(C-31) and the LIVE badge already use. There is no production code path that
+gates; there is nothing to accidentally switch on there.
+
+**`run_worker_first: true` on devtest is load-bearing, and it amends C-61.** The
+gate is the Worker, and the Worker runs only for the paths in `run_worker_first`.
+Production's list is `/api/*` and the headshot masters (C-60), so on that config
+a static **page** is served straight from the asset store and never reaches the
+guard — the gate would pass every request for `/`, `/youth/`, everything a
+visitor actually reads. So `env.devtest` redeclares `assets` with
+`run_worker_first: true`: every request goes through the Worker, the guard runs
+on all of it, and an authorised request falls through to the same asset serving.
+This is the one way devtest's routing is no longer the faithful mirror C-61
+described — but only for the pages, and only to gate them; `/api/*` and the
+headshot guard hit the Worker either way, so that behaviour is still identical.
+
+**Automation gets through with a service token.** The deploy smoke test runs
+from a GitHub runner, which has no browser to complete an Access login. A
+non-identity policy on the app allows one service token; the devtest workflow
+sends its `CF-Access-Client-Id`/`CF-Access-Client-Secret` (repo secrets) and
+`scripts/smoke.mjs` attaches them to every request. Access validates the token
+at the edge and forwards a service-token assertion the Worker guard then accepts.
+Without those secrets the runner is refused — which the smoke script already
+treats as *inconclusive* rather than a failure (the same datacenter-IP-403 path
+from C-60), so a missing or wrong token surfaces as an inconclusive devtest
+smoke, never a red deploy over the gate itself.
+
+**Rollout is staged so merging this locks nobody out.** The two vars ship
+**commented** in `wrangler.jsonc`, so the guard is a no-op until the Access side
+exists. `scripts/access-setup.mjs` (`npm run access:setup`) creates the app, the
+email allow-list policy and the CI service token in one idempotent run and prints
+the four values needed; the operator then uncomments/fills the vars, adds the two
+repo secrets, and pushes. Only then does the gate switch on. Full runbook:
+SETUP-INSTRUCTIONS §3.7.
+
+**What this is not.** It does not gate production, and it does not filter
+outbound traffic — egress from a Worker is unrestricted by design here, and
+per-device egress filtering is Cloudflare Gateway, a different product that a
+hosted site does not need. The ZTN posture is exactly "deny inbound except the
+allow-list, allow all outbound".

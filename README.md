@@ -106,6 +106,12 @@ headers — replacing the sunset GitHub Pages preview. Its only differences from
 production are `noindex` and no email/consent bindings, so a preview never
 emails the church ([C-61](./CONCERNS.md#c-61--production-moves-to-sdatygerbergcoza-and-devtest-becomes-a-worker)).
 
+The devtest preview is also behind a Zero Trust gate: `tygerberg-sda.cloudkid.link`
+allows no inbound but an allow-list (Cloudflare Access at the edge, re-checked in
+the Worker), while outbound is unchanged. Production stays public — same Worker
+code, gate off. Setup is a one-time step: `npm run access:setup`, then
+SETUP-INSTRUCTIONS §3.7 ([C-62](./CONCERNS.md#c-62--the-devtest-preview-is-gated-by-zero-trust-production-is-not)).
+
 ## Versioning and releases
 
 `version` in `package.json` is the single source of truth, and it follows

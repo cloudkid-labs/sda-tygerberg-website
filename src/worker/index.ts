@@ -4,10 +4,12 @@ import { type LiveStatusEnv } from './liveStatus';
 import { getLiveStatusCached } from './liveStatusCache';
 import { getLatestVideoCached, LATEST_VIDEO_CACHE_SECONDS, type LatestVideoEnv } from './latestVideo';
 import { handleContact, type ContactEnv } from './contact';
+import { guardAccess, type AccessEnv } from './accessGuard';
 
 export type Env = LiveStatusEnv &
   LatestVideoEnv &
-  ContactEnv & {
+  ContactEnv &
+  AccessEnv & {
     ASSETS: Fetcher;
   };
 
@@ -24,6 +26,15 @@ const HEADSHOT_MASTER = /^\/images\/hod\/([^/]+\.jpe?g)$/i;
 export default {
   async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
     const { pathname } = new URL(request.url);
+
+    /*
+     * The Zero Trust gate, before anything else — assets, API and the headshot
+     * guard all sit behind it. A no-op on production, where the site is public
+     * by design; on devtest it refuses any request that did not arrive through
+     * Cloudflare Access carrying a valid assertion. C-62
+     */
+    const access = await guardAccess(request, env);
+    if (!access.ok) return access.response;
 
     /*
      * C-02 says the masters "exist to be Cloudflare's transform source and

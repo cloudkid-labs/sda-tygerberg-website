@@ -108,6 +108,11 @@ Both workflows — devtest and production — use the same two:
 > These are **build-time** credentials for deploying. They are *not* how the
 > Worker gets its own secrets — see step 4, and the warning there.
 
+Once the devtest Zero Trust gate is switched on, that workflow also reads
+`CF_ACCESS_CLIENT_ID` and `CF_ACCESS_CLIENT_SECRET` so its smoke test can reach
+the gated preview — see §3.7. They are optional until then; unset, the smoke
+step behaves exactly as before.
+
 ### 2.3 Branch protection (recommended)
 
 Settings → **Rules → Rulesets** (or Branches → Protection rules) on `main`:
@@ -319,6 +324,89 @@ npx wrangler r2 object get consent-cloudkid-link/2026/08/09/<key>.json
 
 Each object also carries `topic`, `submittedAt` and `consentVersion` as custom
 metadata, so a listing answers most audit questions without downloading bodies.
+
+### 3.7 Zero Trust gate for the devtest preview
+
+The devtest preview `tygerberg-sda.cloudkid.link` is locked down: **no inbound
+except your allow-list, all outbound unchanged** (the Worker still reaches
+YouTube and R2). Production is **not** gated — `sdatygerberg.co.za` is public and
+this whole section leaves it alone (C-20, C-62).
+
+Two locks:
+
+1. **Cloudflare Access** in front of the hostname refuses every request that is
+   not on the allow-list, at the edge, before the Worker or a static page.
+2. **The Worker re-checks** the signed assertion Access stamps
+   (`Cf-Access-Jwt-Assertion`) against your team's keys, and serves nothing
+   without it. `env.devtest` sets `run_worker_first: true` so this check runs on
+   **every** path, pages included — a gate that skipped the HTML would be no
+   gate. It is a no-op wherever `ACCESS_AUD`/`ACCESS_TEAM_DOMAIN` are unset, which
+   is why production stays open with the same Worker code.
+
+Nothing here ships in a deploy — Access config lives on Cloudflare's side. Do it
+once.
+
+**Token.** The `CLOUDFLARE_API_TOKEN` from §3.2 is a Workers token and cannot
+write Access config. For the scripted path (below) create a **separate** token
+with `Access: Apps and Policies → Edit`, `Access: Service Tokens → Edit`, and
+`Access: Organizations, Identity Providers, and Groups → Read`. The dashboard
+path needs no token.
+
+**Path A — the script (recommended).** From a checkout:
+
+```sh
+CLOUDFLARE_API_TOKEN=<access-scoped token>  CLOUDFLARE_ACCOUNT_ID=<§3.1> \
+ACCESS_ALLOWED_EMAILS="you@example.com,another@example.com" \
+npm run access:setup
+```
+
+Add `ACCESS_ALLOWED_EMAIL_DOMAINS="example.com"` to allow a whole domain.
+`--dry-run` prints the exact API calls without making them. Re-running is safe —
+it reconciles the one app rather than creating a second. It creates the
+self-hosted app, an email allow-list policy, a CI service token, and prints the
+**four values** the next two steps need.
+
+**Path B — the dashboard.** Zero Trust → Access → Applications → *Add* →
+**Self-hosted**. Application domain `tygerberg-sda.cloudkid.link`. Add a policy
+*Allow* with an *Include → Emails* (or *Emails ending in*) rule listing who may
+in. Then Access → Service Auth → *Create Service Token* (name e.g.
+`tygerberg-devtest-ci-smoke`), and add a second policy on the app: *Non-Identity*,
+*Include → Service Token → that token*. The app's **AUD tag** is on its overview;
+your **team domain** is `https://<team>.cloudflareaccess.com` (Zero Trust →
+Settings → Custom Pages, or the account's team name).
+
+**Wire it up.**
+
+1. In `wrangler.jsonc`, uncomment the two lines under `env.devtest.vars` and fill
+   them from the values above:
+
+   ```jsonc
+   "ACCESS_AUD": "<the app's Audience tag>",
+   "ACCESS_TEAM_DOMAIN": "https://<team>.cloudflareaccess.com"
+   ```
+
+2. Add two **repository** secrets (§2.2 location) so the deploy smoke test can
+   reach the gated site:
+
+   | Secret | Value |
+   |---|---|
+   | `CF_ACCESS_CLIENT_ID` | the service token's Client ID |
+   | `CF_ACCESS_CLIENT_SECRET` | its Client Secret (shown once — rotate with `npm run access:setup -- --rotate-service-token` if lost) |
+
+3. Push to `dev`. The devtest deploy enforces the gate; production is untouched.
+
+**Verify.** A browser hitting `tygerberg-sda.cloudkid.link` now gets the
+Cloudflare Access login; an allow-listed identity gets in. From a checkout:
+
+```sh
+CF_ACCESS_CLIENT_ID=... CF_ACCESS_CLIENT_SECRET=... \
+npm run smoke -- https://tygerberg-sda.cloudkid.link --expect-noindex
+```
+
+Without those two the runner is refused **by design** — the smoke step reports
+that as *inconclusive*, not a failure, so a missing or wrong service token shows
+as an inconclusive devtest smoke rather than a red deploy. Production
+(`sdatygerberg.co.za`) must still answer a plain browser with no login.
 
 ---
 

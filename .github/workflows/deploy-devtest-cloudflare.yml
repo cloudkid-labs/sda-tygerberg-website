@@ -85,3 +85,12 @@ jobs:
         # noindex meta is missing (a preview that would compete with production,
         # C-23/C-61). The canonical-host check runs regardless.
         run: npm run smoke -- https://tygerberg-sda.cloudkid.link --expect-noindex
+        # The service token that gets this runner through Cloudflare Access once
+        # the devtest gate is switched on (C-62). Both are repo secrets from
+        # `npm run access:setup`; until they exist they resolve empty and the
+        # smoke run behaves exactly as before — see scripts/smoke.mjs and
+        # SETUP-INSTRUCTIONS §3.7. Kept out of the build step above so they never
+        # enter the bundle.
+        env:
+          CF_ACCESS_CLIENT_ID: ${{ secrets.CF_ACCESS_CLIENT_ID }}
+          CF_ACCESS_CLIENT_SECRET: ${{ secrets.CF_ACCESS_CLIENT_SECRET }}

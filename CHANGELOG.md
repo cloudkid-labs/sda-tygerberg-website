@@ -3,6 +3,14 @@
 [Semantic Versioning](https://semver.org/). What the numbers mean: README,
 "Versioning and releases".
 
+## [1.6.0] — 2026-08-27
+
+- The devtest preview is behind a Zero Trust gate: `tygerberg-sda.cloudkid.link`
+  admits no inbound but an allow-list — Cloudflare Access at the edge, the
+  assertion re-checked in the Worker on every path — while outbound is unchanged
+  and production stays public (C-62). Ships off; `npm run access:setup` and
+  SETUP §3.7 switch it on.
+
 ## [1.5.0] — 2026-08-26
 
 - Production moves to `sdatygerberg.co.za`; devtest takes over

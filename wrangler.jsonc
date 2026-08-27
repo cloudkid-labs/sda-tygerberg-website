@@ -154,15 +154,30 @@
     // Rule, not a Worker route (run_worker_first is path-scoped, so a host
     // redirect cannot live in the Worker). See SETUP-INSTRUCTIONS §domains
     // and C-61.
+    //
+    // Not behind Cloudflare Access: production is a public site (C-20). Only the
+    // devtest Worker is gated, and it is gated by the ACCESS_* vars living on
+    // env.devtest alone, never here — see the accessGuard note below and C-62.
     { "pattern": "sdatygerberg.co.za", "custom_domain": true }
   ],
 
   // Devtest — the integration preview, deployed from `dev` by
   // deploy-devtest-cloudflare.yml. A SECOND Worker
   // (`tygerberg-sda-website-devtest`) on the old production hostname,
-  // replacing the sunset GitHub Pages preview (C-61). It inherits `main`,
-  // `assets` (so `run_worker_first` routes /api/* here too) and
-  // `observability`; only the non-inheritable keys below are redeclared.
+  // replacing the sunset GitHub Pages preview (C-61). It inherits `main` and
+  // `observability`; the non-inheritable keys and `assets` are redeclared below.
+  //
+  // `assets` is redeclared for ONE reason: the Zero Trust gate (C-62). The gate
+  // is the Worker's `guardAccess`, and the Worker only runs for the paths in
+  // `run_worker_first` — the production list is `/api/*` and the headshot
+  // masters, so on the shared config a static page is served straight from the
+  // asset store and never reaches the guard. A gate that skips every HTML page
+  // is not a gate. So devtest sets `run_worker_first: true`: every request goes
+  // through the Worker, the guard runs on all of it, and authorised requests
+  // fall through to the same asset serving. The API and headshot behaviour is
+  // unchanged (those paths hit the Worker either way); only the pages change,
+  // and only to be gated. Production keeps its path list — it is public, has no
+  // guard, and asset serving without a Worker hop is the right default there.
   //
   // Deliberately no `send_email`, `r2_buckets` or CONTACT_EMAIL_* vars: a
   // preview must never email the church or write consent records to the
@@ -174,9 +189,38 @@
     "devtest": {
       "name": "tygerberg-sda-website-devtest",
       "routes": [{ "pattern": "tygerberg-sda.cloudkid.link", "custom_domain": true }],
+      // Redeclared, not inherited: `run_worker_first: true` puts the Access
+      // guard in front of EVERY path, pages included (C-62 — see the note
+      // above). The other three keys match the top-level `assets` block
+      // verbatim; keep them in step if that block ever changes. With `true`,
+      // the negative headshot rule is unnecessary — the Worker sees every
+      // request and its own HEADSHOT_MASTER regex still sends `fallback/*`
+      // straight through to asset serving.
+      "assets": {
+        "directory": "./dist",
+        "binding": "ASSETS",
+        "not_found_handling": "404-page",
+        "run_worker_first": true
+      },
       "vars": {
         "LIVE_CHECK_CRON": "* 9-12 * * 6",
         "LIVE_CHECK_TZ": "Africa/Johannesburg"
+
+        // Zero Trust gate (C-62). Uncomment and fill these two once the
+        // Cloudflare Access application exists — `npm run access:setup` (or the
+        // dashboard) creates it and prints both values. SETUP-INSTRUCTIONS §3.7.
+        //
+        // Together they switch on `guardAccess` in src/worker/index.ts: the
+        // devtest Worker then serves nothing that did not pass Access. Leaving
+        // them commented keeps the preview open, so this config change ships
+        // without locking anyone out before the Access side is ready. Production
+        // never carries them, so it stays public (C-20/C-61).
+        //
+        // ACCESS_AUD is the application's Audience tag; ACCESS_TEAM_DOMAIN is
+        // https://<team>.cloudflareaccess.com. Neither is secret.
+        //
+        // "ACCESS_AUD": "REPLACE_WITH_ACCESS_APP_AUD",
+        // "ACCESS_TEAM_DOMAIN": "https://REPLACE_WITH_TEAM.cloudflareaccess.com"
       }
       // No send_email, r2_buckets or CONTACT_EMAIL_* here on purpose: a preview
       // sends no church email and writes no consent records, so /api/contact

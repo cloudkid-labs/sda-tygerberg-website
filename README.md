@@ -44,8 +44,9 @@ secrets, not Actions or build-time variables ([C-18](./CONCERNS.md#c-18--the-api
 | `YOUTUBE_API_KEY` | Google Cloud key, YouTube Data API v3 enabled | LIVE badge stays hidden |
 | `YOUTUBE_CHANNEL_ID` | `UCtZlioPBBORWMMMSJ9BE1Wg` | as above |
 | `CONTACT_WEBHOOK_URL` | Fallback channel; any JSON POST endpoint | webhook channel skipped |
+| `TURNSTILE_SECRET_KEY` | Cloudflare Turnstile secret for `/api/contact` | human check skipped ([C-21](./CONCERNS.md#c-21--abuse-protection-is-cloudflares-and-it-is-off-by-default)) |
 
-The three contact **email** addresses are not secrets — they are committed vars,
+The two contact **email** addresses are not secrets — they are committed vars,
 a temporary decision recorded in
 [ADR-0001](./docs/adr/0001-hardcode-contact-addresses.md). See the vars table
 below.
@@ -67,9 +68,15 @@ them in the dashboard, or with `wrangler secret put`.
 | `LIVE_CHECK_TZ` | `Africa/Johannesburg` | Timezone the window is evaluated in |
 | `CONTACT_EMAIL_TO` | `hello@cloudkid.link` | Where `/api/contact` emails. Must be a **verified destination address**, and must reach a person — Email Routing forwards this one to an inbox |
 | `CONTACT_EMAIL_FROM` | `mailer@cloudkid.link` | From address. `cloudkid.link` is **already onboarded** to Email Sending — `cf-bounce` MX/SPF/DKIM and `_dmarc` all resolve |
-| `CONTACT_EMAIL_BCC` | `notifications@cloudkid.link` | Archive copy — but it routes to the `cloudkid-link-r2-explorer` Worker, so nobody reads it. Must **also** be verified; an unverified one fails the whole send. Consider dropping it ([C-31](./CONCERNS.md#c-31--email-is-tried-first-and-the-webhook-is-the-fallback)) |
 
-Changing any of the three means changing it in **two** places in
+There is deliberately no `CONTACT_EMAIL_BCC`: it used to archive a copy to an
+unread Worker inbox, where it could fail the whole send on the free path
+([C-31](./CONCERNS.md#c-31--email-is-tried-first-and-the-webhook-is-the-fallback)).
+`contactEmail.ts` still honours one if set as a Worker secret — re-add the
+address to `allowed_destination_addresses` at the same time or the send is
+rejected.
+
+Changing either address means changing it in **two** places in
 `wrangler.jsonc`: the `vars` block and the `send_email` binding's
 `allowed_destination_addresses` / `allowed_sender_addresses`. Out of step, the
 send is rejected ([C-31](./CONCERNS.md#c-31--email-is-tried-first-and-the-webhook-is-the-fallback)).
@@ -82,6 +89,13 @@ send is rejected ([C-31](./CONCERNS.md#c-31--email-is-tried-first-and-the-webhoo
 | `PUBLIC_HAS_API=false` | Skip the live-status poll; contact form read-only |
 | `PUBLIC_INDEXABLE=false` | Emit `noindex,nofollow` |
 | `PUBLIC_IMAGE_CDN=false` | Serve the fallback headshots, skip the transformer probe |
+| `PUBLIC_TURNSTILE_SITE_KEY` | Render the Turnstile widget on the form pages; the Worker verifies the token only where `TURNSTILE_SECRET_KEY` is set, otherwise the token is ignored |
+
+Create the Turnstile widget in the Cloudflare dashboard (Turnstile) for
+`sdatygerberg.co.za`: the **site key** goes to the build as
+`PUBLIC_TURNSTILE_SITE_KEY` (Actions variable — it ships in the HTML), the
+**secret key** to the Worker via `wrangler secret put TURNSTILE_SECRET_KEY`.
+Set neither and the form submits exactly as before.
 
 ## Branch strategy and CI/CD
 
@@ -227,8 +241,10 @@ it. Email is tried first and the webhook is the fallback; only one runs per
 submission ([C-31](./CONCERNS.md#c-31--email-is-tried-first-and-the-webhook-is-the-fallback)).
 `not-configured` means *neither* channel is set up.
 
-`/api/contact` has no bot protection of its own and Cloudflare's is **off by
-default** — [C-21](./CONCERNS.md#c-21--abuse-protection-is-cloudflares-and-it-is-off-by-default).
+`/api/contact` verifies a Cloudflare Turnstile token where `TURNSTILE_SECRET_KEY`
+is set, and skips the check where it is not (local dev, devtest) —
+[C-21](./CONCERNS.md#c-21--abuse-protection-is-cloudflares-and-it-is-off-by-default).
+Cloudflare's own Bot Fight Mode / WAF rule remain **off by default**.
 
 ## Editing content
 

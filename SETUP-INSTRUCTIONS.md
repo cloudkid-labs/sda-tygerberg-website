@@ -445,19 +445,16 @@ records as evidence for this step.
 
 ### 6.3 Set the two secrets
 
-**There is nothing to set.** The three addresses are committed in
+**There is nothing to set.** The two addresses are committed in
 `wrangler.jsonc`, so a deploy carries them:
 
 ```jsonc
 "CONTACT_EMAIL_TO":   "hello@cloudkid.link",
-"CONTACT_EMAIL_FROM": "mailer@cloudkid.link",
-"CONTACT_EMAIL_BCC":  "notifications@cloudkid.link"
+"CONTACT_EMAIL_FROM": "mailer@cloudkid.link"
 ```
 
 **`TO` has to be an address a person reads.** In Email Routing, `hello@`
-forwards to an inbox while `notifications@` is handled by a Worker, so the
-enquiry goes to `hello@` and `notifications@` takes the archive copy. Reversing
-that delivers every enquiry to a script.
+forwards to an inbox, so the enquiry goes there.
 
 This is a deliberate, temporary reversal of the "delivery addresses are secrets"
 rule — read [ADR-0001](./docs/adr/0001-hardcode-contact-addresses.md) before
@@ -469,27 +466,22 @@ block and the binding's `allowed_destination_addresses` /
 `allowed_sender_addresses` — then redeploy. Out of step, Cloudflare rejects the
 send.
 
-What is left is **§6.1 only**: `hello@` and `notifications@` are Email Routing
-*custom addresses* — routing-rule patterns — and a working routing rule is not
-the same permission as being a verified **destination address**. Add each one
-under **Destination Addresses** and click its confirmation link. §6.2 is already
-satisfied.
+What is left is **§6.1 only**: `hello@` is an Email Routing *custom address* —
+a routing-rule pattern — and a working routing rule is not the same permission
+as being a verified **destination address**. Add it under **Destination
+Addresses** and click its confirmation link. §6.2 is already satisfied.
 
 That applies on the Workers **Free** plan. On **Workers Paid**, Email Sending
-may address any recipient and §6.1 stops mattering for these two. Check the plan
-before spending time on it — it decides whether there is anything to do here.
+may address any recipient and §6.1 stops mattering. Check the plan before
+spending time on it — it decides whether there is anything to do here.
 
-> **The BCC is not free of consequence.** Every recipient is checked, so an
-> unverified `notifications@cloudkid.link` fails the *whole* send — the church
-> stops receiving enquiries, not just losing the archive copy. Put one real
-> submission through the form and confirm the response says `"via":"email"`
-> before considering this done.
->
-> Worth asking whether to keep it at all: `notifications@` routes to the
-> `cloudkid-link-r2-explorer` Worker, which does not handle enquiries, so the
-> archive copy currently goes nowhere anyone reads. Dropping the
-> `CONTACT_EMAIL_BCC` line — or pointing it at a second real inbox — removes a
-> recipient that can fail the send and buys back nothing.
+> There used to be a `CONTACT_EMAIL_BCC` archiving a copy to
+> `notifications@cloudkid.link`, which routes to an unrelated Worker nobody
+> reads — and on the free path that second recipient could fail the whole send.
+> It is removed; `contactEmail.ts` still honours one set as a Worker secret, but
+> re-add the address to `allowed_destination_addresses` at the same time.
+> Either way, put one real submission through the form and confirm the response
+> says `"via":"email"` before considering this done.
 
 A submission arrives as plain text, subject `Webwerf — Verbind: <name>` (or
 `Bybelstudie`), with **Reply-To set to the visitor's address** when they gave

@@ -32,3 +32,12 @@ CONTACT_EMAIL_BCC=
 # watch what the church's inbox would receive; leave every channel unset and the
 # form reports `not-configured` instead of pretending.
 CONTACT_WEBHOOK_URL=
+
+# Bot protection for /api/contact (Cloudflare Turnstile, CONCERNS.md C-21).
+# Create a widget in the Cloudflare dashboard (Turnstile) for sdatygerberg.co.za.
+# The secret lives here as a Worker secret in production (`wrangler secret put
+# TURNSTILE_SECRET_KEY`); the site key is public and reaches the form as a
+# build-time var instead: PUBLIC_TURNSTILE_SITE_KEY=<site key> in the build env.
+# Leave both unset and the form submits exactly as before — the check runs only
+# where the secret is set.
+# TURNSTILE_SECRET_KEY=

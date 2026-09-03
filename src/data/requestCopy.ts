@@ -44,6 +44,8 @@ export type FormCopy = {
   errPhone: string;
   errConsent: string;
   errValidation: string;
+  /** The human check answered nothing, or its answer did not verify. */
+  errCaptcha: string;
   /** A rejection that isn't pinned to any visible field — too long, bad topic. */
   errUnexpected: string;
   errNotConfigured: string;
@@ -152,6 +154,7 @@ export const requestFormCopy: Record<Lang, FormCopy> = {
     errPhone: 'Kyk asseblief die telefoonnommer na.',
     errConsent: 'Ons het jou toestemming nodig voordat ons jou kan kontak.',
     errValidation: 'Kyk asseblief die gemerkte velde na.',
+    errCaptcha: 'Bevestig asseblief dat jy nie ’n robot is nie en probeer weer.',
     // Shown for every rejected submission with no field to highlight — a bad
     // topic and a malformed body reach it too, not only an over-long message.
     errUnexpected:
@@ -189,6 +192,7 @@ export const requestFormCopy: Record<Lang, FormCopy> = {
     errPhone: 'Please check the phone number.',
     errConsent: 'We need your consent before we can contact you.',
     errValidation: 'Please check the highlighted fields.',
+    errCaptcha: 'Please confirm you’re not a robot and try again.',
     errUnexpected:
       'We couldn’t accept this request. Please check your details and message, then try again. A very long message is the usual cause.',
     errNotConfigured:

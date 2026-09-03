@@ -3,9 +3,11 @@
 import type { Lang } from '../data/site';
 import { sendContactEmail, type ContactEmailEnv } from './contactEmail';
 import { buildConsentRecord, storeConsent, type ConsentEnv } from './consentRecord';
+import { checkTurnstile, type TurnstileEnv } from './turnstile';
 
 export type ContactEnv = ContactEmailEnv &
-  ConsentEnv & {
+  ConsentEnv &
+  TurnstileEnv & {
     // Any endpoint accepting a JSON POST. A Worker secret, not a build-time var:
     // it is a delivery address, and a public one invites spam. Unset answers
     // `not-configured` and the form says so.
@@ -219,9 +221,17 @@ export async function handleContact(request: Request, env: ContactEnv): Promise<
     return json({ ok: false, outcome: 'invalid', errors: ['body'] }, 400);
   }
 
-  // Bot filtering is Cloudflare's, at the edge — CONCERNS.md C-21.
+  // Bot filtering is Turnstile's where a secret is set, skipped where none is
+  // (local dev, devtest) — CONCERNS.md C-21.
   const { errors, clean, lang } = validate(body);
   if (!clean) return json({ ok: false, outcome: 'invalid', errors }, 400);
+
+  // Before delivery and before the configured check: an unconfigured deploy
+  // answers `not-configured`, never a captcha error, so previews keep saying
+  // what they mean.
+  if ((await checkTurnstile(request, body, env)) === false) {
+    return json({ ok: false, outcome: 'invalid', errors: ['captcha'] }, 400);
+  }
 
   if (!isConfigured(env)) {
     return json({ ok: false, outcome: 'not-configured' }, 503);

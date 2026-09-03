@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { withBase } from '../../lib/base';
 
 /**
  * Polls /api/live-status for the LIVE badge. The route exists only under
@@ -35,7 +36,8 @@ export function useLiveStatus(): LiveStatus {
 
     const check = async () => {
       try {
-        const res = await fetch('/api/live-status');
+        // withBase, so a subpath preview (ASTRO_BASE) asks its own Worker.
+        const res = await fetch(withBase('/api/live-status'));
         const data = res.ok ? ((await res.json()) as LiveStatusResponse) : null;
         if (cancelled) return;
         // A non-answer clears the badge too, or a 5xx pins it on — C-17.

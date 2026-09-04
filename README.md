@@ -87,7 +87,7 @@ send is rejected ([C-31](./CONCERNS.md#c-31--email-is-tried-first-and-the-webhoo
 |---|---|
 | `ASTRO_BASE` | Serve under a subpath, e.g. `/sda-tygerberg-website/` |
 | `PUBLIC_HAS_API=false` | Skip the live-status poll; contact form read-only |
-| `PUBLIC_INDEXABLE=false` | Emit `noindex,nofollow` |
+| `PUBLIC_INDEXABLE=false` | Emit `noindex,nofollow`, serve `Disallow: /` robots with no sitemap, 404 the sitemap, drop `llms.txt`, omit JSON-LD, send `X-Robots-Tag: noindex` — the no-SEO preview contract ([C-23](./CONCERNS.md#c-23--the-preview-is-de-seoed-not-gated)) |
 | `PUBLIC_IMAGE_CDN=false` | Serve the fallback headshots, skip the transformer probe |
 | `PUBLIC_TURNSTILE_SITE_KEY` | Render the Turnstile widget on the form pages; the Worker verifies the token only where `TURNSTILE_SECRET_KEY` is set, otherwise the token is ignored |
 
@@ -326,12 +326,18 @@ and nothing else ([C-25](./CONCERNS.md#c-25--the-sda-symbol-may-be-recoloured-an
 ## Findability
 
 `src/layouts/Layout.astro` emits the canonical URL, Open Graph/Twitter tags and
-a `Church` JSON-LD block. `site` in `astro.config.mjs` is the single source for
+a `Church` JSON-LD block (production builds only — the preview omits
+structured data). `site` in `astro.config.mjs` is the single source for
 the production origin — change it there and canonicals, OG URLs and the sitemap
 follow.
 
-**`/sitemap.xml` is not advertised.** Cloudflare serves a managed `robots.txt`
-with no `Sitemap:` directive, so it must be submitted once in
+`/robots.txt` is built per environment: the preview answers `Disallow: /` with
+no sitemap line, production allows crawling and names the sitemap. The preview
+also 404s `/sitemap.xml`, drops `llms.txt`, and sends `X-Robots-Tag: noindex`
+— the full no-SEO-dev contract lives in
+[C-23](./CONCERNS.md#c-23--the-preview-is-de-seoed-not-gated).
+
+**`/sitemap.xml` still has to be submitted once** in
 [Google Search Console](https://search.google.com/search-console). Nobody will
 be prompted for this.
 

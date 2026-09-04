@@ -506,15 +506,50 @@ Devtest is a Cloudflare Worker now (C-61), so both exist there and both flags
 are back at their defaults. The one gap that remains is the contact channel,
 withheld deliberately rather than by the platform — see C-61.
 
-### C-23 — The preview advertises production canonicals
+### C-23 — The preview is de-SEOed, not gated
 
 The devtest copy is publicly crawlable, so it must not compete with the real
-site in search. `PUBLIC_INDEXABLE=false` emits `noindex,nofollow`, and
-`Astro.site` is the production origin on every build (astro.config.mjs) so
-canonicals and Open Graph URLs point at production regardless of which host
-served the page. Both exist to keep the preview out of the index. (Under the
-old Pages preview `canonicalPath` also stripped the Pages base path; devtest
-serves from a domain root now, so there is no base to strip — C-61.)
+site in search — without a login wall. Gating it behind Cloudflare Access (PR
+#100) was evaluated and rejected in favour of this: the preview hosts nothing
+non-public (C-20, C-61), so enforcement is disproportionate next to compliance,
+which legitimate engines honour. Revisit only if devtest ever stages embargoed
+content; the C-62 number below records the decision. C-62
+
+`PUBLIC_INDEXABLE=false` (devtest build only) is the single signal for the
+whole contract — no second flag:
+
+- `noindex,nofollow` meta on every Layout page, and on `/map/` too, which does
+  not render through Layout and was the one indexable page on a noindex
+  preview.
+- `Astro.site` is the production origin on every build (astro.config.mjs) so
+  canonicals and Open Graph URLs point at production regardless of which host
+  served the page. Kept on dev deliberately: `noindex` keeps dev pages out of
+  the index while the production canonical consolidates any leaked signals
+  (e.g. via backlinks) onto production. A dev page with no canonical — or a
+  self-canonical to the dev host — would declare the dev URL canonical for
+  itself, which is exactly the competition this prevents. (Under the old Pages
+  preview `canonicalPath` also stripped the Pages base path; devtest serves
+  from a domain root now, so there is no base to strip — C-61.)
+- `/robots.txt` answers `Disallow: /` with no sitemap line on dev;
+  `Allow: /` plus a `Sitemap:` line on production (`src/pages/robots.txt.ts`,
+  unit-tested). A `Disallow` is a crawl directive, not an index directive, so
+  it is the secondary signal, not the guarantee.
+- `/sitemap.xml` 404s on dev (C-55): a sitemap of production URLs served from
+  the dev host invites crawlers to bind the URL set to it.
+- JSON-LD is emitted on production only. Under noindex it carries no ranking
+  weight, but it still feeds knowledge-graph/AI pipelines.
+- `X-Robots-Tag: noindex, nofollow` is appended to the `/*` headers on dev
+  builds (build-headers.mjs) — the meta tag covers HTML pages, the header
+  covers everything else (the PDF, images). `dist/llms.txt` is removed from
+  dev builds for the same reason (C-35).
+- What is deliberately NOT branched: titles, descriptions, OG/Twitter tags
+  (the preview is for content review and social-card testing — gutting them
+  destroys the mirror C-61 was built to provide), and `nofollow` on outbound
+  links (a noindexed page passes no equity anyway; conditional `rel`
+  attributes across every external link would buy nothing).
+
+Smoke asserts both polarities (`--expect-noindex`), so a regression fails the
+PR via the `worker` job rather than shipping.
 
 ### C-24 — Unhashed assets get `max-age=0` unless told otherwise
 
@@ -714,6 +749,10 @@ Absolute production URLs throughout, deliberately. The file is copied verbatim
 to whatever origin serves it, so a devtest build advertises the production
 addresses rather than its own — the same call as C-23, and for the same reason:
 a preview must not invite anyone to treat it as the real site.
+
+The devtest build does not serve it at all: build-headers.mjs removes
+`dist/llms.txt` when `PUBLIC_INDEXABLE=false`, so crawlers get no crawl map of
+the preview host. C-23
 
 ---
 
@@ -993,6 +1032,10 @@ already answered the same constraint.
 It emitted `<priority>` and no `<lastmod>`, which is the element crawlers
 actually read. The build date, not a per-page timestamp: every page ships in one
 deploy, and a hand-maintained per-page date is how a `lastmod` starts lying.
+
+It is served on production only. The devtest build answers 404: a sitemap of
+production URLs served from the preview host invites crawlers to bind the URL
+set to it. C-23
 
 ### C-56 — The consent metadata identifies nobody, on purpose
 
@@ -1380,6 +1423,11 @@ so the LIVE badge never lights and the latest-video card falls back to the
 keyless embed-page scrape, which needs no secret. This is the one place devtest
 is not a faithful mirror, and it is withheld on purpose.
 
+The other deliberate deviation is discoverability, not capability: the devtest
+build is de-SEOed (`Disallow: /` robots, no sitemap, no `llms.txt`, no JSON-LD,
+`X-Robots-Tag` noindex) while staying publicly accessible — no login wall. The
+full contract lives in C-23.
+
 Two things the deploy cannot do for itself, both on the new
 `sdatygerberg.co.za` zone (`cloudkid.link` already has them):
 
@@ -1405,3 +1453,14 @@ the dashboard, then re-run the devtest deploy so it attaches the freed host.
 The `CLOUDFLARE_API_TOKEN` must reach both zones. See SETUP-INSTRUCTIONS §3.3.
 
 Supersedes C-22; updates C-23 (no Pages base path to strip any more).
+
+### C-62 — No login wall on the preview
+
+Gating devtest behind Cloudflare Access (PR #100: Access app + JWT re-check in
+the Worker, `jose` dependency, setup runbook) was evaluated and rejected,
+unmerged. It buys enforcement — rogue scrapers and curious humans — at the
+price of reviewer friction, allow-list ops, token lifecycle, per-request Worker
+cost on every devtest hit, and routing divergence from production. The preview
+hosts nothing non-public (C-20, C-61), so compliance (C-23) is the proportionate
+answer. Revival trigger: devtest ever stages embargoed content. Until then, do
+not re-propose it from scratch — re-read C-23 first.

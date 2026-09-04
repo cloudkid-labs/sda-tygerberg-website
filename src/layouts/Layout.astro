@@ -78,7 +78,11 @@ const jsonLd = {
       rel="stylesheet"
     />
 
-    <script type="application/ld+json" is:inline set:html={JSON.stringify(jsonLd)} />
+    {/* Structured data is production-only: under noindex it carries no
+        ranking weight, but it still feeds knowledge-graph/AI pipelines and
+        makes the preview look authoritative in validators. Canonicals and OG
+        stay on both builds deliberately — C-23. */}
+    {indexable && <script type="application/ld+json" is:inline set:html={JSON.stringify(jsonLd)} />}
   </head>
   <body>
     <!--

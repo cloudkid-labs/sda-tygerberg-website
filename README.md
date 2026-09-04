@@ -356,7 +356,7 @@ Needs the church board:
    when their headshots landed and were referenced. Do not ask the board for
    those three again.
 2. ~~**The Ampsdraers 2025/2026 roster is missing an entry**~~ — resolved by the
-   board. Laura Rolff holds Persoonlike Bediening and the
+   board. Laura Rolfe holds Persoonlike Bediening and the
    Strategiesebeplannings-komitee, both of which the roster had listed under
    Jaco van Niekerk; he is head elder only. The cards now follow the board, not
    the PDF.

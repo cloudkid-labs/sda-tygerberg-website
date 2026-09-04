@@ -50,7 +50,7 @@ export const departmentHeads: DepartmentHead[] = [
   },
   {
     id: 'persoonlike-bediening',
-    name: 'Laura Rolff',
+    name: 'Laura Rolfe',
     roles: {
       af: ['Persoonlike Bediening', 'Strategiesebeplannings-komitee', 'Evangelisasie'],
       en: ['Personal Ministries', 'Strategic Planning Committee', 'Evangelism'],

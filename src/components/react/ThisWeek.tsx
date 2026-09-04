@@ -30,6 +30,9 @@ export function ThisWeek() {
               </div>
               <div className="mb-1.5 font-serif text-xl text-ink">{entry.name}</div>
               <div className="text-[13px] font-bold text-slate">{entry.time}</div>
+              {/* Where it happens, when the card names one. The grid's heading
+                  promises "by die kerk" while some entries are elsewhere. */}
+              {entry.place && <div className="mt-1 text-[13px] text-slate-muted">{entry.place}</div>}
               {entry.more && (
                 <div className="mt-1.5 flex items-center gap-1.5 text-[13px] font-bold text-slate">
                   {entry.more}
@@ -44,16 +47,19 @@ export function ThisWeek() {
           // blood bank card gets below, and for the same reason. Two branches
           // rather than a computed tag name: an anchor and a div do not take
           // the same props, and the compiler should be able to see that.
+          //
+          // Keyed on day and name: Wednesday carries two cards (daytime
+          // counselling, evening Bible study), so the day alone is not unique.
           return entry.href ? (
             <a
-              key={entry.day}
+              key={`${entry.day}-${entry.name}`}
               href={withBase(entry.href)}
               className="rounded-card border border-subtle border-t-2 border-t-orange bg-cream-card p-5 shadow-card transition-colors hover:border-orange"
             >
               {body}
             </a>
           ) : (
-            <div key={entry.day} className="rounded-card border border-subtle bg-cream-card p-5">
+            <div key={`${entry.day}-${entry.name}`} className="rounded-card border border-subtle bg-cream-card p-5">
               {body}
             </div>
           );

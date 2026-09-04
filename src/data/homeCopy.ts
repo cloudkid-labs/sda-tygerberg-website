@@ -10,6 +10,7 @@ import { SABBATH_GROUPS, YOUTH_EVENING, youthEveningRange } from './youthGroups'
  */
 const MIDWEEK = {
   prayer: '19:00 – 20:00',
+  counselling: '13:00 – 16:00',
   bibleStudy: '19:00 – 21:00',
   volleyball: '19:00 – 21:00',
 } as const;
@@ -17,12 +18,14 @@ const MIDWEEK = {
 /**
  * One midweek card. `href` turns the card into a link to the page behind it and
  * `more` is the label that says so — both absent on an entry that is only ever
- * a card, which is most of them.
+ * a card, which is most of them. `place` names where it happens, because the
+ * grid's heading promises "by die kerk" while some entries are not there.
  */
 export type WeekEntry = {
   day: string;
   name: string;
   time: string;
+  place?: string;
   href?: string;
   more?: string;
 };
@@ -131,15 +134,23 @@ export const homeCopy: Record<Lang, HomeCopy> = {
     tabReplay: 'Onlangse Dienste',
     timesLabel: 'Sabbatdienste',
     week: [
-      { day: 'Dinsdag', name: 'Biduur', time: MIDWEEK.prayer },
-      { day: 'Woensdag', name: 'Bybelstudie', time: MIDWEEK.bibleStudy },
-      { day: 'Donderdag', name: 'Vlugbal', time: MIDWEEK.volleyball },
+      { day: 'Dinsdag', name: 'Biduur', time: MIDWEEK.prayer, place: 'By die kerk' },
+      {
+        day: 'Woensdag',
+        name: 'Pastorale Berading',
+        time: MIDWEEK.counselling,
+        place: 'By die kerk · 45 min-sessies op die uur',
+      },
+      { day: 'Woensdag', name: 'Bybelstudie', time: MIDWEEK.bibleStudy, place: 'By die kerk' },
+      { day: 'Donderdag', name: 'Vlugbal', time: MIDWEEK.volleyball, place: 'In die kerksaal' },
       // Day and time come from youthGroups.ts because /youth prints them too,
-      // and this card is the link to that page — C-03.
+      // and this card is the link to that page — C-03. The place stays a
+      // short card label; the full venue sentence lives on the page itself.
       {
         day: YOUTH_EVENING.day.af,
-        name: 'Jeugaand',
+        name: 'Junior-jeugaand',
         time: youthEveningRange,
+        place: 'Wisselende huise',
         href: '/youth/',
         more: 'Sien meer',
       },
@@ -232,13 +243,20 @@ export const homeCopy: Record<Lang, HomeCopy> = {
     tabReplay: 'Recent Services',
     timesLabel: 'Sabbath Services',
     week: [
-      { day: 'Tuesday', name: 'Prayer Meeting', time: MIDWEEK.prayer },
-      { day: 'Wednesday', name: 'Bible Study', time: MIDWEEK.bibleStudy },
-      { day: 'Thursday', name: 'Volleyball', time: MIDWEEK.volleyball },
+      { day: 'Tuesday', name: 'Prayer Meeting', time: MIDWEEK.prayer, place: 'At the church' },
+      {
+        day: 'Wednesday',
+        name: 'Pastoral Counselling',
+        time: MIDWEEK.counselling,
+        place: 'At the church · 45-min sessions on the hour',
+      },
+      { day: 'Wednesday', name: 'Bible Study', time: MIDWEEK.bibleStudy, place: 'At the church' },
+      { day: 'Thursday', name: 'Volleyball', time: MIDWEEK.volleyball, place: 'In the church hall' },
       {
         day: YOUTH_EVENING.day.en,
-        name: 'Youth Evening',
+        name: 'Junior Youth Evening',
         time: youthEveningRange,
+        place: 'Rotating homes',
         href: '/youth/',
         more: 'See more',
       },

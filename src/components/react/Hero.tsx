@@ -3,6 +3,7 @@ import { useLanguage } from '../../context/LanguageContext';
 import { homeCopy } from '../../data/homeCopy';
 import { SITE } from '../../data/site';
 import type { LatestVideo } from '../../lib/latestVideo';
+import { withBase } from '../../lib/base';
 import { useLiveStatus } from './useLiveStatus';
 
 /**
@@ -73,7 +74,9 @@ function useLatestVideo(
     let cancelled = false;
     (async () => {
       try {
-        const res = await fetch('/api/latest-video');
+        // withBase, so a subpath preview (ASTRO_BASE) asks its own Worker —
+        // a bare '/api/…' would miss the base and 404. C-47's lesson.
+        const res = await fetch(withBase('/api/latest-video'));
         if (!res.ok) return;
         const data = (await res.json()) as { video?: LatestVideo | null };
         // Never swap once playing: the mounted iframe's src is derived from

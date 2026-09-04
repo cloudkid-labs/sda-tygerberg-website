@@ -82,17 +82,17 @@ const markerUrl = withBase('/map-marker.svg');
     >
       /* One-finger drag off on touch, wheel never zooms — CONCERNS.md C-28.
          Mouse dragging stays on; a desktop drag doesn't compete with page scroll. */
-      // No tile attribution anywhere, by decision — see CONCERNS.md C-01 before
-      // reinstating or removing this.
+      // Tile credit is required by the OSM licence — CONCERNS.md C-01.
       const map = L.map('map', {
         scrollWheelZoom: false,
         dragging: !L.Browser.mobile,
         tap: false,
-        attributionControl: false,
+        attributionControl: true,
       }).setView([lat, lng], 16);
 
       L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
         maxZoom: 19,
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
       }).addTo(map);
 
       // A committed derivation of the official mark. Built through withBase so it

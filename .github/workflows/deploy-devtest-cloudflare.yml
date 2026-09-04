@@ -62,6 +62,10 @@ jobs:
           # Stamped so `curl -s <devtest>/ | grep app-commit` says which commit
           # the preview is serving. No version tag — devtest is never a release.
           PUBLIC_APP_COMMIT: ${{ github.sha }}
+          # Same public key as production; harmless here — devtest carries no
+          # TURNSTILE_SECRET_KEY, so the Worker skips verification and the form
+          # answers `not-configured` as before. C-21.
+          PUBLIC_TURNSTILE_SITE_KEY: ${{ vars.PUBLIC_TURNSTILE_SITE_KEY }}
 
       - name: Deploy to Cloudflare Workers
         uses: cloudflare/wrangler-action@v4

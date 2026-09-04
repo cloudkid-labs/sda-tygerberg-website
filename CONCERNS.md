@@ -34,6 +34,11 @@ Two ways out if that becomes a problem: restore the credit (Leaflet's own
 OSMF guidelines allow the credit *adjacent to* the map rather than on it), or
 move to a tile provider whose terms do not require visible attribution.
 
+**Update:** the credit is restored — `attributionControl: true` with an
+`© OpenStreetMap contributors` tile attribution on `/map/`, plus the same link
+adjacent to the embedded map on the homepage. The breach paragraph above is kept
+as the history of why the lines exist; do not re-disable the control.
+
 ---
 
 ## Images
@@ -332,20 +337,25 @@ Three things about what is stored:
   sensitive thing a visitor types and it is not part of demonstrating consent.
   C-20's "minimum needed" binds harder on storage at rest than on an inbox.
 
-  **But the deployment stores it anyway, and this entry used to claim
-  otherwise.** Every enquiry is blind-copied to `CONTACT_EMAIL_BCC`
-  (`notifications@cloudkid.link`), which Email Routing hands to the
-  `cloudkid-link-r2-explorer` Worker, and that Worker is configured with
-  `targetBucket: "email-notifications"` — so the full message body is persisted
-  to R2 as a raw `.txt` dump, in a different bucket, with no retention rule, that
-  `wrangler.jsonc`'s own comment says nobody reads. `ConsentRecord` having no
-  `message` field is true and beside the point.
+  **But the deployment used to store it anyway.** Every enquiry was blind-copied
+  to `CONTACT_EMAIL_BCC` (`notifications@cloudkid.link`), which Email Routing
+  handed to the `cloudkid-link-r2-explorer` Worker, and that Worker is
+  configured with `targetBucket: "email-notifications"` — so the full message
+  body was persisted to R2 as a raw `.txt` dump, in a different bucket, with no
+  retention rule, that `wrangler.jsonc`'s own comment says nobody reads.
+  `ConsentRecord` having no `message` field is true and beside the point.
 
-  Two places in this repo already suggest dropping that BCC. This is the reason
-  to: it is the difference between the paragraph above being a design decision
-  and being a POPIA claim the deployment contradicts. Until it is dropped, read
-  this bullet as "the *consent record* does not hold the message", not as "the
-  message is not stored".
+  **That BCC is removed from `wrangler.jsonc`.** With no BCC set, the message
+  goes only to the church inbox and the consent bucket holds only the record —
+  which is what makes the paragraph above a design decision again rather than a
+  POPIA claim the deployment contradicts. `contactEmail.ts` still honours a BCC
+  set as a Worker secret, so re-adding one re-opens this; re-add the fence entry
+  with it (C-31) and re-read this bullet first.
+
+  That was the reason to drop it: the difference between the paragraph above
+  being a design decision and being a POPIA claim the deployment contradicts.
+  Read this bullet as "the *consent record* does not hold the message" — the
+  message itself lives in the church inbox, which is where replies happen.
 
 Retention is a dashboard-only R2 lifecycle rule and **is not configured by this
 repo** — SETUP-INSTRUCTIONS.md §3.6. Personal data with no expiry is the failure
@@ -353,15 +363,30 @@ mode to watch here.
 
 ### C-21 — Abuse protection is Cloudflare's, and it is off by default
 
-The Worker validates and forwards; it does no bot detection. The edge options in
-front of `/api/contact` are Bot Fight Mode and a WAF rate-limiting rule, neither
-on by default, both needing a custom domain — a `*.workers.dev` URL gets no zone
-protection.
+The Worker validates, verifies the Turnstile token where a secret is set, and
+forwards. The edge options in front of `/api/contact` are Bot Fight Mode and a
+WAF rate-limiting rule, neither on by default, both needing a custom domain — a
+`*.workers.dev` URL gets no zone protection.
 
 The WAF half is not available here: this zone does not use it (C-60). So the
-endpoint is unprotected, and the realistic step up is Turnstile, which needs
-code rather than dashboard access — a widget plus a `siteverify` call before
-forwarding.
+step up is Turnstile, which needs code rather than dashboard access — a widget
+plus a `siteverify` call before forwarding:
+
+- The form renders the widget only where `PUBLIC_TURNSTILE_SITE_KEY` was
+  inlined at build time, and posts the token as `cf-turnstile-response`.
+  Nowhere to render means no token, and submitting without one is the old path.
+- The Worker verifies only where `TURNSTILE_SECRET_KEY` is set
+  (`src/worker/turnstile.ts`), before the configured check and before delivery,
+  and rejects with `errors: ['captcha']` on a missing or refused token.
+  Unset means the check is skipped entirely — local dev and devtest behave
+  exactly as before, and an unconfigured deploy still answers
+  `not-configured`, never a captcha error.
+- A siteverify fault is a refusal, deliberately: failing open would turn every
+  Cloudflare blip into a spam window.
+- The CSP names `challenges.cloudflare.com` in `script-src` (the widget) and
+  `frame-src` (its iframe). The verification call is Worker-to-Cloudflare and
+  never crosses that policy. Removing either entry breaks every production
+  submission with a captcha error and no visible widget fault — look here first.
 
 ---
 
@@ -417,14 +442,15 @@ Three things bound the email path, and none of them are obvious from the code:
 
   Different selectors, deliberately: onboarding one product does not onboard the
   other, and a domain can have routing without sending.
-- **`CONTACT_EMAIL_BCC` currently archives into a script, not an inbox.**
+- **`CONTACT_EMAIL_BCC` used to archive into a script, not an inbox.**
   `notifications@cloudkid.link` is routed by Email Routing to the
   `cloudkid-link-r2-explorer` Worker, which has nothing to do with contact
-  enquiries. So the blind copy is at best discarded, and at worst — on the free
-  path, where it cannot be a verified destination address — it fails the *whole*
-  send and pushes every enquiry onto the webhook fallback. Either point it at a
-  second real inbox or drop the line; a BCC nobody reads is not worth the risk it
-  adds to the one recipient who does.
+  enquiries. So the blind copy was at best discarded, and at worst — on the free
+  path, where it cannot be a verified destination address — it failed the *whole*
+  send and pushed every enquiry onto the webhook fallback. **It is removed from
+  `wrangler.jsonc` and from the send fence.** `contactEmail.ts` still honours one
+  set as a Worker secret, but re-add the address to
+  `allowed_destination_addresses` at the same time or the send is rejected.
 - **The three addresses are committed to `wrangler.jsonc`, not Worker secrets.**
   This reverses the original decision and is deliberate, temporary, and written
   up in [ADR-0001](./docs/adr/0001-hardcode-contact-addresses.md) — read that

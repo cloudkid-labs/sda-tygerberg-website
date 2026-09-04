@@ -11,6 +11,25 @@ import { requestFormCopy, type RequestTopic, type TopicCopy } from '../../data/r
  */
 const HAS_API = import.meta.env.PUBLIC_HAS_API !== 'false';
 
+/**
+ * The Turnstile site key, inlined at build time. Public by design — it ships in
+ * the HTML — so an unset value simply means no widget and no token, and the
+ * Worker skips the check where its own secret is unset too (local dev,
+ * devtest). Production sets both. CONCERNS.md C-21.
+ */
+const TURNSTILE_SITE_KEY = import.meta.env.PUBLIC_TURNSTILE_SITE_KEY as string | undefined;
+
+type TurnstileApi = {
+  render: (el: HTMLElement, opts: Record<string, unknown>) => string;
+  reset: (id?: string) => void;
+};
+
+declare global {
+  interface Window {
+    turnstile?: TurnstileApi;
+  }
+}
+
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 /** Mirrors LIMITS in src/worker/contact.ts, so the server can't reject a
@@ -55,6 +74,10 @@ export function RequestForm({ topic, copy }: { topic: RequestTopic; copy: TopicC
   const [status, setStatus] = useState<Status>('idle');
   const [fieldErrors, setFieldErrors] = useState<string[]>([]);
   const [message, setMessage] = useState('');
+  /** The Turnstile token for this attempt, empty until the widget answers. */
+  const [captchaToken, setCaptchaToken] = useState('');
+  const turnstileRef = useRef<HTMLDivElement | null>(null);
+  const widgetId = useRef<string | null>(null);
   /** Bumped on every failed attempt — see the focus effect below. */
   const [attempt, setAttempt] = useState(0);
 
@@ -82,6 +105,8 @@ export function RequestForm({ topic, copy }: { topic: RequestTopic; copy: TopicC
     returning.current = true;
     setValues(EMPTY);
     setConsent(false);
+    setCaptchaToken('');
+    widgetId.current = null;
     setStatus('idle');
     setFieldErrors([]);
     setMessage('');
@@ -121,6 +146,68 @@ export function RequestForm({ topic, copy }: { topic: RequestTopic; copy: TopicC
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [status]);
 
+  /*
+   * Renders the Turnstile widget once, explicitly. Implicit rendering
+   * re-scans on every script load and fights React re-renders; explicit keeps
+   * one widget id per mount. No widget at all where no site key was inlined —
+   * local dev and previews submit exactly as before, and the Worker skips its
+   * half where its secret is unset. C-21.
+   */
+  useEffect(() => {
+    if (!TURNSTILE_SITE_KEY || status === 'success') return;
+    const host = turnstileRef.current;
+    if (!host) return;
+    let cancelled = false;
+
+    const renderWidget = () => {
+      const api = window.turnstile;
+      const target = turnstileRef.current;
+      if (cancelled || !api || !target) return;
+      if (target.dataset.rendered === '1') return;
+      try {
+        widgetId.current = api.render(target, {
+          sitekey: TURNSTILE_SITE_KEY,
+          callback: (token: string) => setCaptchaToken(token),
+          'expired-callback': () => setCaptchaToken(''),
+          'error-callback': () => setCaptchaToken(''),
+        });
+        target.dataset.rendered = '1';
+      } catch {
+        // A failed render leaves the token empty, and submit then says so
+        // with errCaptcha rather than posting a doomed request.
+      }
+    };
+
+    if (window.turnstile) {
+      renderWidget();
+      return () => {
+        cancelled = true;
+      };
+    }
+
+    const existing = document.querySelector(
+      'script[data-turnstile]',
+    ) as HTMLScriptElement | null;
+    if (existing) {
+      existing.addEventListener('load', renderWidget, { once: true });
+      return () => {
+        cancelled = true;
+      };
+    }
+
+    const script = document.createElement('script');
+    script.src = 'https://challenges.cloudflare.com/turnstile/v0/api.js';
+    script.async = true;
+    script.defer = true;
+    script.dataset.turnstile = '1';
+    script.onload = renderWidget;
+    document.head.appendChild(script);
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [status]);
+
   /** Mirrors the Worker's rules so obvious mistakes don't need a round trip. */
   const validate = (): string[] => {
     const errors: string[] = [];
@@ -138,6 +225,13 @@ export function RequestForm({ topic, copy }: { topic: RequestTopic; copy: TopicC
     const errors = validate();
     if (errors.length > 0) {
       fail(errors, t.errValidation);
+      return;
+    }
+
+    // A configured widget with no token means it never answered (blocked
+    // script, expired challenge) — say so without spending a round trip.
+    if (TURNSTILE_SITE_KEY && !captchaToken) {
+      fail([], t.errCaptcha);
       return;
     }
 
@@ -160,6 +254,9 @@ export function RequestForm({ topic, copy }: { topic: RequestTopic; copy: TopicC
           // Which wording was on screen when they ticked it. The Worker stores
           // the sentence itself, so the record has to know which one they saw.
           lang,
+          // The human check, verified server-side (C-21). Omitted where no
+          // widget was rendered; the Worker skips its half there too.
+          ...(captchaToken ? { 'cf-turnstile-response': captchaToken } : {}),
         }),
       });
 
@@ -173,9 +270,12 @@ export function RequestForm({ topic, copy }: { topic: RequestTopic; copy: TopicC
       if (data?.outcome === 'not-configured') fail([], t.errNotConfigured);
       else if (data?.outcome === 'forward-error') fail([], t.errForward);
       else if (data?.outcome === 'invalid') {
-        // These have no field to highlight, so don't say "highlighted fields".
-        const shown = (data.errors ?? []).filter((f) => SHOWABLE.includes(f));
-        fail(shown, shown.length > 0 ? t.errValidation : t.errUnexpected);
+        if ((data.errors ?? []).includes('captcha')) fail([], t.errCaptcha);
+        else {
+          // These have no field to highlight, so don't say "highlighted fields".
+          const shown = (data.errors ?? []).filter((f) => SHOWABLE.includes(f));
+          fail(shown, shown.length > 0 ? t.errValidation : t.errUnexpected);
+        }
       } else fail([], t.errNetwork);
     } catch {
       // Offline, DNS, non-JSON body — never claim it was sent (C-19).
@@ -369,6 +469,13 @@ export function RequestForm({ topic, copy }: { topic: RequestTopic; copy: TopicC
             </p>
           )}
         </div>
+
+        {/*
+          The human check (C-21). Rendered only where a site key was inlined;
+          elsewhere the form submits exactly as before. Explicitly rendered by
+          the effect above — this div is the mount point, not the widget.
+        */}
+        {TURNSTILE_SITE_KEY && <div ref={turnstileRef} className="cf-turnstile mb-6 flex justify-center" />}
 
         <button
           type="submit"

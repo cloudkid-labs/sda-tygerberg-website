@@ -105,6 +105,10 @@ jobs:
           # emits them as <meta> tags. See README "Versioning and releases".
           PUBLIC_APP_VERSION: ${{ steps.version.outputs.version }}
           PUBLIC_APP_COMMIT: ${{ github.sha }}
+          # Public Turnstile site key (Actions *variable*, not secret — it ships
+          # in the HTML). Unset means no widget; the Worker skips its half where
+          # its secret is unset too. C-21.
+          PUBLIC_TURNSTILE_SITE_KEY: ${{ vars.PUBLIC_TURNSTILE_SITE_KEY }}
 
       - name: Deploy to Cloudflare Workers
         uses: cloudflare/wrangler-action@v4

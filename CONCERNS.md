@@ -628,7 +628,9 @@ directions links above the map handle real navigation.
 ### C-29 — A head without a headshot is not rendered
 
 `shownDepartmentHeads` filters `departmentHeads` down to entries that have a
-`photo`, and the carousel renders only those. A photoless card was a striped
+`photo`, and the carousel renders only those. An entry with `active: false`
+is hidden too — a dormant office keeps its roster entry and its photo line,
+so resuming is deleting one line rather than reconstructing the card. A photoless card was a striped
 box reading "HOD photo": on a page whose purpose is to introduce people, an
 empty frame reads as neglect rather than as a photo still to come.
 

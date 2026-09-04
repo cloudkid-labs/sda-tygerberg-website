@@ -21,6 +21,12 @@ export type DepartmentHead = {
    * drift. Delete the files with the card: `public/` is a live URL either way.
    */
   photo?: string;
+  /**
+   * Dormant office, hidden without losing the roster entry. Omit (or set true)
+   * everywhere it is business as usual; `false` hides the card while the
+   * `photo` line stays, so resuming is deleting one line.
+   */
+  active?: boolean;
 };
 
 /** A head whose headshot exists — the only kind that gets a card. */
@@ -108,6 +114,10 @@ export const departmentHeads: DepartmentHead[] = [
     name: 'Monique Spammer',
     roles: { af: ['Senior Jeugleier'], en: ['Senior Youth Leader'] },
     photo: 'TG-DH-Monique.jpg',
+    // Senior youth is dormant — hidden from the carousel until the board
+    // resumes it. Delete this line to restore; the roster entry and the photo
+    // stay exactly as they are.
+    active: false,
   },
   {
     id: 'tiener-jeug',
@@ -221,9 +231,10 @@ export const departmentHeads: DepartmentHead[] = [
  * reads as neglect rather than as a photo still to come.
  *
  * Adding a `photo` is what publishes someone, so nothing else has to be
- * touched when a headshot arrives. The predicate is a type guard so the
+ * touched when a headshot arrives. `active: false` hides a dormant office
+ * without touching the roster entry. The predicate is a type guard so the
  * carousel receives `photo: string` and cannot be handed an empty card.
  */
 export const shownDepartmentHeads = departmentHeads.filter(
-  (head): head is DepartmentHeadWithPhoto => Boolean(head.photo),
+  (head): head is DepartmentHeadWithPhoto => head.active !== false && Boolean(head.photo),
 );

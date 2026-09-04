@@ -107,6 +107,17 @@ export const YOUTH_EVENING = {
 } as const;
 
 /**
+ * Where the Friday evening happens. The junior youth meets at rotating teens'
+ * homes, not at the church — confirmed by the board, which holds it there for
+ * attendance. There is no senior youth running. /youth and the week grid both
+ * print it, so it lives here with the time. C-03
+ */
+export const YOUTH_EVENING_VENUE = {
+  af: 'By tieners se huise — die adres wissel elke week',
+  en: 'At teens’ homes — the address changes every week',
+} as const;
+
+/**
  * The span the Sabbath classes cover, end to end. The /youth meta description
  * stated "0 tot 18" in prose, which is only true for as long as nobody adds a
  * group at either end. C-53

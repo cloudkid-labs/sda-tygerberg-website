@@ -14,9 +14,10 @@ YOUTUBE_CHANNEL_ID=UCtZlioPBBORWMMMSJ9BE1Wg
 # `wrangler dev` simulates the binding rather than sending anything — it prints
 # the From/To/Subject and writes the body to .wrangler/tmp/email/, so you can
 # read exactly what the church would receive without a Cloudflare account.
-# In production both are plain vars in wrangler.jsonc, not secrets — they are
-# role addresses on the operator's own domain, and ADR-0001 (Accepted) records
-# why publishing them is the cheaper trade. Setting a Worker secret of the same
+# In production both are plain vars in wrangler.jsonc, not secrets — both are
+# the church's role address welkom@sdatygerberg.co.za (To and From are the same
+# address now), and ADR-0001 (Accepted) records
+# why publishing it is the cheaper trade. Setting a Worker secret of the same
 # name is the way back, with no code change. CONTACT_EMAIL_TO must be a
 # *verified destination address* on the account either way — CONCERNS.md C-31.
 CONTACT_EMAIL_TO=

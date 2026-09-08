@@ -96,3 +96,13 @@ trade C-31 originally made.
 Do not leave a var and a secret of the same name in place at once. Which wins is
 a Cloudflare implementation detail this project should not depend on; remove the
 var.
+
+## Amendment (2026-09-08)
+
+Revisit trigger 1 has fired: `CONTACT_EMAIL_TO` is now an address the church
+owns — the role address `welkom@sdatygerberg.co.za`, used for both delivery and
+the From header. The trigger was considered and the decision stands. The
+repository is private, `welkom@` is a role address rather than a personal
+inbox, and the From header is public in every email the system sends
+regardless; publishing it in a private repo adds no exposure. The
+`send_email` fence stays — it still bounds what a Worker bug could mail.

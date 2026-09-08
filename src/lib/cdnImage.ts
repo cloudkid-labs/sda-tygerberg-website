@@ -4,11 +4,10 @@
  * Same shape as the wedding.cloudkid.link gallery.
  *
  * `/cdn-cgi/*` is handled by Cloudflare before a request reaches the Worker,
- * so src/worker/index.ts neither sees nor routes these. sdatygerberg.co.za
- * has no Image Resizing, so production builds set PUBLIC_IMAGE_CDN=false and
- * serve the pre-resized fallbacks directly; re-enabling transforms on the zone
- * (dashboard, needs the plan feature) is the path back, at which point the
- * flag is removed.
+ * so src/worker/index.ts neither sees nor routes these. Both zones have Image
+ * Resizing (sdatygerberg.co.za enabled 2026-09-08), so both builds serve
+ * transforms; PUBLIC_IMAGE_CDN=false stays as the escape hatch for a zone
+ * without it.
  *
  * CONCERNS.md C-02 through C-10 cover why this is shaped the way it is. Read
  * C-03 before touching HEADSHOT_SIZES and C-10 before adding a width.

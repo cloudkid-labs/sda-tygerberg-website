@@ -1499,6 +1499,11 @@ The `CLOUDFLARE_API_TOKEN` must reach both zones. See SETUP-INSTRUCTIONS §3.3.
 
 Supersedes C-22; updates C-23 (no Pages base path to strip any more).
 
+**Update (2026-09-08):** Image Resizing is now enabled on `sdatygerberg.co.za`
+— production builds serve transforms again and the production smoke passes
+`--expect-transform`; `PUBLIC_IMAGE_CDN=false` stays as the escape hatch for
+a zone without it.
+
 ### C-62 — No login wall on the preview
 
 Gating devtest behind Cloudflare Access (PR #100: Access app + JWT re-check in

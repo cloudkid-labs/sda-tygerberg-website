@@ -398,6 +398,25 @@ fail-closed and disabled where the var is unset. The form also resets the
 widget after every failed attempt, because tokens are single-use and a spent
 token could otherwise never pass a retry.
 
+**Update (2026-09-08, found during the v1.6.0 deploy verification):** the
+secret disappeared in production twice over, both operationally:
+
+- **A dashboard Secrets Store binding is pruned by the next `wrangler
+  deploy`.** Config-managed bindings absent from `wrangler.jsonc` are removed
+  on deploy — the deploy log shows them with a `-` diff. Classic secrets set
+  with `wrangler secret put` are never pruned, which is how the YouTube
+  secrets survive. Set `TURNSTILE_SECRET_KEY` with `wrangler secret put`
+  (README secrets table), never as a Secrets Store binding.
+- **Binding names match literally.** The binding was first created as
+  `TURNSTILE_SECRET_KEY ` — trailing space included — so
+  `env.TURNSTILE_SECRET_KEY` read `undefined` and verification silently
+  skipped, which is this section's fail-off default at its most misleading.
+  Spell it exactly.
+
+Probe recipe, no browser needed: `POST /api/contact` with a valid body and
+**no** token. `400 {"errors":["captcha"]}` proves the secret is bound and
+verification active; `502`/`503` means the check was skipped.
+
 ---
 
 ### C-31 — Email is tried first, and the webhook is the fallback
@@ -476,6 +495,13 @@ Three things bound the email path, and none of them are obvious from the code:
 
   The fence duplicates the addresses inside `wrangler.jsonc`. Change one list and
   not the other and Cloudflare rejects the send.
+
+  **Update (2026-09-08):** both addresses are now the single church role
+  address `welkom@sdatygerberg.co.za` — one address in three places (the two
+  vars and both fence lists). The sending domain must be onboarded (§6.2 of
+  SETUP-INSTRUCTIONS) and `welkom@` added and verified as a destination address
+  before production relies on email; the "already onboarded" statements above
+  describe cloudkid.link's history, not the current state.
 
 A missing binding or a missing value is not an error: `sendContactEmail` returns
 false and delivery moves on. That is what keeps a partial configuration working
@@ -1476,3 +1502,61 @@ cost on every devtest hit, and routing divergence from production. The preview
 hosts nothing non-public (C-20, C-61), so compliance (C-23) is the proportionate
 answer. Revival trigger: devtest ever stages embargoed content. Until then, do
 not re-propose it from scratch — re-read C-23 first.
+
+### C-63 — /health reports the deployed version for post-deploy polling
+
+`GET /health` answers `{ "status": 204, "version": "X.Y.Z" }`, where the
+version is baked in at deploy time from `package.json` — the single source of
+truth — so it is the version the deploy is about to tag.
+`scripts/smoke.mjs --expect-version <v> --wait-version <seconds>` polls it
+after a deploy: the first check that can say the edge is serving the new
+release rather than the old one.
+
+Three traps, all load-bearing:
+
+- It is a Worker branch in `src/worker/index.ts`, not a prerendered static
+  file. A static endpoint would build to `dist/health/index.html` and be
+  served as `text/html`, losing the JSON content-type the Response carries.
+  And like every Worker route, its path must be listed in
+  `assets.run_worker_first` in `wrangler.jsonc` (C-60) or asset serving 404s
+  it before the Worker ever runs.
+- The response is `Cache-Control: no-store`. A cached /health would report the
+  previous release and the gate would pass against the wrong deploy.
+- The body carries `status: 204` over HTTP 200. A real 204 cannot carry a body
+  by spec, so the 204 is the signal value in the payload, not the status line.
+
+It is deliberately NOT in the sitemap: infrastructure, not a page. And the
+post-deploy polls are advisory on purpose — the edge answers GitHub runners
+403 (C-60), so from a runner the poll skips itself with a note when blocked
+rather than burning the budget. The enforcing gate is the `worker` job in
+ci.yml, which runs the same check against `wrangler dev` on every PR where no
+edge can block it.
+
+### C-64 — The email channel has no health signal but a human
+
+The contact form's email channel depends on an account-level setting no deploy,
+test or smoke check can see: `CONTACT_EMAIL_TO` must be a **verified
+destination address** on the Cloudflare account (C-31). When that verification
+lapses, every send throws `E_RECIPIENT_NOT_ALLOWED` inside
+`sendContactEmail`'s catch, is logged to the observability tail, and is
+swallowed — `/api/contact` answers `forward-error` while typecheck, tests,
+build, deploy and the smoke checks all stay green, and the consent record is
+still written (C-34), so even the R2 half looks healthy.
+
+This was live in production when found on 2026-09-08; how long it had been
+broken before that is unknowable — nothing watches the path. `wrangler tail
+tygerberg-sda-website` prints `contact email failed: <code> <message>` for a
+probed submission, which is the only place the reason surfaces. Devtest is
+structurally blind here: it carries no email bindings by design (C-61), so the
+CI `worker` job and the devtest smoke can never exercise this channel.
+
+Operating rules:
+
+- After any change to `CONTACT_EMAIL_TO`, the `send_email` binding, or the
+  account's Email Service onboarding / destination addresses: verify one real
+  delivery. Submit the form for real — once Turnstile's secret is bound the
+  captcha check runs *before* delivery, so no script can reach the channel
+  (C-21) — and confirm the mail lands, with `via: email` in the form's
+  success state.
+- Keep the `contact email failed:` log line: it is the channel's entire
+  diagnostic surface.

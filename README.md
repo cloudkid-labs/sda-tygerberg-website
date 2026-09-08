@@ -197,6 +197,15 @@ every tagged version.
 
 ## Diagnostics
 
+`GET /health` returns `{"status":204,"version":"X.Y.Z"}` — the released version
+baked in at deploy time, `Cache-Control: no-store` so a poll never reads a
+cached previous release. After a deploy, `npm run smoke -- <origin>
+--expect-version <v> --wait-version 180` polls it for up to 3 minutes for the
+deployed version; the CI `worker` job runs the same check against `wrangler
+dev` on every PR, where it gates ([C-63](./CONCERNS.md#c-63--health-reports-the-deployed-version-for-post-deploy-polling)).
+
+`GET /health` returns `{"status":204,"version":"X.Y.Z"}` — the released version baked in at deploy time, `Cache-Control: no-store` so a poll never reads a cached previous release. After a deploy, `npm run smoke -- <origin> --expect-version <v> --wait-version 180` polls it for up to 3 minutes for the deployed version; the CI `worker` job runs the same check against `wrangler dev` on every PR, where it gates (C-63).
+
 `curl https://sdatygerberg.co.za/api/live-status` returns the resolved
 window and a `source`:
 

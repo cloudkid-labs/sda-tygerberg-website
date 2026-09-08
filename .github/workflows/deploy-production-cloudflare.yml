@@ -109,6 +109,9 @@ jobs:
           # in the HTML). Unset means no widget; the Worker skips its half where
           # its secret is unset too. C-21.
           PUBLIC_TURNSTILE_SITE_KEY: ${{ vars.PUBLIC_TURNSTILE_SITE_KEY }}
+          # The prod zone has no Image Resizing (C-61), so transform URLs 404 —
+          # build the fallback headshots in directly: deterministic, no probe.
+          PUBLIC_IMAGE_CDN: 'false'
 
       - name: Deploy to Cloudflare Workers
         uses: cloudflare/wrangler-action@v4

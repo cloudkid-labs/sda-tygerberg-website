@@ -89,9 +89,14 @@ jobs:
       # is serving the new commit, not the previous one. The poll skips itself
       # with a note when the edge blocks this runner rather than burning the
       # budget, so a blocked run stays inconclusive instead of red.
+      #
+      # `--expect-transform` probes a homepage /cdn-cgi/image/ URL: this build
+      # leaves transforms on and the cloudkid.link zone supports them, so one
+      # must answer as an image (C-61). Production omits it — its zone has no
+      # Resizing and its build serves fallbacks directly.
       - name: Smoke-test the preview
         timeout-minutes: 8
         # --expect-noindex: this build is the preview, so the check fails if the
         # noindex meta is missing (a preview that would compete with production,
         # C-23/C-61). The canonical-host check runs regardless.
-        run: npm run smoke -- https://tygerberg-sda.cloudkid.link --expect-noindex --expect-version "$(node -p 'require("./package.json").version')" --wait-version 180
+        run: npm run smoke -- https://tygerberg-sda.cloudkid.link --expect-noindex --expect-version "$(node -p 'require("./package.json").version')" --wait-version 180 --expect-transform

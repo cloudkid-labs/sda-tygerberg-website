@@ -92,8 +92,8 @@ jobs:
       #
       # `--expect-transform` probes a homepage /cdn-cgi/image/ URL: this build
       # leaves transforms on and the cloudkid.link zone supports them, so one
-      # must answer as an image (C-61). Production omits it — its zone has no
-      # Resizing and its build serves fallbacks directly.
+      # must answer as an image (C-61). Production passes it too since
+      # 2026-09-08 — its zone has Resizing and its build serves transforms.
       - name: Smoke-test the preview
         timeout-minutes: 8
         # --expect-noindex: this build is the preview, so the check fails if the

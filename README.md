@@ -90,7 +90,7 @@ send is rejected ([C-31](./CONCERNS.md#c-31--email-is-tried-first-and-the-webhoo
 | `ASTRO_BASE` | Serve under a subpath, e.g. `/sda-tygerberg-website/` |
 | `PUBLIC_HAS_API=false` | Skip the live-status poll; contact form read-only |
 | `PUBLIC_INDEXABLE=false` | Emit `noindex,nofollow`, serve `Disallow: /` robots with no sitemap, 404 the sitemap, drop `llms.txt`, omit JSON-LD, send `X-Robots-Tag: noindex` — the no-SEO preview contract ([C-23](./CONCERNS.md#c-23--the-preview-is-de-seoed-not-gated)) |
-| `PUBLIC_IMAGE_CDN=false` | Serve the fallback headshots, skip the transformer probe — set by the production build (its zone has no Image Resizing); devtest leaves it on |
+| `PUBLIC_IMAGE_CDN=false` | Serve the fallback headshots, skip the transformer probe — the escape hatch for a zone without Image Resizing; both builds leave it on |
 | `PUBLIC_TURNSTILE_SITE_KEY` | Render the Turnstile widget on the form pages; the Worker verifies the token only where `TURNSTILE_SECRET_KEY` is set, otherwise the token is ignored |
 
 Create the Turnstile widget in the Cloudflare dashboard (Turnstile) for

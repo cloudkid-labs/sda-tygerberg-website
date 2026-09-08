@@ -46,8 +46,8 @@ secrets, not Actions or build-time variables ([C-18](./CONCERNS.md#c-18--the-api
 | `CONTACT_WEBHOOK_URL` | Fallback channel; any JSON POST endpoint | webhook channel skipped |
 | `TURNSTILE_SECRET_KEY` | Cloudflare Turnstile secret for `/api/contact` — set with `wrangler secret put`, never a dashboard Secrets Store binding, which the next deploy prunes ([C-21](./CONCERNS.md#c-21--abuse-protection-is-cloudflares-and-it-is-off-by-default)) | human check skipped ([C-21](./CONCERNS.md#c-21--abuse-protection-is-cloudflares-and-it-is-off-by-default)) |
 
-The two contact **email** addresses are not secrets — they are committed vars,
-a temporary decision recorded in
+The contact **email** address is not a secret — it is a committed var, a
+temporary decision recorded in
 [ADR-0001](./docs/adr/0001-hardcode-contact-addresses.md). See the vars table
 below.
 
@@ -66,8 +66,8 @@ them in the dashboard, or with `wrangler secret put`.
 |---|---|---|
 | `LIVE_CHECK_CRON` | `* 9-12 * * 6` | When the LIVE badge may spend quota, read as a *window*. Saturdays 09:00–12:59, covering the 09:00–12:30 stream. **Keep the minute field `*`** ([C-14](./CONCERNS.md#c-14--live_check_cron-is-a-window-not-a-schedule)). |
 | `LIVE_CHECK_TZ` | `Africa/Johannesburg` | Timezone the window is evaluated in |
-| `CONTACT_EMAIL_TO` | `hello@cloudkid.link` | Where `/api/contact` emails. Must be a **verified destination address**, and must reach a person — Email Routing forwards this one to an inbox |
-| `CONTACT_EMAIL_FROM` | `mailer@cloudkid.link` | From address. `cloudkid.link` is **already onboarded** to Email Sending — `cf-bounce` MX/SPF/DKIM and `_dmarc` all resolve |
+| `CONTACT_EMAIL_TO` | `welkom@sdatygerberg.co.za` | Where `/api/contact` emails. Must be a **verified destination address** on the church's own zone, and must reach a person — Email Routing forwards this one to an inbox |
+| `CONTACT_EMAIL_FROM` | `welkom@sdatygerberg.co.za` | From address. `sdatygerberg.co.za` must be onboarded to Cloudflare Email Service (SETUP-INSTRUCTIONS §6.2) before this From works — sending from an un-onboarded domain is rejected |
 | `TURNSTILE_HOSTNAMES` | `sdatygerberg.co.za` (devtest: `tygerberg-sda.cloudkid.link`) | Hostnames siteverify must echo back; tokens minted on any other domain are refused. Unset disables the hostname check |
 
 There is deliberately no `CONTACT_EMAIL_BCC`: it used to archive a copy to an
@@ -77,9 +77,10 @@ unread Worker inbox, where it could fail the whole send on the free path
 address to `allowed_destination_addresses` at the same time or the send is
 rejected.
 
-Changing either address means changing it in **two** places in
-`wrangler.jsonc`: the `vars` block and the `send_email` binding's
-`allowed_destination_addresses` / `allowed_sender_addresses`. Out of step, the
+Changing the address means changing it in **three** places in
+`wrangler.jsonc` — the `vars` block and both lists of the `send_email`
+binding, `allowed_destination_addresses` /
+`allowed_sender_addresses`. Out of step, the
 send is rejected ([C-31](./CONCERNS.md#c-31--email-is-tried-first-and-the-webhook-is-the-fallback)).
 
 **Build-time env vars** — set by the workflows; unset means "on":

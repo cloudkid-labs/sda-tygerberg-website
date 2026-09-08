@@ -496,6 +496,13 @@ Three things bound the email path, and none of them are obvious from the code:
   The fence duplicates the addresses inside `wrangler.jsonc`. Change one list and
   not the other and Cloudflare rejects the send.
 
+  **Update (2026-09-08):** both addresses are now the single church role
+  address `welkom@sdatygerberg.co.za` — one address in three places (the two
+  vars and both fence lists). The sending domain must be onboarded (§6.2 of
+  SETUP-INSTRUCTIONS) and `welkom@` added and verified as a destination address
+  before production relies on email; the "already onboarded" statements above
+  describe cloudkid.link's history, not the current state.
+
 A missing binding or a missing value is not an error: `sendContactEmail` returns
 false and delivery moves on. That is what keeps a partial configuration working
 rather than throwing.

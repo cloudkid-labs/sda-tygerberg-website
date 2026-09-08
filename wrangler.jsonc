@@ -77,26 +77,28 @@
     "LIVE_CHECK_TZ": "Africa/Johannesburg",
 
     // Contact-form delivery. These were Worker secrets; they are vars now by
-    // decision — see C-31. They are role addresses on the operator's own
-    // domain, not personal or church-member data, and the cost of publishing
-    // them is spam to three mailboxes rather than exposure of anyone's
-    // information. The From appears in every message header regardless.
+    // decision — see C-31. Both are the same address: a single role address on
+    // the church's own domain, welkom@sdatygerberg.co.za, used for delivery
+    // (To) and the From header. Not personal or church-member data, and the
+    // cost of publishing it is spam to one mailbox rather than exposure of
+    // anyone's information. The From appears in every message header anyway.
     //
     // Setting a Worker *secret* of the same name is the way back: remove the
     // line here and `wrangler secret put` it, and no code changes.
     //
-    // CONTACT_EMAIL_TO must be a verified destination address on the account.
-    // Change it and update `allowed_destination_addresses` below to match, or
-    // the binding rejects it.
+    // CONTACT_EMAIL_TO must be a verified destination address on the account,
+    // and the domain must be onboarded to Email Sending (SETUP-INSTRUCTIONS
+    // §6.2) for the From to work.
     //
     // There is deliberately no CONTACT_EMAIL_BCC. It used to archive a copy to
     // notifications@cloudkid.link, which Email Routing hands to an unrelated
     // Worker nobody reads — and on the free path every recipient is verified,
-    // so that second recipient could fail the whole send. See C-31. To archive
-    // again, re-add the var here AND the address in
+    // so that second recipient could fail the whole send. See C-31. (That BCC
+    // history belongs to the old operator-domain era.) To archive again,
+    // re-add the var here AND the address in
     // `allowed_destination_addresses` below, then redeploy.
-    "CONTACT_EMAIL_TO": "hello@cloudkid.link",
-    "CONTACT_EMAIL_FROM": "mailer@cloudkid.link",
+    "CONTACT_EMAIL_TO": "welkom@sdatygerberg.co.za",
+    "CONTACT_EMAIL_FROM": "welkom@sdatygerberg.co.za",
     // Hostnames siteverify must echo back for /api/contact tokens — C-21.
     "TURNSTILE_HOSTNAMES": "sdatygerberg.co.za"
   },
@@ -109,14 +111,14 @@
   // in the Worker could do — a mistake in `contactEmail.ts` cannot mail a
   // stranger, it fails instead.
   //
-  // Keep these in step with the `CONTACT_EMAIL_*` vars above. They are a
-  // separate list, so changing an address in one place and not the other is a
-  // send that Cloudflare rejects. See C-31.
+  // Keep this in step with the `CONTACT_EMAIL_*` vars above: one address,
+  // welkom@sdatygerberg.co.za, in three places — the two vars and both lists
+  // here. Out of step, Cloudflare rejects the send. See C-31.
   "send_email": [
     {
       "name": "EMAIL",
-      "allowed_destination_addresses": ["hello@cloudkid.link"],
-      "allowed_sender_addresses": ["mailer@cloudkid.link"]
+      "allowed_destination_addresses": ["welkom@sdatygerberg.co.za"],
+      "allowed_sender_addresses": ["welkom@sdatygerberg.co.za"]
     }
   ],
   // Consent records for /api/contact submissions — CONCERNS.md C-34.

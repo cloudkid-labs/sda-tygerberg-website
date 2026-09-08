@@ -418,24 +418,25 @@ the sending quota.
 Use a shared church inbox, not an individual's personal address. Whoever
 receives these is handling personal information under POPIA.
 
-### 6.2 Onboard the sending domain — **already done for `cloudkid.link`**
+### 6.2 Onboard the sending domain — **must be done for `sdatygerberg.co.za`**
 
 The From address must sit on a domain Cloudflare is authorised to send for, and
-the domain must use Cloudflare DNS.
+the domain must use Cloudflare DNS. `sdatygerberg.co.za` is **not** onboarded
+yet — nothing is pre-satisfied on the church zone.
 
-1. Dashboard → **Email** → **Email Sending** → add your domain.
+1. Dashboard → **Email** → **Email Sending** → add `sdatygerberg.co.za`.
 2. Cloudflare adds the DNS records itself — SPF, DKIM, DMARC, and MX records on
    a `cf-bounce` subdomain. Propagation is usually 5–15 minutes.
 3. Wait for the domain to show as verified before testing.
 
-`cloudkid.link` is onboarded already, so `mailer@cloudkid.link` is a valid
-sender and this step needs nothing. Confirm at any time — all four must answer:
+Until this is done, `welkom@sdatygerberg.co.za` is not a valid sender and the
+email channel fails. Confirm onboarding at any time — all four must answer:
 
 ```sh
-dig +short MX  cf-bounce.cloudkid.link                # bounce routing
-dig +short TXT cf-bounce.cloudkid.link                # sending SPF
-dig +short TXT cf-bounce._domainkey.cloudkid.link     # sending DKIM
-dig +short TXT _dmarc.cloudkid.link                   # DMARC
+dig +short MX  cf-bounce.sdatygerberg.co.za           # bounce routing
+dig +short TXT cf-bounce.sdatygerberg.co.za           # sending SPF
+dig +short TXT cf-bounce._domainkey.sdatygerberg.co.za # sending DKIM
+dig +short TXT _dmarc.sdatygerberg.co.za              # DMARC
 ```
 
 Email Sending and Email Routing use **separate** records and separate DKIM
@@ -449,27 +450,30 @@ records as evidence for this step.
 `wrangler.jsonc`, so a deploy carries them:
 
 ```jsonc
-"CONTACT_EMAIL_TO":   "hello@cloudkid.link",
-"CONTACT_EMAIL_FROM": "mailer@cloudkid.link"
+"CONTACT_EMAIL_TO":   "welkom@sdatygerberg.co.za",
+"CONTACT_EMAIL_FROM": "welkom@sdatygerberg.co.za"
 ```
 
-**`TO` has to be an address a person reads.** In Email Routing, `hello@`
-forwards to an inbox, so the enquiry goes there.
+**`TO` has to be an address a person reads.** `welkom@` must be wired to an
+inbox — as an Email Routing custom address on `sdatygerberg.co.za` forwarding
+onward, or however the church resolves it — so the enquiry goes somewhere.
 
 This is a deliberate, temporary reversal of the "delivery addresses are secrets"
 rule — read [ADR-0001](./docs/adr/0001-hardcode-contact-addresses.md) before
 changing it. The `send_email` binding is declared there too, fenced to exactly
 these addresses.
 
-To use different addresses, edit **two** places in `wrangler.jsonc` — the `vars`
-block and the binding's `allowed_destination_addresses` /
+To use different addresses, edit **three** places in `wrangler.jsonc` — the
+`vars` block and the binding's `allowed_destination_addresses` /
 `allowed_sender_addresses` — then redeploy. Out of step, Cloudflare rejects the
 send.
 
-What is left is **§6.1 only**: `hello@` is an Email Routing *custom address* —
-a routing-rule pattern — and a working routing rule is not the same permission
-as being a verified **destination address**. Add it under **Destination
-Addresses** and click its confirmation link. §6.2 is already satisfied.
+What is left is **both §6.1 and §6.2**: `welkom@` is an Email Routing *custom
+address* on `sdatygerberg.co.za` — a routing-rule pattern — and a working
+routing rule is not the same permission as being a verified **destination
+address**. Add it under **Destination Addresses** and click its confirmation
+link. The sending domain must be onboarded too (§6.2); nothing on
+`sdatygerberg.co.za` is pre-satisfied.
 
 That applies on the Workers **Free** plan. On **Workers Paid**, Email Sending
 may address any recipient and §6.1 stops mattering. Check the plan before

@@ -370,8 +370,9 @@ this entry change with it.
 Footnote: v1.6.3 shipped the minimized shape anyway — the promotion merge
 silently favored main where dev matched the old merge-base (`-X ours` only
 arbitrates conflicting hunks, and chaining push+merge past a red check is how
-it shipped). Merging main into dev here advances the merge-base past the
-divergence, so the full format wins future promotions automatically. Any
+it shipped). Merging main into dev did not advance the merge-base (squash
+merges discard ancestry), so this file was resolved by hand on the promotion;
+once main carries the full format, both sides agree and it stays quiet. Any
 minimal-shape records in the bucket date from the v1.6.3 window.
 
 ### C-21 — Abuse protection is Cloudflare's, and it is off by default

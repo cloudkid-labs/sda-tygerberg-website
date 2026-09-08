@@ -286,9 +286,10 @@ try {
   const home = await (await get('/')).text();
   /*
    * Two shapes, because the markup depends on PUBLIC_IMAGE_CDN. With the
-   * transformer on (production) the cards point at
-   * `/cdn-cgi/image/<opts>/images/hod/NAME.jpg`; with it off (devtest) they
-   * point straight at `/images/hod/fallback/NAME.jpg`. Matching only the
+   * transformer on (devtest) the cards point at
+   * `/cdn-cgi/image/<opts>/images/hod/NAME.jpg`; with it off (production,
+   * whose zone has no Image Resizing) they point straight at
+   * `/images/hod/fallback/NAME.jpg`. Matching only the
    * second is how the first draft of this check skipped silently against
    * production while reporting a pass.
    */

@@ -4,8 +4,11 @@
  * Same shape as the wedding.cloudkid.link gallery.
  *
  * `/cdn-cgi/*` is handled by Cloudflare before a request reaches the Worker,
- * so src/worker/index.ts neither sees nor routes these. Transformations are
- * already enabled on the cloudkid.link zone; no dashboard change was needed.
+ * so src/worker/index.ts neither sees nor routes these. sdatygerberg.co.za
+ * has no Image Resizing, so production builds set PUBLIC_IMAGE_CDN=false and
+ * serve the pre-resized fallbacks directly; re-enabling transforms on the zone
+ * (dashboard, needs the plan feature) is the path back, at which point the
+ * flag is removed.
  *
  * CONCERNS.md C-02 through C-10 cover why this is shaped the way it is. Read
  * C-03 before touching HEADSHOT_SIZES and C-10 before adding a width.

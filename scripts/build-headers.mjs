@@ -83,7 +83,8 @@ const CSP = [
   // challenges.cloudflare.com serves the Turnstile widget on /connect and
   // /bible-studies (C-21). The verification call itself is Worker-to-Cloudflare
   // and never crosses this policy.
-  `script-src 'self' https://unpkg.com https://challenges.cloudflare.com ${scriptHashes}`,
+  // static.cloudflareinsights.com is the zone-injected Web Analytics beacon; disabling analytics on the zone is the alternative.
+  `script-src 'self' https://unpkg.com https://challenges.cloudflare.com https://static.cloudflareinsights.com ${scriptHashes}`,
   // 'unsafe-inline' is unavoidable for styles: React writes style attributes
   // (Hero's aspect-ratio box), and a hash cannot cover an attribute.
   "style-src 'self' 'unsafe-inline' https://unpkg.com https://fonts.googleapis.com",

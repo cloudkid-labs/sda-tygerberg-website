@@ -4,6 +4,7 @@ import { type LiveStatusEnv } from './liveStatus';
 import { getLiveStatusCached } from './liveStatusCache';
 import { getLatestVideoCached, LATEST_VIDEO_CACHE_SECONDS, type LatestVideoEnv } from './latestVideo';
 import { handleContact, type ContactEnv } from './contact';
+import { healthResponse } from './health';
 
 export type Env = LiveStatusEnv &
   LatestVideoEnv &
@@ -50,6 +51,15 @@ export default {
       const rewritten = new URL(request.url);
       rewritten.pathname = `/images/hod/fallback/${master[1]}`;
       return env.ASSETS.fetch(new Request(rewritten, request));
+    }
+
+    if (pathname === '/health') {
+      // Deployment-health signal: { status: 204, version }. A Worker branch
+      // (not a prerendered static file) so the content-type is real JSON, and
+      // listed in assets.run_worker_first in wrangler.jsonc or the Worker
+      // never sees the request (C-60). Deliberately NOT in the sitemap — it is
+      // infrastructure, not a page. C-63
+      return healthResponse();
     }
 
     if (pathname === '/api/contact') {

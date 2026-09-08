@@ -148,7 +148,11 @@ jobs:
         # braces on purpose: this step gates the release tag, and the first
         # version of it hung a deploy for twenty minutes because `fetch` has no
         # default timeout. GitHub would not have reaped that job for six hours.
-        timeout-minutes: 5
+        #
+        # 8 minutes, not 5: --wait-version below may poll /health for 3 while
+        # the edge propagates the deploy, and the remaining checks still need
+        # their share after it.
+        timeout-minutes: 8
         # Advisory, not a gate, and that is a retreat from the original intent.
         #
         # The check cannot do its job from here: Cloudflare answers this runner
@@ -168,8 +172,14 @@ jobs:
         # checks against `wrangler dev` on every pull request and never meets
         # the edge. That exists now, so this step is a post-deploy report by
         # design rather than a retreat, and the line stays. C-60
+        #
+        # `--expect-version` polls /health for up to 3 minutes for the version
+        # this deploy built (C-63): the first check that can say the edge is
+        # serving the new release rather than the old one. Advisory here for
+        # the 403 reason above — the poll skips itself with a note when the
+        # edge blocks this runner instead of burning the budget.
         continue-on-error: true
-        run: npm run smoke -- https://sdatygerberg.co.za
+        run: npm run smoke -- https://sdatygerberg.co.za --expect-version "${{ steps.version.outputs.version }}" --wait-version 180
 
       # Only after Cloudflare has accepted the deploy. Tagging first would leave
       # a tag claiming to be live when the deploy failed, which is worse than no

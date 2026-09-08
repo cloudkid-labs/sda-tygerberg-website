@@ -18,6 +18,17 @@ const SITEVERIFY_URL = 'https://challenges.cloudflare.com/turnstile/v0/siteverif
 const VERIFY_TIMEOUT_MS = 5_000;
 
 /**
+ * Binds a token to the surface that requested it. The widget renders with
+ * `action: 'contact'` (RequestForm.tsx) and siteverify echoes it back — a
+ * token minted for any other surface is refused here. Keep the two literals
+ * in step; nothing in the type system connects them.
+ */
+export const TURNSTILE_ACTION = 'contact';
+
+/** Tokens are short opaque strings; anything longer is not a token. */
+const MAX_TOKEN_LENGTH = 2048;
+
+/**
  * The token the widget posts. Implicit renders name it
  * `cf-turnstile-response`; the explicit path in RequestForm posts the same
  * name, and `turnstileToken` is accepted as an alias so a crafted client using
@@ -34,7 +45,7 @@ export async function verifyTurnstile(
   secret: string,
   remoteip?: string,
 ): Promise<boolean> {
-  if (!token || !secret) return false;
+  if (!token || !secret || token.length > MAX_TOKEN_LENGTH) return false;
   try {
     const form = new FormData();
     form.append('secret', secret);
@@ -46,11 +57,11 @@ export async function verifyTurnstile(
       signal: AbortSignal.timeout(VERIFY_TIMEOUT_MS),
     });
     if (!res.ok) return false;
-    const data = (await res.json()) as { success?: boolean };
-    return data.success === true;
+    const data = (await res.json()) as { success?: boolean; action?: string };
+    return data.success === true && data.action === TURNSTILE_ACTION;
   } catch {
     // Timeout, DNS, TLS, non-JSON — indistinguishable from a refusal here, and
-    // failing open would make every Cloudflare blip a spam window. C-21.
+    // failing open would turn every Cloudflare blip into a spam window. C-21.
     return false;
   }
 }

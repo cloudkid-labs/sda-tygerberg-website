@@ -167,6 +167,10 @@ export function RequestForm({ topic, copy }: { topic: RequestTopic; copy: TopicC
       try {
         widgetId.current = api.render(target, {
           sitekey: TURNSTILE_SITE_KEY,
+          // Binds the token to this surface; the Worker refuses tokens minted
+          // for any other action. Kept in step with TURNSTILE_ACTION in
+          // src/worker/turnstile.ts by hand — nothing connects them.
+          action: 'contact',
           callback: (token: string) => setCaptchaToken(token),
           'expired-callback': () => setCaptchaToken(''),
           'error-callback': () => setCaptchaToken(''),

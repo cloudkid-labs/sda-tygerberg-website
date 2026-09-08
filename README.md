@@ -177,8 +177,7 @@ different code. It has happened twice. `.github/workflows/version-guard.yml`
 runs `version:check` on every PR into `main` and fails it if the version is
 already released, lower than the latest tag, or not valid semver.
 
-Curated release notes live in [CHANGELOG.md](./CHANGELOG.md); GitHub's generated
-notes list the raw commits.
+Release notes are GitHub's generated notes listing the raw commits.
 
 Tagging happens **after** Cloudflare accepts the deploy, never before, so a
 failed deploy leaves no tag behind.

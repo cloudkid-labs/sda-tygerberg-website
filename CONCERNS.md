@@ -391,6 +391,13 @@ plus a `siteverify` call before forwarding:
   never crosses that policy. Removing either entry breaks every production
   submission with a captcha error and no visible widget fault — look here first.
 
+**Update:** siteverify now also binds the token to the deployment hostname via
+`TURNSTILE_HOSTNAMES` (`src/worker/turnstile.ts`) — the site key is public, so
+this is what stops a third-party page minting passing tokens; the check is
+fail-closed and disabled where the var is unset. The form also resets the
+widget after every failed attempt, because tokens are single-use and a spent
+token could otherwise never pass a retry.
+
 ---
 
 ### C-31 — Email is tried first, and the webhook is the fallback

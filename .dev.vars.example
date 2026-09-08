@@ -41,3 +41,6 @@ CONTACT_WEBHOOK_URL=
 # Leave both unset and the form submits exactly as before — the check runs only
 # where the secret is set.
 # TURNSTILE_SECRET_KEY=
+# Where the widget is solved must match what siteverify echoes back. For
+# `npm run worker:dev` on localhost, set this alongside the secret:
+# TURNSTILE_HOSTNAMES=localhost

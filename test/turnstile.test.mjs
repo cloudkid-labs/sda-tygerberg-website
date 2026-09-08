@@ -91,6 +91,72 @@ describe('verifyTurnstile', () => {
     };
     assert.equal(await verifyTurnstile('tok', 'sec'), false);
   });
+
+  test('true when siteverify echoes a hostname on the allowlist', async () => {
+    globalThis.fetch = async () =>
+      Response.json({ success: true, action: 'contact', hostname: 'sdatygerberg.co.za' });
+    assert.equal(
+      await verifyTurnstile('tok', 'secret', undefined, ['sdatygerberg.co.za']),
+      true,
+    );
+  });
+
+  test('false on a hostname outside the allowlist', async () => {
+    globalThis.fetch = async () =>
+      Response.json({ success: true, action: 'contact', hostname: 'evil.example' });
+    assert.equal(
+      await verifyTurnstile('tok', 'secret', undefined, ['sdatygerberg.co.za']),
+      false,
+    );
+  });
+
+  test('false when the allowlist is configured but siteverify echoes no hostname', async () => {
+    globalThis.fetch = async () => Response.json({ success: true, action: 'contact' });
+    assert.equal(
+      await verifyTurnstile('tok', 'secret', undefined, ['sdatygerberg.co.za']),
+      false,
+    );
+  });
+
+  test('no allowlist configured — hostname is ignored, even absent', async () => {
+    globalThis.fetch = async () => Response.json({ success: true, action: 'contact' });
+    assert.equal(await verifyTurnstile('tok', 'secret'), true);
+  });
+});
+
+describe('checkTurnstile hostname allowlist', () => {
+  const req = new Request('https://example.com/api/contact', { method: 'POST' });
+  const env = {
+    TURNSTILE_SECRET_KEY: 'secret',
+    TURNSTILE_HOSTNAMES: 'sdatygerberg.co.za, tygerberg-sda.cloudkid.link',
+  };
+
+  test('parses TURNSTILE_HOSTNAMES and refuses a mismatched hostname', async () => {
+    let seen;
+    globalThis.fetch = async (_url, init) => {
+      seen = init?.body;
+      return Response.json({ success: true, action: 'contact', hostname: 'evil.example' });
+    };
+    assert.equal(
+      await checkTurnstile(req, { 'cf-turnstile-response': 'tok' }, env),
+      false,
+    );
+    assert.equal(seen.get('secret'), 'secret');
+    assert.equal(seen.get('response'), 'tok');
+  });
+
+  test('accepts a hostname the env var allows', async () => {
+    globalThis.fetch = async () =>
+      Response.json({
+        success: true,
+        action: 'contact',
+        hostname: 'tygerberg-sda.cloudkid.link',
+      });
+    assert.equal(
+      await checkTurnstile(req, { 'cf-turnstile-response': 'tok' }, env),
+      true,
+    );
+  });
 });
 
 describe('checkTurnstile', () => {

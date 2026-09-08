@@ -44,7 +44,7 @@ secrets, not Actions or build-time variables ([C-18](./CONCERNS.md#c-18--the-api
 | `YOUTUBE_API_KEY` | Google Cloud key, YouTube Data API v3 enabled | LIVE badge stays hidden |
 | `YOUTUBE_CHANNEL_ID` | `UCtZlioPBBORWMMMSJ9BE1Wg` | as above |
 | `CONTACT_WEBHOOK_URL` | Fallback channel; any JSON POST endpoint | webhook channel skipped |
-| `TURNSTILE_SECRET_KEY` | Cloudflare Turnstile secret for `/api/contact` | human check skipped ([C-21](./CONCERNS.md#c-21--abuse-protection-is-cloudflares-and-it-is-off-by-default)) |
+| `TURNSTILE_SECRET_KEY` | Cloudflare Turnstile secret for `/api/contact` — set with `wrangler secret put`, never a dashboard Secrets Store binding, which the next deploy prunes ([C-21](./CONCERNS.md#c-21--abuse-protection-is-cloudflares-and-it-is-off-by-default)) | human check skipped ([C-21](./CONCERNS.md#c-21--abuse-protection-is-cloudflares-and-it-is-off-by-default)) |
 
 The two contact **email** addresses are not secrets — they are committed vars,
 a temporary decision recorded in

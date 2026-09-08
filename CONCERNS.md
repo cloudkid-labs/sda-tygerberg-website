@@ -34,6 +34,11 @@ Two ways out if that becomes a problem: restore the credit (Leaflet's own
 OSMF guidelines allow the credit *adjacent to* the map rather than on it), or
 move to a tile provider whose terms do not require visible attribution.
 
+**Update:** the credit is restored — `attributionControl: true` with an
+`© OpenStreetMap contributors` tile attribution on `/map/`, plus the same link
+adjacent to the embedded map on the homepage. The breach paragraph above is kept
+as the history of why the lines exist; do not re-disable the control.
+
 ---
 
 ## Images
@@ -332,20 +337,25 @@ Three things about what is stored:
   sensitive thing a visitor types and it is not part of demonstrating consent.
   C-20's "minimum needed" binds harder on storage at rest than on an inbox.
 
-  **But the deployment stores it anyway, and this entry used to claim
-  otherwise.** Every enquiry is blind-copied to `CONTACT_EMAIL_BCC`
-  (`notifications@cloudkid.link`), which Email Routing hands to the
-  `cloudkid-link-r2-explorer` Worker, and that Worker is configured with
-  `targetBucket: "email-notifications"` — so the full message body is persisted
-  to R2 as a raw `.txt` dump, in a different bucket, with no retention rule, that
-  `wrangler.jsonc`'s own comment says nobody reads. `ConsentRecord` having no
-  `message` field is true and beside the point.
+  **But the deployment used to store it anyway.** Every enquiry was blind-copied
+  to `CONTACT_EMAIL_BCC` (`notifications@cloudkid.link`), which Email Routing
+  handed to the `cloudkid-link-r2-explorer` Worker, and that Worker is
+  configured with `targetBucket: "email-notifications"` — so the full message
+  body was persisted to R2 as a raw `.txt` dump, in a different bucket, with no
+  retention rule, that `wrangler.jsonc`'s own comment says nobody reads.
+  `ConsentRecord` having no `message` field is true and beside the point.
 
-  Two places in this repo already suggest dropping that BCC. This is the reason
-  to: it is the difference between the paragraph above being a design decision
-  and being a POPIA claim the deployment contradicts. Until it is dropped, read
-  this bullet as "the *consent record* does not hold the message", not as "the
-  message is not stored".
+  **That BCC is removed from `wrangler.jsonc`.** With no BCC set, the message
+  goes only to the church inbox and the consent bucket holds only the record —
+  which is what makes the paragraph above a design decision again rather than a
+  POPIA claim the deployment contradicts. `contactEmail.ts` still honours a BCC
+  set as a Worker secret, so re-adding one re-opens this; re-add the fence entry
+  with it (C-31) and re-read this bullet first.
+
+  That was the reason to drop it: the difference between the paragraph above
+  being a design decision and being a POPIA claim the deployment contradicts.
+  Read this bullet as "the *consent record* does not hold the message" — the
+  message itself lives in the church inbox, which is where replies happen.
 
 Retention is a dashboard-only R2 lifecycle rule and **is not configured by this
 repo** — SETUP-INSTRUCTIONS.md §3.6. Personal data with no expiry is the failure
@@ -353,15 +363,40 @@ mode to watch here.
 
 ### C-21 — Abuse protection is Cloudflare's, and it is off by default
 
-The Worker validates and forwards; it does no bot detection. The edge options in
-front of `/api/contact` are Bot Fight Mode and a WAF rate-limiting rule, neither
-on by default, both needing a custom domain — a `*.workers.dev` URL gets no zone
-protection.
+The Worker validates, verifies the Turnstile token where a secret is set, and
+forwards. The edge options in front of `/api/contact` are Bot Fight Mode and a
+WAF rate-limiting rule, neither on by default, both needing a custom domain — a
+`*.workers.dev` URL gets no zone protection.
 
 The WAF half is not available here: this zone does not use it (C-60). So the
-endpoint is unprotected, and the realistic step up is Turnstile, which needs
-code rather than dashboard access — a widget plus a `siteverify` call before
-forwarding.
+step up is Turnstile, which needs code rather than dashboard access — a widget
+plus a `siteverify` call before forwarding:
+
+- The form renders the widget only where `PUBLIC_TURNSTILE_SITE_KEY` was
+  inlined at build time, and posts the token as `cf-turnstile-response`.
+  Nowhere to render means no token, and submitting without one is the old path.
+- The Worker verifies only where `TURNSTILE_SECRET_KEY` is set
+  (`src/worker/turnstile.ts`), before the configured check and before delivery,
+  and rejects with `errors: ['captcha']` on a missing or refused token.
+  Unset means the check is skipped entirely — local dev and devtest behave
+  exactly as before, and an unconfigured deploy still answers
+  `not-configured`, never a captcha error.
+- The widget renders with `action: 'contact'` and siteverify must echo it —
+  a token minted for any other surface is refused. Overlong tokens never reach
+  siteverify at all.
+- A siteverify fault is a refusal, deliberately: failing open would turn every
+  Cloudflare blip into a spam window.
+- The CSP names `challenges.cloudflare.com` in `script-src` (the widget) and
+  `frame-src` (its iframe). The verification call is Worker-to-Cloudflare and
+  never crosses that policy. Removing either entry breaks every production
+  submission with a captcha error and no visible widget fault — look here first.
+
+**Update:** siteverify now also binds the token to the deployment hostname via
+`TURNSTILE_HOSTNAMES` (`src/worker/turnstile.ts`) — the site key is public, so
+this is what stops a third-party page minting passing tokens; the check is
+fail-closed and disabled where the var is unset. The form also resets the
+widget after every failed attempt, because tokens are single-use and a spent
+token could otherwise never pass a retry.
 
 ---
 
@@ -417,14 +452,15 @@ Three things bound the email path, and none of them are obvious from the code:
 
   Different selectors, deliberately: onboarding one product does not onboard the
   other, and a domain can have routing without sending.
-- **`CONTACT_EMAIL_BCC` currently archives into a script, not an inbox.**
+- **`CONTACT_EMAIL_BCC` used to archive into a script, not an inbox.**
   `notifications@cloudkid.link` is routed by Email Routing to the
   `cloudkid-link-r2-explorer` Worker, which has nothing to do with contact
-  enquiries. So the blind copy is at best discarded, and at worst — on the free
-  path, where it cannot be a verified destination address — it fails the *whole*
-  send and pushes every enquiry onto the webhook fallback. Either point it at a
-  second real inbox or drop the line; a BCC nobody reads is not worth the risk it
-  adds to the one recipient who does.
+  enquiries. So the blind copy was at best discarded, and at worst — on the free
+  path, where it cannot be a verified destination address — it failed the *whole*
+  send and pushed every enquiry onto the webhook fallback. **It is removed from
+  `wrangler.jsonc` and from the send fence.** `contactEmail.ts` still honours one
+  set as a Worker secret, but re-add the address to
+  `allowed_destination_addresses` at the same time or the send is rejected.
 - **The three addresses are committed to `wrangler.jsonc`, not Worker secrets.**
   This reverses the original decision and is deliberate, temporary, and written
   up in [ADR-0001](./docs/adr/0001-hardcode-contact-addresses.md) — read that
@@ -480,15 +516,50 @@ Devtest is a Cloudflare Worker now (C-61), so both exist there and both flags
 are back at their defaults. The one gap that remains is the contact channel,
 withheld deliberately rather than by the platform — see C-61.
 
-### C-23 — The preview advertises production canonicals
+### C-23 — The preview is de-SEOed, not gated
 
 The devtest copy is publicly crawlable, so it must not compete with the real
-site in search. `PUBLIC_INDEXABLE=false` emits `noindex,nofollow`, and
-`Astro.site` is the production origin on every build (astro.config.mjs) so
-canonicals and Open Graph URLs point at production regardless of which host
-served the page. Both exist to keep the preview out of the index. (Under the
-old Pages preview `canonicalPath` also stripped the Pages base path; devtest
-serves from a domain root now, so there is no base to strip — C-61.)
+site in search — without a login wall. Gating it behind Cloudflare Access (PR
+#100) was evaluated and rejected in favour of this: the preview hosts nothing
+non-public (C-20, C-61), so enforcement is disproportionate next to compliance,
+which legitimate engines honour. Revisit only if devtest ever stages embargoed
+content; the C-62 number below records the decision. C-62
+
+`PUBLIC_INDEXABLE=false` (devtest build only) is the single signal for the
+whole contract — no second flag:
+
+- `noindex,nofollow` meta on every Layout page, and on `/map/` too, which does
+  not render through Layout and was the one indexable page on a noindex
+  preview.
+- `Astro.site` is the production origin on every build (astro.config.mjs) so
+  canonicals and Open Graph URLs point at production regardless of which host
+  served the page. Kept on dev deliberately: `noindex` keeps dev pages out of
+  the index while the production canonical consolidates any leaked signals
+  (e.g. via backlinks) onto production. A dev page with no canonical — or a
+  self-canonical to the dev host — would declare the dev URL canonical for
+  itself, which is exactly the competition this prevents. (Under the old Pages
+  preview `canonicalPath` also stripped the Pages base path; devtest serves
+  from a domain root now, so there is no base to strip — C-61.)
+- `/robots.txt` answers `Disallow: /` with no sitemap line on dev;
+  `Allow: /` plus a `Sitemap:` line on production (`src/pages/robots.txt.ts`,
+  unit-tested). A `Disallow` is a crawl directive, not an index directive, so
+  it is the secondary signal, not the guarantee.
+- `/sitemap.xml` 404s on dev (C-55): a sitemap of production URLs served from
+  the dev host invites crawlers to bind the URL set to it.
+- JSON-LD is emitted on production only. Under noindex it carries no ranking
+  weight, but it still feeds knowledge-graph/AI pipelines.
+- `X-Robots-Tag: noindex, nofollow` is appended to the `/*` headers on dev
+  builds (build-headers.mjs) — the meta tag covers HTML pages, the header
+  covers everything else (the PDF, images). `dist/llms.txt` is removed from
+  dev builds for the same reason (C-35).
+- What is deliberately NOT branched: titles, descriptions, OG/Twitter tags
+  (the preview is for content review and social-card testing — gutting them
+  destroys the mirror C-61 was built to provide), and `nofollow` on outbound
+  links (a noindexed page passes no equity anyway; conditional `rel`
+  attributes across every external link would buy nothing).
+
+Smoke asserts both polarities (`--expect-noindex`), so a regression fails the
+PR via the `worker` job rather than shipping.
 
 ### C-24 — Unhashed assets get `max-age=0` unless told otherwise
 
@@ -567,7 +638,9 @@ directions links above the map handle real navigation.
 ### C-29 — A head without a headshot is not rendered
 
 `shownDepartmentHeads` filters `departmentHeads` down to entries that have a
-`photo`, and the carousel renders only those. A photoless card was a striped
+`photo`, and the carousel renders only those. An entry with `active: false`
+is hidden too — a dormant office keeps its roster entry and its photo line,
+so resuming is deleting one line rather than reconstructing the card. A photoless card was a striped
 box reading "HOD photo": on a page whose purpose is to introduce people, an
 empty frame reads as neglect rather than as a photo still to come.
 
@@ -688,6 +761,10 @@ Absolute production URLs throughout, deliberately. The file is copied verbatim
 to whatever origin serves it, so a devtest build advertises the production
 addresses rather than its own — the same call as C-23, and for the same reason:
 a preview must not invite anyone to treat it as the real site.
+
+The devtest build does not serve it at all: build-headers.mjs removes
+`dist/llms.txt` when `PUBLIC_INDEXABLE=false`, so crawlers get no crawl map of
+the preview host. C-23
 
 ---
 
@@ -967,6 +1044,10 @@ already answered the same constraint.
 It emitted `<priority>` and no `<lastmod>`, which is the element crawlers
 actually read. The build date, not a per-page timestamp: every page ships in one
 deploy, and a hand-maintained per-page date is how a `lastmod` starts lying.
+
+It is served on production only. The devtest build answers 404: a sitemap of
+production URLs served from the preview host invites crawlers to bind the URL
+set to it. C-23
 
 ### C-56 — The consent metadata identifies nobody, on purpose
 
@@ -1354,6 +1435,11 @@ so the LIVE badge never lights and the latest-video card falls back to the
 keyless embed-page scrape, which needs no secret. This is the one place devtest
 is not a faithful mirror, and it is withheld on purpose.
 
+The other deliberate deviation is discoverability, not capability: the devtest
+build is de-SEOed (`Disallow: /` robots, no sitemap, no `llms.txt`, no JSON-LD,
+`X-Robots-Tag` noindex) while staying publicly accessible — no login wall. The
+full contract lives in C-23.
+
 Two things the deploy cannot do for itself, both on the new
 `sdatygerberg.co.za` zone (`cloudkid.link` already has them):
 
@@ -1379,3 +1465,14 @@ the dashboard, then re-run the devtest deploy so it attaches the freed host.
 The `CLOUDFLARE_API_TOKEN` must reach both zones. See SETUP-INSTRUCTIONS §3.3.
 
 Supersedes C-22; updates C-23 (no Pages base path to strip any more).
+
+### C-62 — No login wall on the preview
+
+Gating devtest behind Cloudflare Access (PR #100: Access app + JWT re-check in
+the Worker, `jose` dependency, setup runbook) was evaluated and rejected,
+unmerged. It buys enforcement — rogue scrapers and curious humans — at the
+price of reviewer friction, allow-list ops, token lifecycle, per-request Worker
+cost on every devtest hit, and routing divergence from production. The preview
+hosts nothing non-public (C-20, C-61), so compliance (C-23) is the proportionate
+answer. Revival trigger: devtest ever stages embargoed content. Until then, do
+not re-propose it from scratch — re-read C-23 first.

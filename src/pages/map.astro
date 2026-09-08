@@ -10,6 +10,13 @@ import { withBase } from '../lib/base';
  * values below are the same ones the rest of the site reads. C-47
  */
 const markerUrl = withBase('/map-marker.svg');
+
+// This page does not render through Layout, so PUBLIC_INDEXABLE never reaches
+// it on its own — without the meta below it would be the one indexable page
+// on a noindex preview. The canonical is production-rooted on every build,
+// the same call as C-23.
+const indexable = import.meta.env.PUBLIC_INDEXABLE !== 'false';
+const canonical = new URL('/map/', Astro.site);
 ---
 
 <!DOCTYPE html>
@@ -18,6 +25,8 @@ const markerUrl = withBase('/map-marker.svg');
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>{SITE.fullName} — Map</title>
+    <link rel="canonical" href={canonical.href} />
+    {!indexable && <meta name="robots" content="noindex,nofollow" />}
     <!--
       Pinned and hash-checked. Without `integrity` anything unpkg served would
       have run with full access to this document; the hashes are of the exact
@@ -82,17 +91,17 @@ const markerUrl = withBase('/map-marker.svg');
     >
       /* One-finger drag off on touch, wheel never zooms — CONCERNS.md C-28.
          Mouse dragging stays on; a desktop drag doesn't compete with page scroll. */
-      // No tile attribution anywhere, by decision — see CONCERNS.md C-01 before
-      // reinstating or removing this.
+      // Tile credit is required by the OSM licence — CONCERNS.md C-01.
       const map = L.map('map', {
         scrollWheelZoom: false,
         dragging: !L.Browser.mobile,
         tap: false,
-        attributionControl: false,
+        attributionControl: true,
       }).setView([lat, lng], 16);
 
       L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
         maxZoom: 19,
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
       }).addTo(map);
 
       // A committed derivation of the official mark. Built through withBase so it

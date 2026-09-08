@@ -1,9 +1,10 @@
 import { LanguageProvider, useLanguage } from '../../context/LanguageContext';
-import { DIVINE_SERVICE, SITE, serviceRange } from '../../data/site';
+import { DIVINE_SERVICE, serviceRange } from '../../data/site';
 import { youthCopy } from '../../data/youthCopy';
 import {
   SABBATH_YOUTH_GROUPS,
   YOUTH_EVENING,
+  YOUTH_EVENING_VENUE,
   ageRange,
   sabbathGroupsRange,
   youthEveningRange,
@@ -47,7 +48,8 @@ function YouthContent() {
 
         {/* The Friday evening. One card rather than a list: it is a single
             standing appointment, and the page is reached from a card that has
-            already said "Vrydag" — this confirms it and adds the address. */}
+            already said "Vrydag" — this confirms it and says where, which is
+            rotating homes rather than the church address. */}
         <section className="mx-auto max-w-[780px] px-5 pb-12 sm:px-7">
           <div className="rounded-card-lg border border-subtle border-t-2 border-t-orange bg-cream-card p-6 shadow-card sm:p-7">
             <div className="mb-1.5 text-xs font-bold uppercase tracking-[.08em] text-orange">
@@ -61,7 +63,7 @@ function YouthContent() {
             <div className="mb-1 text-[11px] font-bold uppercase tracking-[.12em] text-slate-muted">
               {t.whereLabel}
             </div>
-            <div className="text-[14.5px] leading-relaxed text-ink">{SITE.address}</div>
+            <div className="text-[14.5px] leading-relaxed text-ink">{YOUTH_EVENING_VENUE[lang]}</div>
             <p className="mt-5 text-[13.5px] font-bold text-slate">{t.noBooking}</p>
           </div>
         </section>

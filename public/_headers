@@ -46,3 +46,19 @@
 # `public, max-age=604800, public, max-age=604800` on every fallback copy.
 /images/hod/*
   Cache-Control: public, max-age=604800
+
+# Brand assets with unhashed filenames — the social card, the icons, the map
+# marker. They change roughly never, but replacing one reuses its URL, so a
+# week rather than immutable: a purge makes a swap immediate and this bounds
+# how long a stale copy can linger. Same reasoning as C-24 above.
+#
+# One block per file: every matching rule applies, so a shared splat would
+# double up with the rules above on whatever it also matches.
+/og-image.png
+  Cache-Control: public, max-age=604800
+/favicon.svg
+  Cache-Control: public, max-age=604800
+/apple-touch-icon.png
+  Cache-Control: public, max-age=604800
+/map-marker.svg
+  Cache-Control: public, max-age=604800

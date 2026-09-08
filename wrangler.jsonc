@@ -30,7 +30,7 @@
     // a billable request for an image that needs no logic.
     //
     // Add a route to src/worker/index.ts and you must add its path here too.
-    "run_worker_first": ["/api/*", "/images/hod/*", "!/images/hod/fallback/*"]
+    "run_worker_first": ["/health", "/api/*", "/images/hod/*", "!/images/hod/fallback/*"]
   },
   // Workers Logs and Traces. The nested `logs` / `traces` blocks are the
   // per-signal switches and are what actually decides each one; the top-level
@@ -42,8 +42,8 @@
   //
   // `head_sampling_rate: 1` logs every request. Right for a site at this
   // traffic level; lower it if volume ever becomes a cost.
-  "observability": {
-    "enabled": false,
+    "observability": {
+    "enabled": true,
     "head_sampling_rate": 1,
     "logs": {
       "enabled": true,
@@ -85,26 +85,20 @@
     // Setting a Worker *secret* of the same name is the way back: remove the
     // line here and `wrangler secret put` it, and no code changes.
     //
-    // CONTACT_EMAIL_TO must be a verified destination address on the account,
-    // and so must CONTACT_EMAIL_BCC — every recipient is checked, so an
-    // unverified one fails the whole send. Change either and update
-    // `allowed_destination_addresses` below to match, or the binding rejects it.
+    // CONTACT_EMAIL_TO must be a verified destination address on the account.
+    // Change it and update `allowed_destination_addresses` below to match, or
+    // the binding rejects it.
     //
-    // Which address is TO and which is BCC is not arbitrary. In Email Routing,
-    // hello@ forwards to a person's inbox, while notifications@ is handled by a
-    // Worker. The enquiry has to reach a human, so hello@ is the recipient and
-    // notifications@ takes the archive copy. Swapping them back would deliver
-    // every enquiry to a script and leave the blind copy as the only thing
-    // anyone actually reads.
-    //
-    // That said, the archive copy is doing nothing useful: notifications@ is
-    // routed to the cloudkid-link-r2-explorer Worker, which does not handle
-    // enquiries. Delete this BCC line, or repoint it at a second real inbox,
-    // once someone decides which. Keeping it costs a recipient that has to be
-    // verified for the send to succeed at all. See C-31.
+    // There is deliberately no CONTACT_EMAIL_BCC. It used to archive a copy to
+    // notifications@cloudkid.link, which Email Routing hands to an unrelated
+    // Worker nobody reads — and on the free path every recipient is verified,
+    // so that second recipient could fail the whole send. See C-31. To archive
+    // again, re-add the var here AND the address in
+    // `allowed_destination_addresses` below, then redeploy.
     "CONTACT_EMAIL_TO": "hello@cloudkid.link",
     "CONTACT_EMAIL_FROM": "mailer@cloudkid.link",
-    "CONTACT_EMAIL_BCC": "notifications@cloudkid.link"
+    // Hostnames siteverify must echo back for /api/contact tokens — C-21.
+    "TURNSTILE_HOSTNAMES": "sdatygerberg.co.za"
   },
   // Lets /api/contact email the church directly.
   //
@@ -121,7 +115,7 @@
   "send_email": [
     {
       "name": "EMAIL",
-      "allowed_destination_addresses": ["notifications@cloudkid.link", "hello@cloudkid.link"],
+      "allowed_destination_addresses": ["hello@cloudkid.link"],
       "allowed_sender_addresses": ["mailer@cloudkid.link"]
     }
   ],
@@ -176,7 +170,9 @@
       "routes": [{ "pattern": "tygerberg-sda.cloudkid.link", "custom_domain": true }],
       "vars": {
         "LIVE_CHECK_CRON": "* 9-12 * * 6",
-        "LIVE_CHECK_TZ": "Africa/Johannesburg"
+        "LIVE_CHECK_TZ": "Africa/Johannesburg",
+        // Hostnames siteverify must echo back for /api/contact tokens — C-21.
+        "TURNSTILE_HOSTNAMES": "tygerberg-sda.cloudkid.link"
       }
       // No send_email, r2_buckets or CONTACT_EMAIL_* here on purpose: a preview
       // sends no church email and writes no consent records, so /api/contact

@@ -44,8 +44,9 @@ secrets, not Actions or build-time variables ([C-18](./CONCERNS.md#c-18--the-api
 | `YOUTUBE_API_KEY` | Google Cloud key, YouTube Data API v3 enabled | LIVE badge stays hidden |
 | `YOUTUBE_CHANNEL_ID` | `UCtZlioPBBORWMMMSJ9BE1Wg` | as above |
 | `CONTACT_WEBHOOK_URL` | Fallback channel; any JSON POST endpoint | webhook channel skipped |
+| `TURNSTILE_SECRET_KEY` | Cloudflare Turnstile secret for `/api/contact` | human check skipped ([C-21](./CONCERNS.md#c-21--abuse-protection-is-cloudflares-and-it-is-off-by-default)) |
 
-The three contact **email** addresses are not secrets — they are committed vars,
+The two contact **email** addresses are not secrets — they are committed vars,
 a temporary decision recorded in
 [ADR-0001](./docs/adr/0001-hardcode-contact-addresses.md). See the vars table
 below.
@@ -67,9 +68,16 @@ them in the dashboard, or with `wrangler secret put`.
 | `LIVE_CHECK_TZ` | `Africa/Johannesburg` | Timezone the window is evaluated in |
 | `CONTACT_EMAIL_TO` | `hello@cloudkid.link` | Where `/api/contact` emails. Must be a **verified destination address**, and must reach a person — Email Routing forwards this one to an inbox |
 | `CONTACT_EMAIL_FROM` | `mailer@cloudkid.link` | From address. `cloudkid.link` is **already onboarded** to Email Sending — `cf-bounce` MX/SPF/DKIM and `_dmarc` all resolve |
-| `CONTACT_EMAIL_BCC` | `notifications@cloudkid.link` | Archive copy — but it routes to the `cloudkid-link-r2-explorer` Worker, so nobody reads it. Must **also** be verified; an unverified one fails the whole send. Consider dropping it ([C-31](./CONCERNS.md#c-31--email-is-tried-first-and-the-webhook-is-the-fallback)) |
+| `TURNSTILE_HOSTNAMES` | `sdatygerberg.co.za` (devtest: `tygerberg-sda.cloudkid.link`) | Hostnames siteverify must echo back; tokens minted on any other domain are refused. Unset disables the hostname check |
 
-Changing any of the three means changing it in **two** places in
+There is deliberately no `CONTACT_EMAIL_BCC`: it used to archive a copy to an
+unread Worker inbox, where it could fail the whole send on the free path
+([C-31](./CONCERNS.md#c-31--email-is-tried-first-and-the-webhook-is-the-fallback)).
+`contactEmail.ts` still honours one if set as a Worker secret — re-add the
+address to `allowed_destination_addresses` at the same time or the send is
+rejected.
+
+Changing either address means changing it in **two** places in
 `wrangler.jsonc`: the `vars` block and the `send_email` binding's
 `allowed_destination_addresses` / `allowed_sender_addresses`. Out of step, the
 send is rejected ([C-31](./CONCERNS.md#c-31--email-is-tried-first-and-the-webhook-is-the-fallback)).
@@ -80,8 +88,15 @@ send is rejected ([C-31](./CONCERNS.md#c-31--email-is-tried-first-and-the-webhoo
 |---|---|
 | `ASTRO_BASE` | Serve under a subpath, e.g. `/sda-tygerberg-website/` |
 | `PUBLIC_HAS_API=false` | Skip the live-status poll; contact form read-only |
-| `PUBLIC_INDEXABLE=false` | Emit `noindex,nofollow` |
+| `PUBLIC_INDEXABLE=false` | Emit `noindex,nofollow`, serve `Disallow: /` robots with no sitemap, 404 the sitemap, drop `llms.txt`, omit JSON-LD, send `X-Robots-Tag: noindex` — the no-SEO preview contract ([C-23](./CONCERNS.md#c-23--the-preview-is-de-seoed-not-gated)) |
 | `PUBLIC_IMAGE_CDN=false` | Serve the fallback headshots, skip the transformer probe |
+| `PUBLIC_TURNSTILE_SITE_KEY` | Render the Turnstile widget on the form pages; the Worker verifies the token only where `TURNSTILE_SECRET_KEY` is set, otherwise the token is ignored |
+
+Create the Turnstile widget in the Cloudflare dashboard (Turnstile) for
+`sdatygerberg.co.za`: the **site key** goes to the build as
+`PUBLIC_TURNSTILE_SITE_KEY` (Actions variable — it ships in the HTML), the
+**secret key** to the Worker via `wrangler secret put TURNSTILE_SECRET_KEY`.
+Set neither and the form submits exactly as before.
 
 ## Branch strategy and CI/CD
 
@@ -163,8 +178,7 @@ different code. It has happened twice. `.github/workflows/version-guard.yml`
 runs `version:check` on every PR into `main` and fails it if the version is
 already released, lower than the latest tag, or not valid semver.
 
-Curated release notes live in [CHANGELOG.md](./CHANGELOG.md); GitHub's generated
-notes list the raw commits.
+Release notes are GitHub's generated notes listing the raw commits.
 
 Tagging happens **after** Cloudflare accepts the deploy, never before, so a
 failed deploy leaves no tag behind.
@@ -182,6 +196,15 @@ also records each deploy with a link to the site, and the **Releases** page list
 every tagged version.
 
 ## Diagnostics
+
+`GET /health` returns `{"status":204,"version":"X.Y.Z"}` — the released version
+baked in at deploy time, `Cache-Control: no-store` so a poll never reads a
+cached previous release. After a deploy, `npm run smoke -- <origin>
+--expect-version <v> --wait-version 180` polls it for up to 3 minutes for the
+deployed version; the CI `worker` job runs the same check against `wrangler
+dev` on every PR, where it gates ([C-63](./CONCERNS.md#c-63--health-reports-the-deployed-version-for-post-deploy-polling)).
+
+`GET /health` returns `{"status":204,"version":"X.Y.Z"}` — the released version baked in at deploy time, `Cache-Control: no-store` so a poll never reads a cached previous release. After a deploy, `npm run smoke -- <origin> --expect-version <v> --wait-version 180` polls it for up to 3 minutes for the deployed version; the CI `worker` job runs the same check against `wrangler dev` on every PR, where it gates (C-63).
 
 `curl https://sdatygerberg.co.za/api/live-status` returns the resolved
 window and a `source`:
@@ -227,8 +250,10 @@ it. Email is tried first and the webhook is the fallback; only one runs per
 submission ([C-31](./CONCERNS.md#c-31--email-is-tried-first-and-the-webhook-is-the-fallback)).
 `not-configured` means *neither* channel is set up.
 
-`/api/contact` has no bot protection of its own and Cloudflare's is **off by
-default** — [C-21](./CONCERNS.md#c-21--abuse-protection-is-cloudflares-and-it-is-off-by-default).
+`/api/contact` verifies a Cloudflare Turnstile token where `TURNSTILE_SECRET_KEY`
+is set, and skips the check where it is not (local dev, devtest) —
+[C-21](./CONCERNS.md#c-21--abuse-protection-is-cloudflares-and-it-is-off-by-default).
+Cloudflare's own Bot Fight Mode / WAF rule remain **off by default**.
 
 ## Editing content
 
@@ -310,12 +335,18 @@ and nothing else ([C-25](./CONCERNS.md#c-25--the-sda-symbol-may-be-recoloured-an
 ## Findability
 
 `src/layouts/Layout.astro` emits the canonical URL, Open Graph/Twitter tags and
-a `Church` JSON-LD block. `site` in `astro.config.mjs` is the single source for
+a `Church` JSON-LD block (production builds only — the preview omits
+structured data). `site` in `astro.config.mjs` is the single source for
 the production origin — change it there and canonicals, OG URLs and the sitemap
 follow.
 
-**`/sitemap.xml` is not advertised.** Cloudflare serves a managed `robots.txt`
-with no `Sitemap:` directive, so it must be submitted once in
+`/robots.txt` is built per environment: the preview answers `Disallow: /` with
+no sitemap line, production allows crawling and names the sitemap. The preview
+also 404s `/sitemap.xml`, drops `llms.txt`, and sends `X-Robots-Tag: noindex`
+— the full no-SEO-dev contract lives in
+[C-23](./CONCERNS.md#c-23--the-preview-is-de-seoed-not-gated).
+
+**`/sitemap.xml` still has to be submitted once** in
 [Google Search Console](https://search.google.com/search-console). Nobody will
 be prompted for this.
 
@@ -334,7 +365,7 @@ Needs the church board:
    when their headshots landed and were referenced. Do not ask the board for
    those three again.
 2. ~~**The Ampsdraers 2025/2026 roster is missing an entry**~~ — resolved by the
-   board. Laura Rolff holds Persoonlike Bediening and the
+   board. Laura Rolfe holds Persoonlike Bediening and the
    Strategiesebeplannings-komitee, both of which the roster had listed under
    Jaco van Niekerk; he is head elder only. The cards now follow the board, not
    the PDF.

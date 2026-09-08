@@ -26,10 +26,7 @@ on:
 
 permissions:
   # `contents: write` so a successful deploy can create the release tag.
-  # `deployments: write` for the `environment:` block below, which is what
-  # populates the repo's Environments tab.
   contents: write
-  deployments: write
 
 concurrency:
   group: production-deploy
@@ -38,12 +35,12 @@ concurrency:
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
-    # Records each run in the Environments tab with a link to the live site, so
-    # "what is deployed right now" is answerable from GitHub. Costs nothing and
-    # needs no third-party action.
-    environment:
-      name: production
-      url: https://sdatygerberg.co.za
+    # No `environment:` key: GitHub Environments (and their secrets/protection)
+    # are unavailable on a private repo on the Free plan, so an environment
+    # secret silently resolves empty and the deploy fails at the token step.
+    # The Cloudflare and YouTube secrets are repository secrets instead, which
+    # every job can read; the Environments-tab record was the only thing the
+    # key bought and it is not worth a broken deploy (C-61).
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -108,6 +105,10 @@ jobs:
           # emits them as <meta> tags. See README "Versioning and releases".
           PUBLIC_APP_VERSION: ${{ steps.version.outputs.version }}
           PUBLIC_APP_COMMIT: ${{ github.sha }}
+          # Public Turnstile site key (Actions *variable*, not secret — it ships
+          # in the HTML). Unset means no widget; the Worker skips its half where
+          # its secret is unset too. C-21.
+          PUBLIC_TURNSTILE_SITE_KEY: ${{ vars.PUBLIC_TURNSTILE_SITE_KEY }}
 
       - name: Deploy to Cloudflare Workers
         uses: cloudflare/wrangler-action@v4
@@ -147,7 +148,11 @@ jobs:
         # braces on purpose: this step gates the release tag, and the first
         # version of it hung a deploy for twenty minutes because `fetch` has no
         # default timeout. GitHub would not have reaped that job for six hours.
-        timeout-minutes: 5
+        #
+        # 8 minutes, not 5: --wait-version below may poll /health for 3 while
+        # the edge propagates the deploy, and the remaining checks still need
+        # their share after it.
+        timeout-minutes: 8
         # Advisory, not a gate, and that is a retreat from the original intent.
         #
         # The check cannot do its job from here: Cloudflare answers this runner
@@ -167,8 +172,14 @@ jobs:
         # checks against `wrangler dev` on every pull request and never meets
         # the edge. That exists now, so this step is a post-deploy report by
         # design rather than a retreat, and the line stays. C-60
+        #
+        # `--expect-version` polls /health for up to 3 minutes for the version
+        # this deploy built (C-63): the first check that can say the edge is
+        # serving the new release rather than the old one. Advisory here for
+        # the 403 reason above — the poll skips itself with a note when the
+        # edge blocks this runner instead of burning the budget.
         continue-on-error: true
-        run: npm run smoke -- https://sdatygerberg.co.za
+        run: npm run smoke -- https://sdatygerberg.co.za --expect-version "${{ steps.version.outputs.version }}" --wait-version 180
 
       # Only after Cloudflare has accepted the deploy. Tagging first would leave
       # a tag claiming to be live when the deploy failed, which is worse than no

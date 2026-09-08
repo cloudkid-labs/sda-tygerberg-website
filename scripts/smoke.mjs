@@ -15,6 +15,7 @@
  * instead — this file costs deploy time and a false failure blocks a release.
  *
  * Usage: node scripts/smoke.mjs <base-url> [--no-edge] [--expect-noindex]
+ *   [--expect-version <v>] [--wait-version <seconds>]
  *   --no-edge  the target has no Cloudflare edge in front of it — a plain
  *              static host. That removes two things at once, and conflating
  *              them is how the first version of this script red-failed a
@@ -26,6 +27,10 @@
  *              about the build and only produces noise. Both production and
  *              devtest are Workers now (C-61), so no workflow passes this flag;
  *              it stays for a bare `astro build` served locally.
+ *   --expect-version <v>  poll /health until it reports version <v> — the
+ *              post-deploy gate (C-63). Without it the version is unchecked.
+ *   --wait-version <s>  how long to keep polling for the expected version
+ *              (default 120). The whole-run deadline below stretches to fit.
  */
 
 const base = process.argv[2]?.replace(/\/$/, '');
@@ -36,8 +41,24 @@ const noEdge = process.argv.includes('--no-edge');
 // an accidental noindex shipped to production.
 const expectNoindex = process.argv.includes('--expect-noindex');
 
+// The post-deploy gate (C-63): /health must report this version within the
+// wait budget. Passed by the workflows — package.json on devtest and the CI
+// worker job, the resolved release version on production.
+const expectVersionIdx = process.argv.indexOf('--expect-version');
+const expectVersion = expectVersionIdx === -1 ? null : process.argv[expectVersionIdx + 1] ?? null;
+const waitVersionIdx = process.argv.indexOf('--wait-version');
+const waitVersionSecs = waitVersionIdx === -1 ? 120 : Number(process.argv[waitVersionIdx + 1]);
+
 if (!base) {
   console.error('usage: node scripts/smoke.mjs <base-url> [--no-edge]');
+  process.exit(2);
+}
+if (expectVersionIdx !== -1 && !expectVersion) {
+  console.error('--expect-version needs a version');
+  process.exit(2);
+}
+if (waitVersionIdx !== -1 && !(waitVersionSecs > 0)) {
+  console.error('--wait-version needs a positive number of seconds');
   process.exit(2);
 }
 
@@ -84,7 +105,7 @@ const REQUEST_TIMEOUT_MS = 10_000;
  * the deadline every remaining request fails immediately, so the run still
  * reaches its verdict and prints which checks it got to.
  */
-const RUN_DEADLINE_MS = 150_000;
+const RUN_DEADLINE_MS = Math.max(150_000, (expectVersion ? waitVersionSecs * 1000 : 0) + 60_000);
 const startedAt = Date.now();
 const outOfTime = () => Date.now() - startedAt > RUN_DEADLINE_MS;
 
@@ -123,6 +144,57 @@ async function get(path, init = {}) {
 
 
 console.log(`\nSmoke-testing ${base}\n`);
+
+/* ---- deployed version: /health (C-63) ---------------------------------- */
+console.log('health');
+if (!expectVersion) {
+  notes.push('Version check skipped: no --expect-version, /health is unchecked.');
+  console.log('  – skipped, no expected version given');
+} else {
+  const deadline = Date.now() + waitVersionSecs * 1000;
+  let lastSeen = '(no response yet)';
+  let blockedStreak = 0;
+  for (;;) {
+    try {
+      const res = await get('/health');
+      // A response arrived, so the edge is talking to this client — reset
+      // the blocked streak even if the version is still stale.
+      blockedStreak = 0;
+      const type = res.headers.get('content-type') ?? '';
+      if (!res.ok) {
+        lastSeen = `HTTP ${res.status}`;
+      } else if (!/application\/json/i.test(type)) {
+        lastSeen = `expected JSON, got ${type || 'no content-type'}`;
+      } else {
+        const body = await res.json();
+        if (body.status !== 204 || typeof body.version !== 'string') {
+          lastSeen = `unexpected shape ${JSON.stringify(body).slice(0, 120)}`;
+        } else if (body.version !== expectVersion) {
+          lastSeen = `version ${body.version}, want ${expectVersion}`;
+        } else {
+          pass('/health', `version ${body.version}`);
+          break;
+        }
+      }
+    } catch (err) {
+      lastSeen = err.message;
+      // The edge refusing this client is not a stale deploy — it is the same
+      // datacenter-IP block the verdict section below already knows about. Two
+      // blocked polls in a row means waiting longer changes nothing, so skip
+      // with a note instead of burning the whole budget proving it.
+      if (/^HTTP 40[39]|^HTTP 429/.test(err.message) && ++blockedStreak >= 2) {
+        notes.push(`/health unchecked: the edge answered ${err.message} — this client is blocked, not the deploy stale.`);
+        console.log('  – skipped, edge is blocking this client');
+        break;
+      }
+    }
+    if (Date.now() >= deadline || outOfTime()) {
+      fail('/health', `still not serving ${expectVersion} after ${waitVersionSecs}s — last seen: ${lastSeen}`);
+      break;
+    }
+    await new Promise((r) => setTimeout(r, 5000));
+  }
+}
 
 /* ---- every page renders ------------------------------------------------ */
 console.log('pages');
@@ -309,8 +381,102 @@ try {
   } else {
     pass('robots', expectNoindex ? `noindex present ("${robots}")` : 'indexable, as production should be');
   }
+
+  // Structured data is production-only (C-23): it feeds knowledge-graph/AI
+  // pipelines even where it carries no ranking weight, so the preview omits
+  // it while canonicals and OG stay as the consolidating backstop.
+  const hasJsonLd = /application\/ld\+json/i.test(html);
+  if (expectNoindex && hasJsonLd) {
+    fail('JSON-LD', 'preview build emits structured data — Layout must gate it on indexable (C-23)');
+  } else if (!expectNoindex && !hasJsonLd) {
+    fail('JSON-LD', 'production build emits no structured data');
+  } else {
+    pass('JSON-LD', expectNoindex ? 'absent on the preview' : 'present on production');
+  }
+
+  // /map/ does not render through Layout, so it needs its own noindex — it
+  // was the one indexable page on a noindex preview (C-23).
+  const mapHtml = await (await get('/map/')).text();
+  const mapNoindex = /<meta[^>]+name="robots"[^>]+content="[^"]*noindex/i.test(mapHtml);
+  const mapCanonicalOk = /<link[^>]+rel="canonical"[^>]+href="https:\/\/sdatygerberg\.co\.za\/map\/"/i.test(mapHtml) ||
+    /<link[^>]+href="https:\/\/sdatygerberg\.co\.za\/map\/"[^>]+rel="canonical"/i.test(mapHtml);
+  if (!mapCanonicalOk) {
+    fail('map canonical', 'no production canonical on /map/');
+  } else {
+    pass('map canonical', 'points at production');
+  }
+  if (expectNoindex && !mapNoindex) {
+    fail('map noindex', 'preview /map/ carries no noindex (C-23)');
+  } else if (!expectNoindex && mapNoindex) {
+    fail('map noindex', 'production /map/ carries noindex — it must be indexable');
+  } else {
+    pass('map robots', expectNoindex ? 'noindex present' : 'indexable, as production should be');
+  }
 } catch (err) {
   fail('indexing checks', err.message);
+}
+
+/* ---- crawler files: robots.txt, sitemap, llms.txt (C-23) ---------------- */
+console.log('\ncrawler files');
+try {
+  // robots.txt polarity: the preview disallows everything and names no
+  // sitemap; production allows and advertises it.
+  const robotsTxt = await (await get('/robots.txt')).text();
+  if (expectNoindex) {
+    if (!/^Disallow: \/$/m.test(robotsTxt)) fail('robots.txt', 'preview does not Disallow: /');
+    else if (/Sitemap:/i.test(robotsTxt)) fail('robots.txt', 'preview advertises a sitemap');
+    else pass('robots.txt', 'Disallow: /, no sitemap');
+  } else {
+    if (/^Disallow: \/$/m.test(robotsTxt)) fail('robots.txt', 'production disallows crawling');
+    else if (!/^Sitemap: https:\/\/sdatygerberg\.co\.za\/sitemap\.xml$/m.test(robotsTxt)) fail('robots.txt', 'production names no sitemap');
+    else pass('robots.txt', 'allows crawling, advertises the sitemap');
+  }
+
+  // sitemap.xml polarity: served on production only. A sitemap of production
+  // URLs on the preview host invites crawlers to bind the URL set to it.
+  const sitemap = await get('/sitemap.xml');
+  if (expectNoindex) {
+    if (sitemap.status !== 404) fail('sitemap.xml', `preview serves it (HTTP ${sitemap.status}), expected 404`);
+    else pass('sitemap.xml', 'absent on the preview');
+  } else {
+    const xml = await sitemap.text();
+    if (!sitemap.ok) fail('sitemap.xml', `HTTP ${sitemap.status} on production`);
+    else if (!/<loc>https:\/\/sdatygerberg\.co\.za\//.test(xml)) fail('sitemap.xml', 'no production <loc> entries');
+    else pass('sitemap.xml', 'served with production URLs');
+  }
+
+  // llms.txt polarity: the build strips it from the preview so crawlers get
+  // no crawl map of that host (C-35).
+  const llms = await get('/llms.txt');
+  if (expectNoindex) {
+    if (llms.status !== 404) fail('llms.txt', `preview serves it (HTTP ${llms.status}), expected 404`);
+    else pass('llms.txt', 'absent on the preview');
+  } else {
+    if (!llms.ok) fail('llms.txt', `HTTP ${llms.status} on production`);
+    else pass('llms.txt', 'served on production');
+  }
+} catch (err) {
+  fail('crawler file checks', err.message);
+}
+
+/* ---- X-Robots-Tag: the non-HTML half of noindex (C-23) ------------------- */
+console.log('\nrobots header');
+if (noEdge) {
+  notes.push('X-Robots-Tag check skipped (--no-edge): `_headers` is a Cloudflare mechanism a plain static host does not apply.');
+  console.log('  – skipped, no Cloudflare edge on this target');
+} else try {
+  // The meta tag covers HTML pages; this header covers everything else (the
+  // PDF, images). Preview-only — production must not send it.
+  const tag = (await get('/')).headers.get('x-robots-tag') ?? '';
+  if (expectNoindex && !/noindex/i.test(tag)) {
+    fail('X-Robots-Tag', 'preview sends none — the build must append it when PUBLIC_INDEXABLE=false (C-23)');
+  } else if (!expectNoindex && tag) {
+    fail('X-Robots-Tag', `production sends "${tag}" — it must not`);
+  } else {
+    pass('X-Robots-Tag', expectNoindex ? `present ("${tag}")` : 'absent on production');
+  }
+} catch (err) {
+  fail('robots header check', err.message);
 }
 
 /* ---- verdict ------------------------------------------------------------ */

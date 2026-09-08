@@ -1,11 +1,19 @@
 #!/usr/bin/env node
 /**
- * Fills in the Content-Security-Policy in `dist/_headers`.
+ * Finalizes `dist/` for the environment being built.
+ *
+ * 1. Fills in the Content-Security-Policy in `dist/_headers`.
  *
  * The policy cannot be written by hand because Astro emits inline scripts — the
  * island loader on every page, and `define:vars` on /map/ — and a script-src
  * without `'unsafe-inline'` only allows those if it names their hash. So the
  * hashes are read out of the built HTML, which is the only place they exist.
+ *
+ * 2. On preview builds (PUBLIC_INDEXABLE=false) sheds discoverability:
+ *    `dist/llms.txt` and `dist/sitemap.xml` are removed and an
+ *    `X-Robots-Tag: noindex, nofollow` is appended to the `/*` block. The meta
+ *    noindex covers HTML pages; the header covers everything else (the PDF,
+ *    images — anything without a `<head>`). Production is untouched. C-23
  *
  * Runs from `npm run build`, after `astro build`. Exits non-zero on anything
  * unexpected: a build that silently shipped no CSP would look fine and protect
@@ -13,7 +21,7 @@
  */
 
 import { createHash } from 'node:crypto';
-import { readFileSync, writeFileSync, readdirSync, statSync } from 'node:fs';
+import { readFileSync, writeFileSync, readdirSync, statSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -72,7 +80,10 @@ const CSP = [
   "frame-ancestors 'self'",
   "form-action 'self'",
   // unpkg serves Leaflet on /map/, pinned and hash-checked there too.
-  `script-src 'self' https://unpkg.com ${scriptHashes}`,
+  // challenges.cloudflare.com serves the Turnstile widget on /connect and
+  // /bible-studies (C-21). The verification call itself is Worker-to-Cloudflare
+  // and never crosses this policy.
+  `script-src 'self' https://unpkg.com https://challenges.cloudflare.com ${scriptHashes}`,
   // 'unsafe-inline' is unavoidable for styles: React writes style attributes
   // (Hero's aspect-ratio box), and a hash cannot cover an attribute.
   "style-src 'self' 'unsafe-inline' https://unpkg.com https://fonts.googleapis.com",
@@ -89,6 +100,7 @@ const CSP = [
   // rejection IS the verdict the card wants (C-60).
   "connect-src 'self' https://www.youtube.com",
   // 'self' is /map/; youtube-nocookie.com is where the embed is served from.
+  // challenges.cloudflare.com is the Turnstile iframe on the two form pages.
   //
   // google.com was added here and then taken back out. The console said
   // "Framing 'https://www.google.com/' violates ..." so allowing it looked like
@@ -100,7 +112,7 @@ const CSP = [
   // Both hosts: the embed is on youtube.com while the nocookie domain is under
   // test (C-60), and keeping the old one listed makes reverting a one-liner.
   // Neither admits google.com — that was tried and loops rather than plays.
-  "frame-src 'self' https://www.youtube.com https://www.youtube-nocookie.com",
+  "frame-src 'self' https://www.youtube.com https://www.youtube-nocookie.com https://challenges.cloudflare.com",
   'upgrade-insecure-requests',
 ].join('; ');
 
@@ -111,7 +123,21 @@ if (!PLACEHOLDER.test(source)) {
   process.exit(1);
 }
 
-writeFileSync(HEADERS, source.replace(PLACEHOLDER, `  Content-Security-Policy: ${CSP}`));
+// Preview builds shed discoverability (C-23): the header covers the non-HTML
+// responses no meta tag can reach, and llms.txt would otherwise hand crawlers
+// a clean crawl map of the preview host. The sitemap file goes too — the
+// route already answers 404 at prerender time, but a prerendered body would
+// still be served as a static file with a 200, so only deleting it produces a
+// real 404 (via the Worker's 404-page handling).
+let replacement = `  Content-Security-Policy: ${CSP}`;
+if (process.env.PUBLIC_INDEXABLE === 'false') {
+  replacement += '\n  X-Robots-Tag: noindex, nofollow';
+  rmSync(join(DIST, 'llms.txt'), { force: true });
+  rmSync(join(DIST, 'sitemap.xml'), { force: true });
+  console.log('✔ preview build: X-Robots-Tag set, dist/llms.txt and dist/sitemap.xml removed');
+}
+
+writeFileSync(HEADERS, source.replace(PLACEHOLDER, replacement));
 console.log(
   `✔ CSP written to dist/_headers — ${hashes.size} inline script hash(es) across ${pages.length} page(s)`,
 );

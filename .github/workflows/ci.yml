@@ -153,9 +153,13 @@ jobs:
       # headers are all in scope. This runs on every PR against a local Worker
       # that no edge can block, so it — not the post-deploy runs, which
       # Cloudflare answers 403 — is the real gate (C-60).
+      #
+      # `--expect-version` makes /health assert the build reports the version
+      # it was built from (C-63). Instant here — the Worker serves this commit
+      # — so no --wait-version; the default budget only matters if it fails.
       - name: Smoke-test the Worker
         timeout-minutes: 5
-        run: npm run smoke -- http://127.0.0.1:8787
+        run: npm run smoke -- http://127.0.0.1:8787 --expect-version "$(node -p 'require("./package.json").version')"
 
       # `always()`: a failed smoke run still has to release the port and let the
       # job finish rather than hold the runner to its timeout.

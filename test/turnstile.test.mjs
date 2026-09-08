@@ -56,7 +56,7 @@ describe('verifyTurnstile', () => {
     let seen;
     globalThis.fetch = async (_url, init) => {
       seen = init?.body;
-      return Response.json({ success: true });
+      return Response.json({ success: true, action: 'contact' });
     };
     assert.equal(await verifyTurnstile('tok123', 's3cret', '203.0.113.7'), true);
     assert.equal(seen.get('secret'), 's3cret');
@@ -64,8 +64,23 @@ describe('verifyTurnstile', () => {
     assert.equal(seen.get('remoteip'), '203.0.113.7');
   });
 
+  test('false when the token was minted for another surface', async () => {
+    globalThis.fetch = async () => Response.json({ success: true, action: 'signup' });
+    assert.equal(await verifyTurnstile('tok', 'sec'), false);
+  });
+
+  test('false without calling siteverify when the token is overlong', async () => {
+    let called = 0;
+    globalThis.fetch = async () => {
+      called += 1;
+      return Response.json({ success: true, action: 'contact' });
+    };
+    assert.equal(await verifyTurnstile('x'.repeat(2049), 'sec'), false);
+    assert.equal(called, 0);
+  });
+
   test('false on refusal, HTTP error, or network fault', async () => {
-    globalThis.fetch = async () => Response.json({ success: false });
+    globalThis.fetch = async () => Response.json({ success: false, action: 'contact' });
     assert.equal(await verifyTurnstile('tok', 'sec'), false);
 
     globalThis.fetch = async () => new Response('no', { status: 500 });
@@ -94,7 +109,7 @@ describe('checkTurnstile', () => {
   });
 
   test('delegates a present token to siteverify', async () => {
-    globalThis.fetch = async () => Response.json({ success: true });
+    globalThis.fetch = async () => Response.json({ success: true, action: 'contact' });
     assert.equal(
       await checkTurnstile(req(), { 'cf-turnstile-response': 'tok' }, { TURNSTILE_SECRET_KEY: 'sec' }),
       true,

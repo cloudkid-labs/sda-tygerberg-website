@@ -381,6 +381,9 @@ plus a `siteverify` call before forwarding:
   Unset means the check is skipped entirely — local dev and devtest behave
   exactly as before, and an unconfigured deploy still answers
   `not-configured`, never a captcha error.
+- The widget renders with `action: 'contact'` and siteverify must echo it —
+  a token minted for any other surface is refused. Overlong tokens never reach
+  siteverify at all.
 - A siteverify fault is a refusal, deliberately: failing open would turn every
   Cloudflare blip into a spam window.
 - The CSP names `challenges.cloudflare.com` in `script-src` (the widget) and

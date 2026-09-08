@@ -12,6 +12,14 @@ export type TurnstileEnv = {
    * `cf-turnstile-response`.
    */
   TURNSTILE_SECRET_KEY?: string;
+
+  /**
+   * Comma-separated hostnames siteverify must echo back (the host the widget
+   * was solved on). Tokens minted on any other domain are refused — the site
+   * key is public, so this is what stops a third-party page from minting
+   * passing tokens. Unset or empty disables the hostname check. C-21.
+   */
+  TURNSTILE_HOSTNAMES?: string;
 };
 
 const SITEVERIFY_URL = 'https://challenges.cloudflare.com/turnstile/v0/siteverify';
@@ -44,6 +52,7 @@ export async function verifyTurnstile(
   token: string,
   secret: string,
   remoteip?: string,
+  allowedHostnames?: string[],
 ): Promise<boolean> {
   if (!token || !secret || token.length > MAX_TOKEN_LENGTH) return false;
   try {
@@ -57,8 +66,19 @@ export async function verifyTurnstile(
       signal: AbortSignal.timeout(VERIFY_TIMEOUT_MS),
     });
     if (!res.ok) return false;
-    const data = (await res.json()) as { success?: boolean; action?: string };
-    return data.success === true && data.action === TURNSTILE_ACTION;
+    const data = (await res.json()) as {
+      success?: boolean;
+      action?: string;
+      hostname?: string;
+    };
+    if (data.success !== true || data.action !== TURNSTILE_ACTION) return false;
+    // Fail closed where a list is configured: a token solved on a domain the
+    // operator never approved is exactly what the check exists to catch.
+    // Unset or empty keeps the check off — today's behaviour.
+    if (allowedHostnames && allowedHostnames.length > 0) {
+      if (!data.hostname || !allowedHostnames.includes(data.hostname)) return false;
+    }
+    return true;
   } catch {
     // Timeout, DNS, TLS, non-JSON — indistinguishable from a refusal here, and
     // failing open would turn every Cloudflare blip into a spam window. C-21.
@@ -81,5 +101,9 @@ export async function checkTurnstile(
   const token = turnstileTokenFrom(body);
   if (!token) return false;
   const remoteip = request.headers.get('cf-connecting-ip') ?? undefined;
-  return verifyTurnstile(token, secret, remoteip);
+  const hostnames = (env.TURNSTILE_HOSTNAMES ?? '')
+    .split(',')
+    .map((h) => h.trim())
+    .filter(Boolean);
+  return verifyTurnstile(token, secret, remoteip, hostnames);
 }

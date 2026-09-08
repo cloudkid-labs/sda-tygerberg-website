@@ -68,6 +68,7 @@ them in the dashboard, or with `wrangler secret put`.
 | `LIVE_CHECK_TZ` | `Africa/Johannesburg` | Timezone the window is evaluated in |
 | `CONTACT_EMAIL_TO` | `hello@cloudkid.link` | Where `/api/contact` emails. Must be a **verified destination address**, and must reach a person — Email Routing forwards this one to an inbox |
 | `CONTACT_EMAIL_FROM` | `mailer@cloudkid.link` | From address. `cloudkid.link` is **already onboarded** to Email Sending — `cf-bounce` MX/SPF/DKIM and `_dmarc` all resolve |
+| `TURNSTILE_HOSTNAMES` | `sdatygerberg.co.za` (devtest: `tygerberg-sda.cloudkid.link`) | Hostnames siteverify must echo back; tokens minted on any other domain are refused. Unset disables the hostname check |
 
 There is deliberately no `CONTACT_EMAIL_BCC`: it used to archive a copy to an
 unread Worker inbox, where it could fail the whole send on the free path

@@ -96,7 +96,9 @@
     // again, re-add the var here AND the address in
     // `allowed_destination_addresses` below, then redeploy.
     "CONTACT_EMAIL_TO": "hello@cloudkid.link",
-    "CONTACT_EMAIL_FROM": "mailer@cloudkid.link"
+    "CONTACT_EMAIL_FROM": "mailer@cloudkid.link",
+    // Hostnames siteverify must echo back for /api/contact tokens — C-21.
+    "TURNSTILE_HOSTNAMES": "sdatygerberg.co.za"
   },
   // Lets /api/contact email the church directly.
   //
@@ -168,7 +170,9 @@
       "routes": [{ "pattern": "tygerberg-sda.cloudkid.link", "custom_domain": true }],
       "vars": {
         "LIVE_CHECK_CRON": "* 9-12 * * 6",
-        "LIVE_CHECK_TZ": "Africa/Johannesburg"
+        "LIVE_CHECK_TZ": "Africa/Johannesburg",
+        // Hostnames siteverify must echo back for /api/contact tokens — C-21.
+        "TURNSTILE_HOSTNAMES": "tygerberg-sda.cloudkid.link"
       }
       // No send_email, r2_buckets or CONTACT_EMAIL_* here on purpose: a preview
       // sends no church email and writes no consent records, so /api/contact

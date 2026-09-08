@@ -105,6 +105,8 @@ export function RequestForm({ topic, copy }: { topic: RequestTopic; copy: TopicC
     returning.current = true;
     setValues(EMPTY);
     setConsent(false);
+    // Before clearing the id — resetCaptcha needs the widget still addressed.
+    resetCaptcha();
     setCaptchaToken('');
     widgetId.current = null;
     setStatus('idle');
@@ -117,6 +119,24 @@ export function RequestForm({ topic, copy }: { topic: RequestTopic; copy: TopicC
     setMessage(text);
     setStatus('error');
     setAttempt((n) => n + 1);
+  };
+
+  /**
+   * Tokens are single-use — siteverify redeems each one exactly once. After
+   * any failed attempt the held token is dead, so clear it and have the widget
+   * mint a fresh one; without this a retry posts a token siteverify has
+   * already seen and can never succeed.
+   */
+  const resetCaptcha = () => {
+    setCaptchaToken('');
+    const api = window.turnstile;
+    if (api && widgetId.current !== null) {
+      try {
+        api.reset(widgetId.current);
+      } catch {
+        // Widget already gone.
+      }
+    }
   };
 
   /**
@@ -271,6 +291,9 @@ export function RequestForm({ topic, copy }: { topic: RequestTopic; copy: TopicC
         return;
       }
 
+      // Every failed response spent the token — get a fresh one queued.
+      resetCaptcha();
+
       if (data?.outcome === 'not-configured') fail([], t.errNotConfigured);
       else if (data?.outcome === 'forward-error') fail([], t.errForward);
       else if (data?.outcome === 'invalid') {
@@ -283,6 +306,7 @@ export function RequestForm({ topic, copy }: { topic: RequestTopic; copy: TopicC
       } else fail([], t.errNetwork);
     } catch {
       // Offline, DNS, non-JSON body — never claim it was sent (C-19).
+      resetCaptcha();
       fail([], t.errNetwork);
     }
   };

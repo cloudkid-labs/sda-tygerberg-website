@@ -1,7 +1,6 @@
 /// <reference types="@cloudflare/workers-types" />
 
 import type { Lang } from '../data/site';
-import type { ContactTopic } from './contact';
 
 export type ConsentEnv = {
   /**
@@ -13,68 +12,33 @@ export type ConsentEnv = {
 };
 
 /**
- * The wording the visitor actually agreed to, pinned here rather than imported
- * from `src/data/requestCopy.ts`.
+ * Minimized pointer, not a submission copy — C-34.
  *
- * Two reasons, and neither is style. That module is part of the client i18n
- * bundle and importing it would pull React-side copy into the Worker — the same
- * call `contactEmail.ts` makes. More importantly, a consent record has to state
- * what was agreed to *at the time*: pointing at live copy would silently rewrite
- * every historical record the next time someone edits the form. Change the
- * label on the form and you add a version here; you do not edit the old one.
- *
- * Keep in step with `consentLabel` in `src/data/requestCopy.ts`.
- */
-const CONSENT_TEXT: Record<Lang, string> = {
-  af: 'Ek gee toestemming dat die kerk my besonderhede mag gebruik om my oor hierdie versoek te kontak.',
-  en: 'I consent to the church using my details to contact me about this request.',
-};
-
-/** Bump when `CONSENT_TEXT` changes. Old records keep the version they carry. */
-export const CONSENT_VERSION = '2026-08-08';
-
-/**
- * What is kept, and deliberately what is not.
- *
- * POPIA asks that consent be demonstrable: who agreed, when, to what wording,
- * and how to reach them. The enquiry's free-text `message` is not part of that
- * and is the most sensitive thing a visitor types, so it stays out — the email
- * already carries it to a human. C-20's "minimum needed" applies to storage at
- * rest more strongly than it does to an inbox.
+ * R2 has no expiry (dashboard-only, still unset), so a full copy would sit at
+ * rest indefinitely. The delivered email already carries the full enquiry
+ * (name/phone/topic/message/consent line plus this id as `Toestemmingsrekord`),
+ * so the bucket keeps only what ties the mail to a timestamp: id, email and
+ * submittedAt. Email passes through verbatim and may be empty for phone-only
+ * submissions — the record is still a timestamped pointer and the email holds
+ * the phone.
  */
 export type ConsentRecord = {
   id: string;
+  email: string;
   submittedAt: string;
-  topic: ContactTopic;
-  name: string;
-  /** Whichever the visitor gave; the form requires one of the two — C-20. */
-  email: string | null;
-  phone: string | null;
-  consent: true;
-  consentVersion: string;
-  consentLang: Lang;
-  /** The exact sentence shown, so the record stands on its own. */
-  consentText: string;
-  source: 'tygerberg-sda-website';
 };
 
 export function buildConsentRecord(
   fields: Record<string, string>,
   submittedAt: string,
+  // Kept so the signature is unchanged: the record no longer stores which
+  // wording was shown (C-34) — the email carries the consent line instead.
   lang: Lang,
 ): ConsentRecord {
   return {
     id: crypto.randomUUID(),
+    email: fields.email ?? '',
     submittedAt,
-    topic: fields.topic as ContactTopic,
-    name: fields.name,
-    email: fields.email || null,
-    phone: fields.phone || null,
-    consent: true,
-    consentVersion: CONSENT_VERSION,
-    consentLang: lang,
-    consentText: CONSENT_TEXT[lang],
-    source: 'tygerberg-sda-website',
   };
 }
 
@@ -110,14 +74,12 @@ export async function storeConsent(
        * Listable without fetching the bodies, which is enough to audit volume
        * and date ranges. It is deliberately NOT enough to find one person's
        * records: nothing here identifies anyone, so a POPIA access or deletion
-       * request means reading the objects. That is the right trade — putting a
-       * name or an email in object metadata would make every listing a
+       * request means reading the objects. That is the right trade — putting
+       * the email in object metadata would make every listing a
        * disclosure. C-20, C-56
        */
       customMetadata: {
-        topic: record.topic,
         submittedAt: record.submittedAt,
-        consentVersion: record.consentVersion,
       },
     });
     return true;

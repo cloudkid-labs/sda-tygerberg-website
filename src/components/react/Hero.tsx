@@ -46,6 +46,7 @@ function useEmbedVerdict(videoId: string | null): EmbedVerdict {
       typeof AbortSignal !== 'undefined' && typeof AbortSignal.timeout === 'function'
         ? AbortSignal.timeout(5000)
         : undefined;
+    // Extensions that wrap window.fetch double-log this rejection as "Uncaught" — the fail-closed .catch below already handles it.
     fetch(`https://www.youtube.com/embed/${videoId}`, { mode: 'no-cors', signal })
       .then(() => !cancelled && setVerdict('ok'))
       .catch(() => !cancelled && setVerdict('blocked'));

@@ -15,7 +15,7 @@
  * instead — this file costs deploy time and a false failure blocks a release.
  *
  * Usage: node scripts/smoke.mjs <base-url> [--no-edge] [--expect-noindex]
- *   [--expect-version <v>] [--wait-version <seconds>]
+ *   [--expect-version <v>] [--wait-version <seconds>] [--expect-transform]
  *   --no-edge  the target has no Cloudflare edge in front of it — a plain
  *              static host. That removes two things at once, and conflating
  *              them is how the first version of this script red-failed a
@@ -31,6 +31,10 @@
  *              post-deploy gate (C-63). Without it the version is unchecked.
  *   --wait-version <s>  how long to keep polling for the expected version
  *              (default 120). The whole-run deadline below stretches to fit.
+ *   --expect-transform  require a homepage /cdn-cgi/image/ URL to answer as
+ *              an image — the transform-path consistency check (C-61). Opt-in
+ *              because the local `wrangler dev` run in CI has no transformer,
+ *              so on by default it would red CI by design.
  */
 
 const base = process.argv[2]?.replace(/\/$/, '');
@@ -48,6 +52,11 @@ const expectVersionIdx = process.argv.indexOf('--expect-version');
 const expectVersion = expectVersionIdx === -1 ? null : process.argv[expectVersionIdx + 1] ?? null;
 const waitVersionIdx = process.argv.indexOf('--wait-version');
 const waitVersionSecs = waitVersionIdx === -1 ? 120 : Number(process.argv[waitVersionIdx + 1]);
+
+// Opt-in: only devtest passes it (its build leaves transforms on and its zone
+// supports them). The local `wrangler dev` run in CI has no transformer, so
+// this check must be opt-in or it reds CI by design.
+const expectTransform = process.argv.includes('--expect-transform');
 
 if (!base) {
   console.error('usage: node scripts/smoke.mjs <base-url> [--no-edge]');
@@ -277,9 +286,10 @@ try {
   const home = await (await get('/')).text();
   /*
    * Two shapes, because the markup depends on PUBLIC_IMAGE_CDN. With the
-   * transformer on (production) the cards point at
-   * `/cdn-cgi/image/<opts>/images/hod/NAME.jpg`; with it off (devtest) they
-   * point straight at `/images/hod/fallback/NAME.jpg`. Matching only the
+   * transformer on (devtest) the cards point at
+   * `/cdn-cgi/image/<opts>/images/hod/NAME.jpg`; with it off (production,
+   * whose zone has no Image Resizing) they point straight at
+   * `/images/hod/fallback/NAME.jpg`. Matching only the
    * second is how the first draft of this check skipped silently against
    * production while reporting a pass.
    */
@@ -303,6 +313,34 @@ try {
       if (!plain.ok) fail('headshot master guard', `plain URL returned HTTP ${plain.status}`);
       else if (fbLen && plainLen > fbLen * 1.5) fail('headshot master guard', `plain URL served ${plainLen}b against the fallback's ${fbLen}b — the master is exposed (C-51)`);
       else pass('headshot master guard', `plain URL serves ${plainLen}b, the fallback`);
+    }
+  }
+
+  /*
+   * Transform-path consistency (C-61), opt-in via --expect-transform: where
+   * the markup carries /cdn-cgi/image/ URLs, one of them must answer as an
+   * image — a deploy with Resizing off would otherwise pass green while every
+   * prod page load pays doomed transform requests. The local `wrangler dev`
+   * run in CI has no transformer, so this check must stay opt-in or it reds
+   * CI by design; without the flag, or with no transform URLs in the markup
+   * (a fallbacks build), it notes and passes.
+   */
+  const transformUrl = home.match(/\/cdn-cgi\/image\/[^"' ]+/i)?.[0];
+  if (!expectTransform) {
+    notes.push('Transform check skipped: no --expect-transform, the transformer path is unchecked.');
+    console.log('  – skipped, no --expect-transform given');
+  } else if (!transformUrl) {
+    notes.push('Transform check skipped: homepage markup carries no /cdn-cgi/image/ URLs — a fallbacks build has nothing to probe.');
+    console.log('  – skipped, no transform URLs in the markup');
+  } else {
+    try {
+      const tres = await get(transformUrl);
+      const ttype = tres.headers.get('content-type') ?? '';
+      if (!tres.ok) fail('headshot transform', `HTTP ${tres.status} for ${transformUrl} — the zone has no Image Resizing enabled (C-61)`);
+      else if (!/^image\//i.test(ttype)) fail('headshot transform', `expected image/*, got ${ttype || 'no content-type'} for ${transformUrl} (C-61)`);
+      else pass('headshot transform', `${ttype}`);
+    } catch (err) {
+      fail('headshot transform', `${err.message} (C-61)`);
     }
   }
 } catch (err) {

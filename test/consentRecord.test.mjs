@@ -3,35 +3,69 @@ import { test, describe } from 'node:test';
 import { buildConsentRecord, consentKey } from '../src/worker/consentRecord.ts';
 
 const AT = '2026-09-08T10:00:00.000Z';
+const AF_TEXT = 'Ek gee toestemming dat die kerk my besonderhede mag gebruik om my oor hierdie versoek te kontak.';
+const EN_TEXT = 'I consent to the church using my details to contact me about this request.';
 
+/*
+ * The full format is the contract — C-34. The record is the POPIA evidence
+ * (who agreed, when, to what wording, how to reach them); the delivered email
+ * carries the same facts plus the message, quoting the record id. A 2026-09-08
+ * minimization to id+email+submittedAt was reverted the same day: keep this
+ * shape intact, and if it ever changes again, change the email tie-in and
+ * C-34 with it.
+ */
 describe('buildConsentRecord', () => {
-  test('holds only id, email and submittedAt — no other keys', () => {
+  test('keeps the full format — exact keys, no more and no fewer', () => {
     const record = buildConsentRecord(
       { topic: 'connect', name: 'Jan', email: 'jan@example.com', phone: '', message: 'hallo' },
       AT,
       'af',
     );
-    assert.deepEqual(record, { id: record.id, email: 'jan@example.com', submittedAt: AT });
-    assert.deepEqual(Object.keys(record).sort(), ['email', 'id', 'submittedAt']);
+    assert.deepEqual(Object.keys(record).sort(), [
+      'consent',
+      'consentLang',
+      'consentText',
+      'consentVersion',
+      'email',
+      'id',
+      'name',
+      'phone',
+      'source',
+      'submittedAt',
+      'topic',
+    ]);
   });
 
-  test('id is a non-empty string', () => {
-    const record = buildConsentRecord({ email: 'jan@example.com' }, AT, 'en');
-    assert.equal(typeof record.id, 'string');
+  test('passes the submission facts through', () => {
+    const record = buildConsentRecord(
+      { topic: 'bible-study', name: 'Jan', email: 'jan@example.com', phone: '0820000000' },
+      AT,
+      'en',
+    );
+    assert.equal(record.topic, 'bible-study');
+    assert.equal(record.name, 'Jan');
+    assert.equal(record.email, 'jan@example.com');
+    assert.equal(record.phone, '0820000000');
+    assert.equal(record.submittedAt, AT);
+    assert.equal(record.source, 'tygerberg-sda-website');
     assert.ok(record.id.length > 0);
   });
 
-  test('submittedAt passes through as the ISO string given', () => {
-    const record = buildConsentRecord({ email: 'jan@example.com' }, AT, 'af');
-    assert.equal(record.submittedAt, AT);
-    assert.equal(new Date(record.submittedAt).toISOString(), AT);
+  test('empty email/phone become null, never empty strings', () => {
+    const record = buildConsentRecord({ topic: 'connect', name: 'Jan', email: '', phone: '' }, AT, 'af');
+    assert.equal(record.email, null);
+    assert.equal(record.phone, null);
   });
 
-  test('email passes through verbatim, including empty for phone-only input', () => {
-    const withEmail = buildConsentRecord({ email: '  JAN@Example.COM  ' }, AT, 'af');
-    assert.equal(withEmail.email, '  JAN@Example.COM  ');
-    const phoneOnly = buildConsentRecord({ email: '', phone: '0820000000' }, AT, 'af');
-    assert.equal(phoneOnly.email, '');
+  test('pins the consent facts: true, version, language, exact wording', () => {
+    const af = buildConsentRecord({ topic: 'connect', name: 'Jan', email: 'j@x.co' }, AT, 'af');
+    assert.equal(af.consent, true);
+    assert.equal(af.consentVersion, '2026-08-08');
+    assert.equal(af.consentLang, 'af');
+    assert.equal(af.consentText, AF_TEXT);
+    const en = buildConsentRecord({ topic: 'connect', name: 'Jan', email: 'j@x.co' }, AT, 'en');
+    assert.equal(en.consentLang, 'en');
+    assert.equal(en.consentText, EN_TEXT);
   });
 });
 

@@ -361,12 +361,11 @@ Retention is a dashboard-only R2 lifecycle rule and **is not configured by this
 repo** — SETUP-INSTRUCTIONS.md §3.6. Personal data with no expiry is the failure
 mode to watch here.
 
-**Update (2026-09-08):** the record now holds only `id` + `email` +
-`submittedAt`. The bucket still has no expiry, so the full submission copy no
-longer rests there at all — the delivered email is the complete evidence
-(name/phone/topic/message/consent line) and quotes the record id as
-`Toestemmingsrekord`, keeping the mail-to-record tie. An empty email is a
-phone-only submission, still a valid timestamped pointer.
+**Update (2026-09-08):** a minimization of the record to `id` + `email` +
+`submittedAt` shipped in v1.6.2 and was reverted the same day on the church's
+instruction — the full format above stays, and `test/consentRecord.test.mjs`
+locks its exact keys. If the shape ever changes again, the email tie-in and
+this entry change with it.
 
 ### C-21 — Abuse protection is Cloudflare's, and it is off by default
 

@@ -57,6 +57,17 @@ describe('buildConsentRecord', () => {
     assert.equal(record.phone, null);
   });
 
+  test('phone-only submissions keep topic and phone beside a null email (C-34)', () => {
+    const record = buildConsentRecord(
+      { topic: 'connect', name: 'Jan', email: '', phone: '0820000000' },
+      AT,
+      'af',
+    );
+    assert.equal(record.email, null);
+    assert.equal(record.phone, '0820000000');
+    assert.equal(record.topic, 'connect');
+  });
+
   test('pins the consent facts: true, version, language, exact wording', () => {
     const af = buildConsentRecord({ topic: 'connect', name: 'Jan', email: 'j@x.co' }, AT, 'af');
     assert.equal(af.consent, true);

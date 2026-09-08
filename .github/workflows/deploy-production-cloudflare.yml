@@ -109,9 +109,9 @@ jobs:
           # in the HTML). Unset means no widget; the Worker skips its half where
           # its secret is unset too. C-21.
           PUBLIC_TURNSTILE_SITE_KEY: ${{ vars.PUBLIC_TURNSTILE_SITE_KEY }}
-          # The prod zone has no Image Resizing (C-61), so transform URLs 404 —
-          # build the fallback headshots in directly: deterministic, no probe.
-          PUBLIC_IMAGE_CDN: 'false'
+          # Transforms stay on here: the sdatygerberg.co.za zone has Image
+          # Resizing (enabled 2026-09-08, C-61). PUBLIC_IMAGE_CDN=false is the
+          # escape hatch for a zone without it.
 
       - name: Deploy to Cloudflare Workers
         uses: cloudflare/wrangler-action@v4
@@ -181,8 +181,12 @@ jobs:
         # serving the new release rather than the old one. Advisory here for
         # the 403 reason above — the poll skips itself with a note when the
         # edge blocks this runner instead of burning the budget.
+        #
+        # `--expect-transform` requires a homepage /cdn-cgi/image/ URL to
+        # answer as an image — the zone has Resizing since 2026-09-08 (C-61),
+        # so a deploy that broke the transform markup fails loudly here.
         continue-on-error: true
-        run: npm run smoke -- https://sdatygerberg.co.za --expect-version "${{ steps.version.outputs.version }}" --wait-version 180
+        run: npm run smoke -- https://sdatygerberg.co.za --expect-version "${{ steps.version.outputs.version }}" --wait-version 180 --expect-transform
 
       # Only after Cloudflare has accepted the deploy. Tagging first would leave
       # a tag claiming to be live when the deploy failed, which is worse than no

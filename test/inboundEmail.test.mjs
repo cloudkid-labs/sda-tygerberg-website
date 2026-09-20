@@ -2,7 +2,7 @@ import { strict as assert } from 'node:assert';
 import { test, describe } from 'node:test';
 import { handleInboundEmail } from '../src/worker/inboundEmail.ts';
 
-const CHURCH = 'sdatygerbergkerk@gmail.com';
+const CHURCH = 'sdatygerbergklerk@gmail.com';
 const ARCHIVE = 'archive@sdatygerberg.co.za';
 
 /** A `ForwardableEmailMessage` stand-in that records what was attempted. */

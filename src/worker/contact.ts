@@ -244,15 +244,19 @@ export async function handleContact(request: Request, env: ContactEnv): Promise<
 
   const { via, consentStored } = await deliver(env, clean, lang);
 
-  // Structured log line — addresses and outcomes only, never field values
-  // (the submission is personal data; C-20). The tail is this channel's
-  // entire diagnostic surface, and correlate-ability beats ad-hoc prints:
-  // one greppable line per submission, matching the inbound-mail format.
+  // Structured log lines — addresses and outcomes only, never field values
+  // (the submission is personal data; C-20). Three lines per enquiry, each
+  // greppable by its prefix:
+  //   `contact: `        the channel decision + consent state
+  //   `contact send: …`  the email hop's own begin/end/failure (contactEmail.ts)
+  // The tail is this channel's entire diagnostic surface.
   console.log(
     `contact: outcome=${via ? 'forwarded' : 'forward-error'} via=${via ?? 'none'}` +
       ` consentStored=${consentStored ?? 'unbound'}` +
       ` consentBinding=${env.CONSENT ? 'bound' : 'unbound'}` +
-      ` emailBinding=${env.EMAIL ? 'bound' : 'unbound'}`,
+      ` emailBinding=${env.EMAIL ? 'bound' : 'unbound'}` +
+      ` webhookBinding=${env.CONTACT_WEBHOOK_URL ? 'bound' : 'unbound'}` +
+      ` turnstile=${env.TURNSTILE_SECRET_KEY ? 'enforced' : 'absent'}`,
   );
 
   return via

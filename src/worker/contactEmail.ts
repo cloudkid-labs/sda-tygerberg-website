@@ -99,15 +99,26 @@ export async function sendContactEmail(
   const { EMAIL, CONTACT_EMAIL_TO, CONTACT_EMAIL_FROM, CONTACT_EMAIL_BCC } = env;
   if (!EMAIL || !CONTACT_EMAIL_TO || !CONTACT_EMAIL_FROM) return false;
 
+  const startedAt = Date.now();
   const label = TOPIC_LABELS[fields.topic as ContactTopic] ?? 'Navraag';
 
+  console.log(
+    `contact send: start to=${CONTACT_EMAIL_TO} from=${CONTACT_EMAIL_FROM}` +
+      ` bcc=${CONTACT_EMAIL_BCC ?? 'unset'} topic=${fields.topic}` +
+      ` replyTo=${fields.email ? 'set' : 'unset'}` +
+      ` record=${recordId ?? 'absent'}`,
+  );
   try {
     await EMAIL.send({
       to: CONTACT_EMAIL_TO,
       from: CONTACT_EMAIL_FROM,
       // Omitted entirely when unset — an empty string would be a malformed
       // recipient rather than "no recipient".
-      ...(CONTACT_EMAIL_BCC ? { bcc: CONTACT_EMAIL_BCC } : {}),
+      // BCC accepts an array (Workers send binding, doc: EmailMessageBuilder).
+      // Split on commas so the var stays one readable line in wrangler.jsonc.
+      ...(CONTACT_EMAIL_BCC
+        ? { bcc: CONTACT_EMAIL_BCC.split(',').map((s) => s.trim()).filter(Boolean) }
+        : {}),
       subject: `Webwerf — ${label}: ${headerSafe(fields.name, 60)}`,
       // Set only when the visitor gave an address, so replying either reaches
       // them or is visibly impossible — never silently mailing the From alias.
@@ -116,13 +127,19 @@ export async function sendContactEmail(
       ...(fields.email ? { replyTo: fields.email } : {}),
       text: body(fields, submittedAt, recordId),
     });
+    console.log(
+      `contact send: ok in ${Date.now() - startedAt}ms to=${CONTACT_EMAIL_TO}` +
+        ` bccCount=${(CONTACT_EMAIL_BCC ?? '').split(',').filter(Boolean).length}`,
+    );
     return true;
   } catch (error) {
     // Logged for the observability tail. The code and message only — the
     // submission itself is personal data and does not belong in logs (C-20).
     const code = (error as { code?: string })?.code ?? 'unknown';
     const message = (error as { message?: string })?.message ?? '';
-    console.error(`contact email failed: ${code} ${message}`);
+    console.error(
+      `contact send: FAILED in ${Date.now() - startedAt}ms code=${code} detail=${message}`,
+    );
     return false;
   }
 }

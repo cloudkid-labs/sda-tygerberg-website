@@ -66,11 +66,11 @@ them in the dashboard, or with `wrangler secret put`.
 |---|---|---|
 | `LIVE_CHECK_CRON` | `* 9-12 * * 6` | When the LIVE badge may spend quota, read as a *window*. Saturdays 09:00–12:59, covering the 09:00–12:30 stream. **Keep the minute field `*`** ([C-14](./CONCERNS.md#c-14--live_check_cron-is-a-window-not-a-schedule)). |
 | `LIVE_CHECK_TZ` | `Africa/Johannesburg` | Timezone the window is evaluated in |
-| `CONTACT_EMAIL_TO` | `sdatygerbergkerk@gmail.com` | Where `/api/contact` emails — the church's real mailbox. Must be a **verified destination address** |
+| `CONTACT_EMAIL_TO` | `sdatygerbergklerk@gmail.com` | Where `/api/contact` emails — the church's real mailbox. Must be a **verified destination address** |
 | `CONTACT_EMAIL_FROM` | `welkom@sdatygerberg.co.za` | From address (DKIM-aligned via cf-bounce selectors) — the church replies to the enquirer via Reply-To |
 | `CONTACT_EMAIL_BCC` | `archive@sdatygerberg.co.za` | Archive copy BCC of every enquiry: the literal rule at `archive@` hands it to `cloudkid-link-r2-explorer`, which files it in R2. Also listed in `allowed_destination_addresses` |
 | `TURNSTILE_HOSTNAMES` | `sdatygerberg.co.za` (devtest: `tygerberg-sda.cloudkid.link`) | Hostnames siteverify must echo back; tokens minted on any other domain are refused. Unset disables the hostname check |
-| `MAIL_FORWARD_TO` | `sdatygerbergkerk@gmail.com` | Inbound mail: the zone's catch-all hands every address to the Worker, which forwards a copy here. Must be a verified destination address — a failure **rejects** the message so the sender learns |
+| `MAIL_FORWARD_TO` | `sdatygerbergklerk@gmail.com` | Inbound mail: the zone's catch-all hands every address to the Worker, which forwards a copy here. Must be a verified destination address — a failure **rejects** the message so the sender learns |
 | `MAIL_ARCHIVE_TO` | `archive@sdatygerberg.co.za` | The second, best-effort copy of every inbound message: a literal routing rule sends this address to `cloudkid-link-r2-explorer`, which files it in R2 |
 
 There is deliberately no `CONTACT_EMAIL_BCC`: it used to archive a copy to an

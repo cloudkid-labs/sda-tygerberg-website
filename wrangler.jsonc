@@ -95,7 +95,7 @@
     // old BCC went to an unread Worker inbox and could fail the whole send on
     // the free path (C-31); this one goes to archive@, which is verified and
     // terminates in R2 storage — the loop-safe shape C-65 describes.
-    "CONTACT_EMAIL_TO": "sdatygerbergkerk@gmail.com",
+    "CONTACT_EMAIL_TO": "sdatygerbergklerk@gmail.com",
     "CONTACT_EMAIL_FROM": "welkom@sdatygerberg.co.za",
     // Archive copy: the same message BCC'd to archive@sdatygerberg.co.za,
     // whose literal routing rule hands it to the r2-explorer Worker and into
@@ -116,7 +116,7 @@
     // MAIL_FORWARD_TO is the delivery: when it fails the message is rejected,
     // so the sender learns. MAIL_ARCHIVE_TO is best-effort — by the time it is
     // attempted the church copy has already gone.
-    "MAIL_FORWARD_TO": "sdatygerbergkerk@gmail.com",
+    "MAIL_FORWARD_TO": "sdatygerbergklerk@gmail.com",
     "MAIL_ARCHIVE_TO": "archive@sdatygerberg.co.za"
   },
   // Lets /api/contact email the church directly.
@@ -134,7 +134,7 @@
   "send_email": [
     {
       "name": "EMAIL",
-      "allowed_destination_addresses": ["sdatygerbergkerk@gmail.com", "archive@sdatygerberg.co.za", "rainiersvn1@gmail.com"],
+      "allowed_destination_addresses": ["sdatygerbergklerk@gmail.com", "archive@sdatygerberg.co.za", "rainiersvn1@gmail.com"],
       "allowed_sender_addresses": ["welkom@sdatygerberg.co.za"]
     }
   ],

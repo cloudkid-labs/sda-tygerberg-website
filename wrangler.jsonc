@@ -100,7 +100,20 @@
     "CONTACT_EMAIL_TO": "welkom@sdatygerberg.co.za",
     "CONTACT_EMAIL_FROM": "welkom@sdatygerberg.co.za",
     // Hostnames siteverify must echo back for /api/contact tokens — C-21.
-    "TURNSTILE_HOSTNAMES": "sdatygerberg.co.za"
+    "TURNSTILE_HOSTNAMES": "sdatygerberg.co.za",
+
+    // Inbound mail. Email Routing's catch-all for sdatygerberg.co.za hands
+    // every address to this Worker; `inboundEmail.ts` forwards one copy to
+    // each address below. Both must be **verified destination addresses** on
+    // the account, and MAIL_ARCHIVE_TO must also have the literal routing rule
+    // SETUP-INSTRUCTIONS §6.6 describes — out of step, that hop fails and is
+    // logged. CONCERNS.md C-65.
+    //
+    // MAIL_FORWARD_TO is the delivery: when it fails the message is rejected,
+    // so the sender learns. MAIL_ARCHIVE_TO is best-effort — by the time it is
+    // attempted the church copy has already gone.
+    "MAIL_FORWARD_TO": "sdatygerbergkerk@gmail.com",
+    "MAIL_ARCHIVE_TO": "archive@sdatygerberg.co.za"
   },
   // Lets /api/contact email the church directly.
   //

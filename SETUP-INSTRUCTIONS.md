@@ -540,6 +540,44 @@ prints From/To/Subject to the terminal and writes the body to
 no verified address, nothing leaves the machine — and you can read exactly what
 the church would receive.
 
+### 6.6 Inbound mail for the whole domain
+
+§6.1–6.5 cover *outbound* mail. The other direction is one Worker with two
+forwards: the `sdatygerberg.co.za` zone's **catch-all** routes every address —
+`welkom@`, `tesourier@`, anything — to the production Worker, whose `email()`
+handler (`src/worker/inboundEmail.ts`) makes two copies.
+
+1. **The church inbox** — `MAIL_FORWARD_TO`. The delivery: if it fails, the
+   message is *rejected*, so the sender gets a bounce.
+2. **The archive** — `MAIL_ARCHIVE_TO`, a local address that a **literal
+   routing rule** fires at the `cloudkid-link-r2-explorer` Worker. That Worker
+   files mail in R2 and does nothing else,
+   which is what keeps a second pass through Email Routing from being a loop.
+   A failure here is logged, not fatal — the church copy has already gone.
+
+Both addresses are vars in `wrangler.jsonc` (a deploy carries them) and both
+must be **verified destination addresses** on the account, or `forward()`
+throws. Wiring it up from scratch:
+
+1. Verify both addresses — §6.1's flow.
+2. Add the literal rule: `archive@` → *Send to a Worker* →
+   `cloudkid-link-r2-explorer`.
+3. Point the catch-all at the Worker: *Send to a Worker* →
+   `tygerberg-sda-website`.
+4. Deploy. No secrets, no dashboard vars.
+
+Out of step, two things show up — both only in
+`wrangler tail tygerberg-sda-website`, which is this path's entire diagnostic
+surface (the same lesson as C-64): `inbound mail: forward to <address> failed:
+<reason>` for a lost verification or a missing archive rule, and a bounced
+message at the sender when the church copy itself failed. If the archive rule
+is deleted, mail to `archive@` falls to the catch-all and reaches the handler
+again — the guard in `inboundEmail.ts` refuses to re-post it to itself, so that
+failure is logged rather than looping.
+
+Devtest never receives mail: nothing routes to it, and it carries no `MAIL_*`
+vars, so an unconfigured handler refuses rather than guessing a destination.
+
 ---
 
 ## 7. Verifying the setup

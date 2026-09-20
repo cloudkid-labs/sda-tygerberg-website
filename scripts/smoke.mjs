@@ -108,6 +108,17 @@ const UA =
 const REQUEST_TIMEOUT_MS = 10_000;
 
 /*
+ * An edge that challenges the runner by IP (GitHub Actions ranges get bot
+ * treatment like any other datacenter) used to red healthy deployments. When
+ * SMOKE_TOKEN is set the requests carry it, and a zone WAF rule skips the
+ * challenge for matching requests — the check runs against what real visitors
+ * get, not against what the edge does to one datacenter's worth of IPs. The
+ * token is compared in the WAF expression, not in code: the value never has
+ * to live anywhere but the workflow secret and the rule.
+ */
+const smokeToken = process.env.SMOKE_TOKEN;
+
+/*
  * A whole-run deadline on top of the per-request one, because the per-request
  * timeout alone is not a useful bound: 14 URLs x 4 attempts x 10s is over nine
  * minutes, and the workflow would kill the step before it said anything. Past
@@ -138,7 +149,7 @@ async function get(path, init = {}) {
         redirect: 'follow',
         signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
         ...init,
-        headers: { 'User-Agent': UA, ...(init.headers ?? {}) },
+        headers: { 'User-Agent': UA, ...(smokeToken ? { 'X-Smoke-Token': smokeToken } : {}), ...(init.headers ?? {}) },
       });
       if (res.status !== 403 && res.status !== 429 && res.status < 500) return res;
       last = new Error(`HTTP ${res.status}`);

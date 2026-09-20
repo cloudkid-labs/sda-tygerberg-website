@@ -99,4 +99,6 @@ jobs:
         # --expect-noindex: this build is the preview, so the check fails if the
         # noindex meta is missing (a preview that would compete with production,
         # C-23/C-61). The canonical-host check runs regardless.
+        env:
+          SMOKE_TOKEN: ${{ secrets.SMOKE_TOKEN }}
         run: npm run smoke -- https://tygerberg-sda.cloudkid.link --expect-noindex --expect-version "$(node -p 'require("./package.json").version')" --wait-version 180 --expect-transform

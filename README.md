@@ -69,6 +69,8 @@ them in the dashboard, or with `wrangler secret put`.
 | `CONTACT_EMAIL_TO` | `welkom@sdatygerberg.co.za` | Where `/api/contact` emails. Must be a **verified destination address** on the church's own zone, and must reach a person — Email Routing forwards this one to an inbox |
 | `CONTACT_EMAIL_FROM` | `welkom@sdatygerberg.co.za` | From address. `sdatygerberg.co.za` must be onboarded to Cloudflare Email Service (SETUP-INSTRUCTIONS §6.2) before this From works — sending from an un-onboarded domain is rejected |
 | `TURNSTILE_HOSTNAMES` | `sdatygerberg.co.za` (devtest: `tygerberg-sda.cloudkid.link`) | Hostnames siteverify must echo back; tokens minted on any other domain are refused. Unset disables the hostname check |
+| `MAIL_FORWARD_TO` | `sdatygerbergkerk@gmail.com` | Inbound mail: the zone's catch-all hands every address to the Worker, which forwards a copy here. Must be a verified destination address — a failure **rejects** the message so the sender learns |
+| `MAIL_ARCHIVE_TO` | `archive@sdatygerberg.co.za` | The second, best-effort copy of every inbound message: a literal routing rule sends this address to `cloudkid-link-r2-explorer`, which files it in R2 |
 
 There is deliberately no `CONTACT_EMAIL_BCC`: it used to archive a copy to an
 unread Worker inbox, where it could fail the whole send on the free path
@@ -76,6 +78,12 @@ unread Worker inbox, where it could fail the whole send on the free path
 `contactEmail.ts` still honours one if set as a Worker secret — re-add the
 address to `allowed_destination_addresses` at the same time or the send is
 rejected.
+
+The two `MAIL_*` vars are the **inbound** side of the same problem — one
+catch-all, one Worker, two forwards. See CONCERNS.md
+[C-65](./CONCERNS.md#c-65--inbound-mail-is-one-catch-all-two-forwards-and-a-stored-copy)
+and SETUP-INSTRUCTIONS §6.6; the failure modes are logged to the Worker's tail
+and visible nowhere else.
 
 Changing the address means changing it in **three** places in
 `wrangler.jsonc` — the `vars` block and both lists of the `send_email`

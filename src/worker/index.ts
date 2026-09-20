@@ -5,10 +5,12 @@ import { getLiveStatusCached } from './liveStatusCache';
 import { getLatestVideoCached, LATEST_VIDEO_CACHE_SECONDS, type LatestVideoEnv } from './latestVideo';
 import { handleContact, type ContactEnv } from './contact';
 import { healthResponse } from './health';
+import { handleInboundEmail, type InboundEmailEnv } from './inboundEmail';
 
 export type Env = LiveStatusEnv &
   LatestVideoEnv &
-  ContactEnv & {
+  ContactEnv &
+  InboundEmailEnv & {
     ASSETS: Fetcher;
   };
 
@@ -100,5 +102,16 @@ export default {
     }
 
     return env.ASSETS.fetch(request);
+  },
+
+  /**
+   * Inbound mail. The zone's catch-all routes every address on
+   * sdatygerberg.co.za here; the handler forwards a copy to the church and one
+   * to the R2 archive. See `inboundEmail.ts` for why the archive is a second
+   * hop through Email Routing — and CONCERNS.md C-65 for the routing this
+   * depends on, none of which is visible from this code.
+   */
+  async email(message: ForwardableEmailMessage, env: Env): Promise<void> {
+    await handleInboundEmail(message, env);
   },
 };

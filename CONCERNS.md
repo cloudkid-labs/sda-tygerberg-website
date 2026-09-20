@@ -1579,3 +1579,39 @@ Operating rules:
   success state.
 - Keep the `contact email failed:` log line: it is the channel's entire
   diagnostic surface.
+
+### C-65 — Inbound mail is one catch-all, two forwards and a stored copy
+
+The church domain now receives mail through this Worker. The zone's catch-all
+hands every address on `sdatygerberg.co.za` to it, and `inboundEmail.ts` fans
+each message out to two copies:
+
+- **The church inbox** (`MAIL_FORWARD_TO`) is the delivery. When that forward
+  throws, the message is **rejected** — the sender gets a bounce rather than
+  the mail disappearing into two systems that both report healthy. C-64 is the
+  same lesson from the other direction: an unverified destination address is a
+  silent failure, so the one failure mode that cannot be made visible is the
+  one that must not be silent.
+- **The archive** (`MAIL_ARCHIVE_TO`) is a best-effort second copy. A Worker
+  cannot invoke another Worker's `email()` handler, so this hop is an *address
+  with a literal routing rule behind it*: the rule fires `archive@` at the
+  `cloudkid-link-r2-explorer` Worker, which files the message in R2 and does
+  nothing else. "Does nothing else" is load-bearing — the second pass through
+  Email Routing terminates in storage
+  rather than looping. A failure here is logged and not fatal; the church copy
+  has already gone by then.
+
+Three things this depends on are invisible from this repo: both addresses must
+be **verified destination addresses** on the account (`forward()` throws to
+anything else), the archive's literal rule must exist, and the catch-all must
+point at this Worker. None of it is checked by typecheck, tests, build, deploy
+or the smoke runs — the entire diagnostic surface is `wrangler tail
+tygerberg-sda-website`, where a bad hop reads `inbound mail: forward to
+<address> failed: <reason>`.
+
+Devtest refuses by construction: no `MAIL_*` vars (C-61's rule that a preview
+never mails the church), so the handler rejects rather than guessing.
+
+`test/inboundEmail.test.mjs` holds the wiring's invariants: a failed church
+copy rejects, a failed archive does not, and mail addressed to the archive is
+never re-posted to itself. Reproducing the routing: SETUP-INSTRUCTIONS §6.6.

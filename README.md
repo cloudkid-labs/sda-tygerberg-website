@@ -68,6 +68,7 @@ them in the dashboard, or with `wrangler secret put`.
 | `LIVE_CHECK_TZ` | `Africa/Johannesburg` | Timezone the window is evaluated in |
 | `CONTACT_EMAIL_TO` | `welkom@sdatygerberg.co.za` | Where `/api/contact` emails. Must be a **verified destination address** on the church's own zone, and must reach a person — Email Routing forwards this one to an inbox |
 | `CONTACT_EMAIL_FROM` | `welkom@sdatygerberg.co.za` | From address. `sdatygerberg.co.za` must be onboarded to Cloudflare Email Service (SETUP-INSTRUCTIONS §6.2) before this From works — sending from an un-onboarded domain is rejected |
+| `CONTACT_EMAIL_BCC` | `archive@sdatygerberg.co.za` | Archive copy BCC of every enquiry: the literal rule at `archive@` hands it to `cloudkid-link-r2-explorer`, which files it in R2. Also listed in `allowed_destination_addresses` |
 | `TURNSTILE_HOSTNAMES` | `sdatygerberg.co.za` (devtest: `tygerberg-sda.cloudkid.link`) | Hostnames siteverify must echo back; tokens minted on any other domain are refused. Unset disables the hostname check |
 | `MAIL_FORWARD_TO` | `sdatygerbergkerk@gmail.com` | Inbound mail: the zone's catch-all hands every address to the Worker, which forwards a copy here. Must be a verified destination address — a failure **rejects** the message so the sender learns |
 | `MAIL_ARCHIVE_TO` | `archive@sdatygerberg.co.za` | The second, best-effort copy of every inbound message: a literal routing rule sends this address to `cloudkid-link-r2-explorer`, which files it in R2 |

@@ -159,6 +159,11 @@ async function deliver(
   if (await sendContactEmail(env, clean, submittedAt, storedId)) {
     return { via: 'email', consentStored };
   }
+  // Not a silent fallback: the send error itself was already logged inside
+  // sendContactEmail (code + message, no field values). This line records
+  // that the *email* channel failed and delivery is trying the webhook — the
+  // gap worth one grep when neither channel arrives.
+  console.error('contact: email channel failed, trying webhook fallback');
 
   if (env.CONTACT_WEBHOOK_URL) {
     const sent = await forward(env.CONTACT_WEBHOOK_URL, {
@@ -238,6 +243,17 @@ export async function handleContact(request: Request, env: ContactEnv): Promise<
   }
 
   const { via, consentStored } = await deliver(env, clean, lang);
+
+  // Structured log line — addresses and outcomes only, never field values
+  // (the submission is personal data; C-20). The tail is this channel's
+  // entire diagnostic surface, and correlate-ability beats ad-hoc prints:
+  // one greppable line per submission, matching the inbound-mail format.
+  console.log(
+    `contact: outcome=${via ? 'forwarded' : 'forward-error'} via=${via ?? 'none'}` +
+      ` consentStored=${consentStored ?? 'unbound'}` +
+      ` consentBinding=${env.CONSENT ? 'bound' : 'unbound'}` +
+      ` emailBinding=${env.EMAIL ? 'bound' : 'unbound'}`,
+  );
 
   return via
     ? json({ ok: true, outcome: 'forwarded', via, consentStored }, 200)

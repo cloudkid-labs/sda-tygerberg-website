@@ -69,7 +69,7 @@ describe('handleInboundEmail', () => {
     );
     assert.deepEqual(m.attempted, [CHURCH]);
     assert.equal(m.rejections.length, 1);
-    assert.match(logged.join('\n'), /forward to sdatygerbergkerk@gmail\.com failed/);
+    assert.match(logged.join('\n'), /forward to sdatygerbergklerk@gmail\.com failed/);
   });
 
   test('keeps the mail, and does not reject, when only the archive hop fails', async () => {

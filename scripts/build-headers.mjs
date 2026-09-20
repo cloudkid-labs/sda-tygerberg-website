@@ -99,7 +99,11 @@ const CSP = [
   // embed URL). Deliberately the ONLY Google host here: on a looping network
   // the probe's redirect leaves this allowlist, the fetch rejects, and that
   // rejection IS the verdict the card wants (C-60).
-  "connect-src 'self' https://www.youtube.com",
+  // unpkg.com serves Leaflet's own sourcemap (leaflet.js.map) — the map on
+  // /connect/ fetches it under a browser sourcemapilot load, which is a
+  // connect, not a script, so it needs connect-src, not script-src (where
+  // unpkg is already allowed for the Leaflet script itself).
+  "connect-src 'self' https://www.youtube.com https://unpkg.com",
   // 'self' is /map/; youtube-nocookie.com is where the embed is served from.
   // challenges.cloudflare.com is the Turnstile iframe on the two form pages.
   //

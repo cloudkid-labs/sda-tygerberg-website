@@ -2,7 +2,7 @@ import { strict as assert } from 'node:assert';
 import { test, describe } from 'node:test';
 import { handleInboundEmail } from '../src/worker/inboundEmail.ts';
 
-const CHURCH = 'sdatygerbergkerk@gmail.com';
+const CHURCH = 'sdatygerbergklerk@gmail.com';
 const ARCHIVE = 'archive@sdatygerberg.co.za';
 
 /** A `ForwardableEmailMessage` stand-in that records what was attempted. */
@@ -69,7 +69,7 @@ describe('handleInboundEmail', () => {
     );
     assert.deepEqual(m.attempted, [CHURCH]);
     assert.equal(m.rejections.length, 1);
-    assert.match(logged.join('\n'), /forward to sdatygerbergkerk@gmail\.com failed/);
+    assert.match(logged.join('\n'), /forward to sdatygerbergklerk@gmail\.com failed/);
   });
 
   test('keeps the mail, and does not reject, when only the archive hop fails', async () => {

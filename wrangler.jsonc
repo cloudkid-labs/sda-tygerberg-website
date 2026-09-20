@@ -130,7 +130,11 @@
   "send_email": [
     {
       "name": "EMAIL",
+<<<<<<< HEAD
       "allowed_destination_addresses": ["sdatygerbergkerk@gmail.com"],
+=======
+      "allowed_destination_addresses": ["welkom@sdatygerberg.co.za"],
+>>>>>>> origin/main
       "allowed_sender_addresses": ["welkom@sdatygerberg.co.za"]
     }
   ],

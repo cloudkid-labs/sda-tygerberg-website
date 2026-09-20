@@ -186,6 +186,8 @@ jobs:
         # answer as an image — the zone has Resizing since 2026-09-08 (C-61),
         # so a deploy that broke the transform markup fails loudly here.
         continue-on-error: true
+        env:
+          SMOKE_TOKEN: ${{ secrets.SMOKE_TOKEN }}
         run: npm run smoke -- https://sdatygerberg.co.za --expect-version "${{ steps.version.outputs.version }}" --wait-version 180 --expect-transform
 
       # Only after Cloudflare has accepted the deploy. Tagging first would leave

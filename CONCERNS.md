@@ -1635,6 +1635,13 @@ reads it back. If that ever stops being true — a visitor database, a blocklist
 analytics — the purpose and retention question belongs in SETUP-INSTRUCTIONS
 beside the consent bucket's, not improvised in a log call.
 
+The entry is JSON, with `level: "log"` stated in the payload and the fields at
+the top level. Two reasons: Workers Logs indexes the fields of a JSON log, so
+the dashboard can filter by `ip` or `status` rather than searching text; and a
+level that is written down does not depend on which console method the code
+happened to call. `message` carries the readable line, so the tail still reads
+like a sentence.
+
 Two properties make the line safe to read. The query string is dropped, because
 it can carry a token. And the user agent is newline-stripped and clipped to 100
 characters, so a crafted header cannot forge a second line in the tail — the

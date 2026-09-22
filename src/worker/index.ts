@@ -6,7 +6,7 @@ import { getLatestVideoCached, LATEST_VIDEO_CACHE_SECONDS, type LatestVideoEnv }
 import { handleContact, type ContactEnv } from './contact';
 import { healthResponse } from './health';
 import { handleInboundEmail, type InboundEmailEnv } from './inboundEmail';
-import { requestFacts, requestLogLine } from './requestLog';
+import { requestFacts, requestLogEntry } from './requestLog';
 
 export type Env = LiveStatusEnv &
   LatestVideoEnv &
@@ -35,7 +35,7 @@ export default {
   async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
     const started = Date.now();
     const response = await route(request, env, ctx);
-    console.log(requestLogLine(requestFacts(request, response.status, Date.now() - started)));
+    console.log(requestLogEntry(requestFacts(request, response.status, Date.now() - started)));
     return response;
   },
 

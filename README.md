@@ -166,6 +166,8 @@ the version numbers as a guide to what changed.
 
 ### Cutting a release
 
+The operational checklist is [RELEASE.md](./RELEASE.md); this section is the why.
+
 Bump in the `dev` → `main` promotion PR:
 
 ```sh

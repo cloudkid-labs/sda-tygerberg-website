@@ -266,10 +266,10 @@ Every request leaves one entry in Workers Logs (`wrangler tail
 tygerberg-sda-website`): connecting address, country, colo, host, method, path,
 status, wall time, ray id, and a clipped user agent. It is written after the
 response, so it carries the status and the duration, and `run_worker_first` is
-`/*` so that it sees every path rather than only the API. The entry is JSON —
-`level` is `log` in the payload rather than inferred from the console method,
-and the fields sit at the top level so the dashboard can filter on `ip` or
-`status` instead of searching text. This is the only place a visitor's address
+`/*` so that it sees every path rather than only the API. The entry is an
+object, not a string — Workers Logs extracts the fields of a logged object, so
+`ip` and `status` are filterable columns rather than text to search, and `level`
+is `log` in the payload rather than inferred from the console method. This is the only place a visitor's address
 is visible — analytics counts, it does not name — and nothing is stored: the
 entry lives in Workers Logs and is never read back
 ([C-66](./CONCERNS.md#c-66--every-request-logs-the-visitors-address)).

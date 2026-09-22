@@ -113,13 +113,14 @@ describe('requestLogLine', () => {
 });
 
 describe('requestLogEntry', () => {
-  test('states its level, rather than leaving it to the console method', () => {
-    const entry = JSON.parse(requestLogEntry(requestFacts(cfRequest(), 200, 12)));
+  test('is an object — Workers Logs indexes fields, not prose', () => {
+    const entry = requestLogEntry(requestFacts(cfRequest(), 200, 12));
+    assert.equal(typeof entry, 'object');
     assert.equal(entry.level, 'log');
   });
 
-  test('the fields are top-level, so Workers Logs can index them', () => {
-    const entry = JSON.parse(requestLogEntry(requestFacts(cfRequest(), 404, 3)));
+  test('carries the fields at the top level', () => {
+    const entry = requestLogEntry(requestFacts(cfRequest(), 404, 3));
     assert.equal(entry.ip, '196.210.35.123');
     assert.equal(entry.country, 'ZA');
     assert.equal(entry.status, 404);
@@ -127,7 +128,7 @@ describe('requestLogEntry', () => {
     assert.match(entry.message, /^request: ip=196\.210\.35\.123 /);
   });
 
-  test('a forged user agent cannot break the line, escapes included', () => {
+  test('serialises to one line whatever the visitor sends', () => {
     const forged = {
       url: 'https://sdatygerberg.co.za/',
       method: 'GET',
@@ -136,8 +137,8 @@ describe('requestLogEntry', () => {
           name === 'user-agent' ? 'curl/8\nrequest: ip=10.0.0.1 country=XX' : null,
       },
     };
-    const entry = requestLogEntry(requestFacts(forged, 200, 1));
-    assert.equal(entry.split('\n').length, 1);
-    assert.equal(JSON.parse(entry).level, 'log');
+    const line = JSON.stringify(requestLogEntry(requestFacts(forged, 200, 1)));
+    assert.equal(line.split('\n').length, 1);
+    assert.equal(JSON.parse(line).level, 'log');
   });
 });

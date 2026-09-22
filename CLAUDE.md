@@ -20,6 +20,12 @@ PRs merge to `dev` by squash, which rewrites the commit. Reset the working
 branch onto `origin/dev` after each merge — carrying the pre-squash commit into
 the next PR conflicts every time.
 
+Promotions to `main` are the exception: `dev` → `main` merges with a **merge
+commit**, never a squash, so `main` fast-forwards onto `dev`'s commit and the two
+branches stay identical. Squashing a promotion rewrites `dev`'s commits and the
+branches drift. The version bump belongs on `dev`, in its own `Release vX.Y.Z`
+PR — see RELEASE.md.
+
 ```sh
 git checkout -B <branch> origin/dev
 ```

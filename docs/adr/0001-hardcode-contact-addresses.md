@@ -106,3 +106,20 @@ repository is private, `welkom@` is a role address rather than a personal
 inbox, and the From header is public in every email the system sends
 regardless; publishing it in a private repo adds no exposure. The
 `send_email` fence stays — it still bounds what a Worker bug could mail.
+
+## Amendment (2026-09-22)
+
+The addresses have moved again and the decision still stands, with one caveat
+worth recording rather than rediscovering:
+
+| Var | Now |
+|---|---|
+| `CONTACT_EMAIL_TO` | `sdatygerbergklerk@gmail.com` — the church's own mailbox, not an operator alias |
+| `CONTACT_EMAIL_FROM` | `welkom@sdatygerberg.co.za` |
+| `CONTACT_EMAIL_BCC` | `archive@sdatygerberg.co.za, rainiersvn1@gmail.com` |
+
+Revisit trigger 1 is now genuinely live: `CONTACT_EMAIL_TO` is a church inbox, and
+a Gmail address in committed config is the most scrape-prone value in this repo.
+It is tolerated only because the repository is **private**. If it is ever made
+public, these move to Worker secrets before that happens — not after — and the
+fence comes down with them, per the reversal above.

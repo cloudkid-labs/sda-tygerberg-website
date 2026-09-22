@@ -370,7 +370,9 @@ this entry change with it.
 Footnote: v1.6.3 shipped the minimized shape anyway — the promotion merge
 silently favored main where dev matched the old merge-base (`-X ours` only
 arbitrates conflicting hunks, and chaining push+merge past a red check is how
-it shipped). Merging main into dev did not advance the merge-base (squash
+it shipped). That failure mode is closed: promotions are merge commits now, so
+`main` and `dev` share ancestry and a promotion cannot quietly revert a file
+(RELEASE.md). Merging main into dev did not advance the merge-base (squash
 merges discard ancestry), so this file was resolved by hand on the promotion;
 once main carries the full format, both sides agree and it stays quiet. Any
 minimal-shape records in the bucket date from the v1.6.3 window.
@@ -1193,6 +1195,11 @@ without ever hitting this code."
 So the fix is one entry: `["/api/*", "/images/hod/*", "!/images/hod/fallback/*"]`.
 **Adding a route to `src/worker/index.ts` now means adding its path here too.**
 Nothing in the type system or the build connects the two.
+
+The list is `["/*", "!/images/hod/fallback/*"]` today: C-66 widened it so the
+request log sees every path, including the ones the asset store answers before
+the Worker would otherwise run. The rule above is what this entry is about — the
+array is the whole set, so the negative pattern is doing real work.
 
 The second failure was the Content-Security-Policy from C-48, and the fix for it
 was wrong. The console said `Framing 'https://www.google.com/' violates ...`, so

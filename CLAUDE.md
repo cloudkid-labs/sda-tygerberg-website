@@ -21,9 +21,10 @@ branch onto `origin/dev` after each merge — carrying the pre-squash commit int
 the next PR conflicts every time.
 
 Promotions to `main` are the exception: `dev` → `main` merges with a **merge
-commit**, never a squash, so `main` fast-forwards onto `dev`'s commit and the two
-branches stay identical. Squashing a promotion rewrites `dev`'s commits and the
-branches drift. The version bump belongs on `dev`, in its own `Release vX.Y.Z`
+commit**, never a squash. Squashing rewrites `dev`'s commits and the branches
+drift. The merge puts `main` one commit ahead, so finish by fast-forwarding
+`dev` onto it — `git push origin origin/main:dev` — and the two branches sit on
+the same commit. The version bump belongs on `dev`, in its own `Release vX.Y.Z`
 PR — see RELEASE.md.
 
 ```sh

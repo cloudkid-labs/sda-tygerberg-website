@@ -36,12 +36,23 @@ gh pr create --base main --head dev --title "Promote to production: … — vX.Y
 gh pr merge --merge          # NEVER --squash
 ```
 
-`dev` already contains `main`'s history, so this lands as a **fast-forward**:
-`main` becomes `dev`'s exact commit. Squash it and `dev`'s commits are rewritten
-into a new one on `main`; the histories diverge, and every later compare page
-reads "N behind, M ahead" of commits that exist on neither branch.
+GitHub always writes a merge commit here — it does **not** fast-forward, even
+though `dev` is strictly ahead. So `main` ends one commit in front of `dev`, with
+identical trees. Squash instead and `dev`'s commits are rewritten into a new one
+on `main`; the histories diverge, and every later compare page reads "N behind,
+M ahead" of commits that exist on neither branch.
 
-## 4. Check it
+## 4. Bring `dev` back level
+
+```sh
+git push origin origin/main:dev
+```
+
+`dev` is an ancestor of `main` at this point, so this is a fast-forward and both
+branches end on the same commit — the parity step 5 asserts. The next feature PR
+moves `dev` ahead again, and the next promotion carries it.
+
+## 5. Check it
 
 Merging deploys: build → Cloudflare deploy → prod smoke → **tag + GitHub
 release**. The tag is cut last, so a failed deploy leaves no tag.
@@ -61,9 +72,10 @@ or just-merged PR.
 
 ## Rules that have bitten
 
-- **Parity both ways.** `git diff origin/dev origin/main` empty *and*
-  `git rev-list --count origin/dev..origin/main` zero. If `main` ever carries a
-  commit `dev` does not, back-merge `main` into `dev` before the next promote.
+- **Parity both ways.** `git diff origin/dev origin/main` empty, and
+  `git rev-list --count` zero in *both* directions. The promote leaves `main` one
+  commit ahead by construction, so step 4 is not optional. If `main` ever gets
+  further ahead, back-merge it into `dev` before the next promote.
 - **Never squash a promotion.** Squash is for feature PRs into `dev`. The
   promote is a merge commit precisely so the branches share history.
 - **The version bump lives on `dev`**, not on a promote branch.

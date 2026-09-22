@@ -114,12 +114,12 @@ Set neither and the form submits exactly as before.
 - **`main`** — production. Moves only via a reviewed `dev` → `main` promotion PR;
   merging deploys the production Worker at `sdatygerberg.co.za`.
 
-Promotions merge as **merge commits, never squashes**. `dev` contains `main`'s
-history, so the promotion lands as a fast-forward and both branches end on the
-same commit — `git diff origin/dev origin/main` is empty and
-`git rev-list --count origin/dev..origin/main` is zero. Squashing rewrites
-`dev`'s commits on `main` and the two drift apart for good
-([RELEASE.md](./RELEASE.md)).
+Promotions merge as **merge commits, never squashes** — squash rewrites `dev`'s
+commits on `main` and the two drift apart for good. The merge leaves `main` one
+commit ahead, so the promotion finishes by fast-forwarding `dev` onto it
+(`git push origin origin/main:dev`). Both branches then sit on the same commit:
+`git diff origin/dev origin/main` is empty and `git rev-list --count` is zero in
+both directions ([RELEASE.md](./RELEASE.md)).
 
 | Workflow | Target | Trigger | Build env |
 |---|---|---|---|

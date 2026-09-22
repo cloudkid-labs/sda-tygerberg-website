@@ -1,6 +1,11 @@
 import { strict as assert } from 'node:assert';
 import { test, describe } from 'node:test';
-import { clipUserAgent, requestFacts, requestLogLine } from '../src/worker/requestLog.ts';
+import {
+  clipUserAgent,
+  requestFacts,
+  requestLogEntry,
+  requestLogLine,
+} from '../src/worker/requestLog.ts';
 
 /*
  * The line is the whole feature — nothing reads it back, so a wrong field is
@@ -104,5 +109,35 @@ describe('requestLogLine', () => {
       line,
       /^request: ip=196\.210\.35\.123 country=ZA colo=JNB host=sdatygerberg\.co\.za method=GET path=\/connect\/ status=404 ms=31 ray=[0-9a-f]+-JNB ua=Mozilla\//,
     );
+  });
+});
+
+describe('requestLogEntry', () => {
+  test('states its level, rather than leaving it to the console method', () => {
+    const entry = JSON.parse(requestLogEntry(requestFacts(cfRequest(), 200, 12)));
+    assert.equal(entry.level, 'log');
+  });
+
+  test('the fields are top-level, so Workers Logs can index them', () => {
+    const entry = JSON.parse(requestLogEntry(requestFacts(cfRequest(), 404, 3)));
+    assert.equal(entry.ip, '196.210.35.123');
+    assert.equal(entry.country, 'ZA');
+    assert.equal(entry.status, 404);
+    assert.equal(entry.path, '/connect/');
+    assert.match(entry.message, /^request: ip=196\.210\.35\.123 /);
+  });
+
+  test('a forged user agent cannot break the line, escapes included', () => {
+    const forged = {
+      url: 'https://sdatygerberg.co.za/',
+      method: 'GET',
+      headers: {
+        get: (name) =>
+          name === 'user-agent' ? 'curl/8\nrequest: ip=10.0.0.1 country=XX' : null,
+      },
+    };
+    const entry = requestLogEntry(requestFacts(forged, 200, 1));
+    assert.equal(entry.split('\n').length, 1);
+    assert.equal(JSON.parse(entry).level, 'log');
   });
 });

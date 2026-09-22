@@ -103,3 +103,25 @@ export function requestLogLine(facts: RequestLogFacts): string {
     ` status=${facts.status} ms=${facts.ms} ray=${facts.ray} ua=${facts.ua}`;
   return line.replace(/[\r\n]+/g, ' ');
 }
+
+/**
+ * What actually reaches `console.log`: the same line, wrapped in JSON with an
+ * explicit `level`.
+ *
+ * Two reasons it is not just a string. Workers Logs indexes the *fields* of a
+ * JSON log, so `ip` and `status` become things the dashboard can filter on
+ * rather than text to search; and the level is stated in the payload instead of
+ * being inferred from which console method was called, so the entry is level
+ * `log` by construction rather than by convention. `message` keeps the line a
+ * human can read at a glance in `wrangler tail`.
+ *
+ * `JSON.stringify` escapes newlines, which is a second, independent reason a
+ * crafted header cannot forge a line here regardless of the clipping above.
+ */
+export function requestLogEntry(facts: RequestLogFacts): string {
+  return JSON.stringify({
+    level: 'log',
+    message: requestLogLine(facts),
+    ...facts,
+  });
+}

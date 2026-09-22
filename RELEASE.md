@@ -47,8 +47,11 @@ or just-merged PR.
 
 ## Rules that have bitten
 
-- **`dev` must never lag `main`.** Realign `dev` first — the version, and any
-  code that only ever landed on a promote branch — then promote.
+- **Carry the released number back onto `dev` after each promote.** The bump
+  lives on the promote branch, so `dev` keeps the previous number — and the next
+  promote's `version:patch` then lands on an already-tagged version and fails the
+  guard. Same for content: if a promote branch ever carried code `dev` had not
+  seen, realign `dev` before promoting again.
 - **Cut the promote branch from `dev`.** A `main`-based promote carries work
   `dev` has never seen; the next promote conflicts, or reverts it silently.
 - **Bump the version in the promote PR.** A bump on a feature branch squashes

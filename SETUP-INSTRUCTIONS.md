@@ -95,6 +95,10 @@ Create them if they don't exist, and set **`dev` as the repository's default
 branch** (Settings → General → Default branch) so new PRs target it
 automatically.
 
+Promotions merge as **merge commits**, never squashes, and the version bump
+happens on `dev` — see [RELEASE.md](./RELEASE.md). Squashing a promotion is what
+makes the two branches drift apart.
+
 ### 2.2 Add the Actions secrets
 
 Settings → **Secrets and variables → Actions** → *New repository secret*.

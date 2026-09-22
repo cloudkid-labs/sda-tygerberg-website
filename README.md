@@ -260,6 +260,15 @@ it. Email is tried first and the webhook is the fallback; only one runs per
 submission ([C-31](./CONCERNS.md#c-31--email-is-tried-first-and-the-webhook-is-the-fallback)).
 `not-configured` means *neither* channel is set up.
 
+Every request leaves one line in Workers Logs (`wrangler tail
+tygerberg-sda-website`): connecting address, country, colo, host, method, path,
+status, wall time, ray id, and a clipped user agent. It is written after the
+response, so it carries the status and the duration, and `run_worker_first` is
+`/*` so that it sees every path rather than only the API. This is the only place
+a visitor's address is visible — analytics counts, it does not name — and
+nothing is stored: the line lives in Workers Logs and is never read back
+([C-66](./CONCERNS.md#c-66--every-request-logs-the-visitors-address)).
+
 `/api/contact` verifies a Cloudflare Turnstile token where `TURNSTILE_SECRET_KEY`
 is set, and skips the check where it is not (local dev, devtest) —
 [C-21](./CONCERNS.md#c-21--abuse-protection-is-cloudflares-and-it-is-off-by-default).

@@ -1615,3 +1615,28 @@ never mails the church), so the handler rejects rather than guessing.
 `test/inboundEmail.test.mjs` holds the wiring's invariants: a failed church
 copy rejects, a failed archive does not, and mail addressed to the archive is
 never re-posted to itself. Reproducing the routing: SETUP-INSTRUCTIONS §6.6.
+
+### C-66 — Every request logs the visitor's address
+
+`src/worker/requestLog.ts` writes one line per request: the connecting address,
+country, colo, host, method, path, status, wall time, ray id, and a clipped user
+agent. `run_worker_first` is `["/*"]` because of it — the asset store answers a
+static hit *before* the Worker would otherwise be invoked, so any narrower list
+logs only the API paths and the log loses the one thing it exists for. The bill
+is real: every asset request is a Worker invocation now, where the list
+deliberately kept pages and images off the script before (C-51, C-60). That is a
+considered trade at this traffic, and the reversal is one line — narrow the list
+back and the log narrows with it.
+
+An IP address is personal information under POPIA. The line is printed to
+Workers Logs and to `wrangler tail`, retained by Cloudflare on this account's
+behalf and then dropped: nothing here stores it, matches it across requests, or
+reads it back. If that ever stops being true — a visitor database, a blocklist,
+analytics — the purpose and retention question belongs in SETUP-INSTRUCTIONS
+beside the consent bucket's, not improvised in a log call.
+
+Two properties make the line safe to read. The query string is dropped, because
+it can carry a token. And the user agent is newline-stripped and clipped to 100
+characters, so a crafted header cannot forge a second line in the tail — the
+fixture for that shape lives in `test/requestLog.test.mjs`, which is the one
+input the edge would never actually deliver.

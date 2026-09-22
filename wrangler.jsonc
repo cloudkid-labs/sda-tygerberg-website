@@ -12,25 +12,23 @@
     "not_found_handling": "404-page",
     // Which paths reach the Worker script at all.
     //
-    // `/api/*` MUST be listed. The array form is not "also run the Worker for
-    // these" — it is the whole set. Anything outside it is answered by asset
-    // serving alone, and with `not_found_handling` above that means a path with
-    // no file behind it gets 404.html instead of the Worker. Omitting `/api/*`
-    // took out /api/live-status and /api/contact in production, and it took a
-    // user report to find, because nothing here 404s at build time. C-60
+    // `/*` is deliberate, and it is the whole set. The Worker logs every
+    // request now (src/worker/requestLog.ts) — and a static hit is answered by
+    // the asset store *before* the Worker would otherwise be invoked, so any
+    // narrower list is a log with holes in it. The cost is a billable Worker
+    // invocation per asset request. If the log ever stops being worth that,
+    // narrow this back to ["/health", "/api/*", "/images/hod/*"] and keep the
+    // negative pattern. C-60 has the history of what omitting a path does:
+    // with `not_found_handling` above, a path with no file behind it gets
+    // 404.html instead of the Worker — which is how /api/* went missing once,
+    // found only by a user report. C-60, C-66
     //
-    // The headshot masters are the other path where the Worker has to see the
-    // request. By default a URL that matches a file in `directory` is served
-    // straight from the asset store and the Worker is never invoked — so the
-    // guard in src/worker/index.ts, which rewrites a direct hit to the 1400px
-    // copy, would never have run. C-51
-    //
-    // The negative pattern keeps the fallbacks on the default asset path: they
-    // are what a browser is *meant* to get, and every Worker invocation here is
-    // a billable request for an image that needs no logic.
-    //
-    // Add a route to src/worker/index.ts and you must add its path here too.
-    "run_worker_first": ["/health", "/api/*", "/images/hod/*", "!/images/hod/fallback/*"]
+    // The negative pattern keeps the headshot *fallbacks* on the default asset
+    // path: they are what a browser is meant to get and they need no logic.
+    // The masters stay inside the set because the guard in src/worker/index.ts
+    // is what rewrites a direct hit to a fallback — without the Worker seeing
+    // that path the guard would never run. C-51
+    "run_worker_first": ["/*", "!/images/hod/fallback/*"]
   },
   // Workers Logs and Traces. The nested `logs` / `traces` blocks are the
   // per-signal switches and are what actually decides each one; the top-level

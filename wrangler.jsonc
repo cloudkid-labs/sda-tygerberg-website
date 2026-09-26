@@ -75,11 +75,10 @@
     "LIVE_CHECK_TZ": "Africa/Johannesburg",
 
     // Contact-form delivery. These were Worker secrets; they are vars now by
-    // decision — see C-31. Both are the same address: a single role address on
-    // the church's own domain, welkom@sdatygerberg.co.za, used for delivery
-    // (To) and the From header. Not personal or church-member data, and the
-    // cost of publishing it is spam to one mailbox rather than exposure of
-    // anyone's information. The From appears in every message header anyway.
+    // decision — see C-31 and ADR-0001. Enquiries go To the church's Gmail
+    // inbox, From the role address welkom@sdatygerberg.co.za, and are BCC'd to
+    // the addresses in CONTACT_EMAIL_BCC. The From appears in every message
+    // header anyway.
     //
     // Setting a Worker *secret* of the same name is the way back: remove the
     // line here and `wrangler secret put` it, and no code changes.
@@ -100,7 +99,7 @@
     // R2. Must be a verified destination address (it is) AND listed in
     // allowed_destination_addresses below — out of step, the whole send is
     // rejected, not just the copy. CONCERNS.md C-65.
-    "CONTACT_EMAIL_BCC": "archive@sdatygerberg.co.za, rainiersvn1@gmail.com",
+    "CONTACT_EMAIL_BCC": "archive@sdatygerberg.co.za, rainiersvn1@gmail.com, sdatygerbergkerk@gmail.com",
     // Hostnames siteverify must echo back for /api/contact tokens — C-21.
     "TURNSTILE_HOSTNAMES": "sdatygerberg.co.za",
 
@@ -115,7 +114,15 @@
     // so the sender learns. MAIL_ARCHIVE_TO is best-effort — by the time it is
     // attempted the church copy has already gone.
     "MAIL_FORWARD_TO": "sdatygerbergklerk@gmail.com",
-    "MAIL_ARCHIVE_TO": "archive@sdatygerberg.co.za"
+    "MAIL_ARCHIVE_TO": "archive@sdatygerberg.co.za",
+    // Per-address exceptions to MAIL_FORWARD_TO, archived and rejected on
+    // failure the same way. tesourier@ is the address on the Zapper merchant
+    // profile, so payment notifications reach the treasurer. Each destination
+    // must be a verified destination address. Inbound forwards are not fenced
+    // by send_email below.
+    "MAIL_ROUTES": {
+      "tesourier@sdatygerberg.co.za": "a2msars@gmail.com"
+    }
   },
   // Lets /api/contact email the church directly.
   //
@@ -126,13 +133,13 @@
   // in the Worker could do — a mistake in `contactEmail.ts` cannot mail a
   // stranger, it fails instead.
   //
-  // Keep this in step with the `CONTACT_EMAIL_*` vars above: one address,
-  // welkom@sdatygerberg.co.za, in three places — the two vars and both lists
-  // here. Out of step, Cloudflare rejects the send. See C-31.
+  // Keep this in step with the `CONTACT_EMAIL_*` vars above: TO and every BCC
+  // address in allowed_destination_addresses, FROM in allowed_sender_addresses.
+  // Out of step, Cloudflare rejects the whole send. See C-31.
   "send_email": [
     {
       "name": "EMAIL",
-      "allowed_destination_addresses": ["sdatygerbergklerk@gmail.com", "archive@sdatygerberg.co.za", "rainiersvn1@gmail.com"],
+      "allowed_destination_addresses": ["sdatygerbergklerk@gmail.com", "archive@sdatygerberg.co.za", "rainiersvn1@gmail.com", "sdatygerbergkerk@gmail.com"],
       "allowed_sender_addresses": ["welkom@sdatygerberg.co.za"]
     }
   ],

@@ -1619,6 +1619,10 @@ tygerberg-sda-website`, where a bad hop reads `inbound mail: forward to
 Devtest refuses by construction: no `MAIL_*` vars (C-61's rule that a preview
 never mails the church), so the handler rejects rather than guessing.
 
+`MAIL_ROUTES` overrides `MAIL_FORWARD_TO` for listed addresses — `tesourier@`
+goes to the treasurer — with the same reject and archive rules. Each route
+destination is one more address that must be verified.
+
 `test/inboundEmail.test.mjs` holds the wiring's invariants: a failed church
 copy rejects, a failed archive does not, and mail addressed to the archive is
 never re-posted to itself. Reproducing the routing: SETUP-INSTRUCTIONS §6.6.

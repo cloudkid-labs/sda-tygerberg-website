@@ -123,3 +123,9 @@ a Gmail address in committed config is the most scrape-prone value in this repo.
 It is tolerated only because the repository is **private**. If it is ever made
 public, these move to Worker secrets before that happens — not after — and the
 fence comes down with them, per the reversal above.
+
+## Amendment (2026-09-26)
+
+`CONTACT_EMAIL_BCC` adds `sdatygerbergkerk@gmail.com`. Inbound `MAIL_ROUTES`
+sends `tesourier@sdatygerberg.co.za` to the treasurer's Gmail (C-65). Same
+caveat: private repository only.

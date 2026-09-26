@@ -552,18 +552,20 @@ forwards: the `sdatygerberg.co.za` zone's **catch-all** routes every address —
 handler (`src/worker/inboundEmail.ts`) makes two copies.
 
 1. **The church inbox** — `MAIL_FORWARD_TO`. The delivery: if it fails, the
-   message is *rejected*, so the sender gets a bounce.
+   message is *rejected*, so the sender gets a bounce. An address listed in
+   `MAIL_ROUTES` goes to its own destination instead (`tesourier@` → the
+   treasurer), under the same rule.
 2. **The archive** — `MAIL_ARCHIVE_TO`, a local address that a **literal
    routing rule** fires at the `cloudkid-link-r2-explorer` Worker. That Worker
    files mail in R2 and does nothing else,
    which is what keeps a second pass through Email Routing from being a loop.
    A failure here is logged, not fatal — the church copy has already gone.
 
-Both addresses are vars in `wrangler.jsonc` (a deploy carries them) and both
-must be **verified destination addresses** on the account, or `forward()`
-throws. Wiring it up from scratch:
+All of these are vars in `wrangler.jsonc` (a deploy carries them) and every
+address, route destinations included, must be a **verified destination
+address** on the account, or `forward()` throws. Wiring it up from scratch:
 
-1. Verify both addresses — §6.1's flow.
+1. Verify every address — §6.1's flow.
 2. Add the literal rule: `archive@` → *Send to a Worker* →
    `cloudkid-link-r2-explorer`.
 3. Point the catch-all at the Worker: *Send to a Worker* →

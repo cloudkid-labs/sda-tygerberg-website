@@ -80,6 +80,8 @@ fail the whole send on the free path
 Both addresses now point at destinations that terminate — R2 storage and a
 mailbox — and `contactEmail.ts` splits the var on commas.
 
+Diagram of every address and where it routes: [docs/email-routing.md](./docs/email-routing.md).
+
 The `MAIL_*` vars are the **inbound** side of the same problem — one
 catch-all, one Worker, two forwards. See CONCERNS.md
 [C-65](./CONCERNS.md#c-65--inbound-mail-is-one-catch-all-two-forwards-and-a-stored-copy)

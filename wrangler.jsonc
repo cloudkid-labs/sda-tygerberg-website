@@ -120,7 +120,15 @@
     // so the sender learns. MAIL_ARCHIVE_TO is best-effort — by the time it is
     // attempted the church copy has already gone.
     "MAIL_FORWARD_TO": "sdatygerbergklerk@gmail.com",
-    "MAIL_ARCHIVE_TO": "archive@sdatygerberg.co.za"
+    "MAIL_ARCHIVE_TO": "archive@sdatygerberg.co.za",
+    // Per-address exceptions to MAIL_FORWARD_TO, archived and rejected on
+    // failure the same way. tesourier@ is the address on the Zapper merchant
+    // profile, so payment notifications reach the treasurer. Each destination
+    // must be a verified destination address. Inbound forwards are not fenced
+    // by send_email below.
+    "MAIL_ROUTES": {
+      "tesourier@sdatygerberg.co.za": "a2msars@gmail.com"
+    }
   },
   // Lets /api/contact email the church directly.
   //

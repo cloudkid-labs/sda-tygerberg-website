@@ -59,6 +59,22 @@ describe('wrangler contact mail fence — C-31', () => {
   });
 });
 
+describe('wrangler inbound mail routes — C-65', () => {
+  test('tesourier@ (the Zapper merchant address) routes away from the catch-all', () => {
+    const routes = config.vars.MAIL_ROUTES;
+    const dest = routes['tesourier@sdatygerberg.co.za'];
+    assert.ok(dest, 'tesourier@ has no route');
+    assert.notEqual(dest, config.vars.MAIL_FORWARD_TO);
+  });
+
+  test('every route is a local address with a destination elsewhere', () => {
+    for (const [local, dest] of Object.entries(config.vars.MAIL_ROUTES)) {
+      assert.match(local, /@sdatygerberg\.co\.za$/, `${local} is not on the church domain`);
+      assert.match(dest, /^[^\s@,]+@[^\s@,]+\.[^\s@,]+$/, `${local} → ${dest} is not one address`);
+    }
+  });
+});
+
 describe('wrangler routes and bindings', () => {
   test('the Worker sees every path — the request log depends on it (C-66)', () => {
     // Narrow this list and the request log silently loses everything the
@@ -92,6 +108,10 @@ describe('wrangler routes and bindings', () => {
     assert.ok(
       !Object.keys(devtest.vars).some((k) => k.startsWith('CONTACT_EMAIL')),
       'devtest must not name church addresses',
+    );
+    assert.ok(
+      !Object.keys(devtest.vars).some((k) => k.startsWith('MAIL_')),
+      'devtest must not forward inbound mail',
     );
     assert.ok(
       devtest.routes.some((r) => r.pattern === 'tygerberg-sda.cloudkid.link' && r.custom_domain),

@@ -116,10 +116,22 @@ worth recording rather than rediscovering:
 |---|---|
 | `CONTACT_EMAIL_TO` | `sdatygerbergklerk@gmail.com` — the church's own mailbox, not an operator alias |
 | `CONTACT_EMAIL_FROM` | `welkom@sdatygerberg.co.za` |
-| `CONTACT_EMAIL_BCC` | `archive@sdatygerberg.co.za, rainiersvn1@gmail.com` |
+| `CONTACT_EMAIL_BCC` | `archive@sdatygerberg.co.za` |
 
 Revisit trigger 1 is now genuinely live: `CONTACT_EMAIL_TO` is a church inbox, and
 a Gmail address in committed config is the most scrape-prone value in this repo.
 It is tolerated only because the repository is **private**. If it is ever made
 public, these move to Worker secrets before that happens — not after — and the
 fence comes down with them, per the reversal above.
+
+## Amendment (2026-10-03)
+
+The personal monitoring copy `rainiersvn1@gmail.com` has been removed from
+`CONTACT_EMAIL_BCC`. Exactly one church-controlled archive address remains:
+`archive@sdatygerberg.co.za`, whose literal routing rule hands the message to the
+`cloudkid-link-r2-explorer` Worker and into the `email-notifications` R2 bucket.
+The reason is POPIA retention: a private inbox outside the responsible party's
+control, with no documented retention rule, is not a lawful place to keep
+personal data. The remaining obligation is a dashboard R2 lifecycle rule on
+`email-notifications`; until that exists, the archive accumulates personal data
+with no expiry.

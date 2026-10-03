@@ -25,11 +25,11 @@ export type ContactEmailEnv = {
    */
   CONTACT_EMAIL_FROM?: string;
   /**
-   * Optional blind copy — an archive or monitoring inbox. Unset means no BCC.
+   * Optional blind copy — a church-controlled archive inbox. Unset means no BCC.
    *
-   * Must *also* be a verified destination address: the free path verifies every
-   * recipient, so an unverified BCC fails the whole send rather than quietly
-   * dropping the copy (C-31).
+   * Must *also* be a verified destination address and listed in the
+   * `send_email` fence: the free path verifies every recipient, so an unverified
+   * BCC fails the whole send rather than quietly dropping the copy (C-31).
    */
   CONTACT_EMAIL_BCC?: string;
 };

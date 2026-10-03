@@ -68,18 +68,21 @@ them in the dashboard, or with `wrangler secret put`.
 | `LIVE_CHECK_TZ` | `Africa/Johannesburg` | Timezone the window is evaluated in |
 | `CONTACT_EMAIL_TO` | `sdatygerbergklerk@gmail.com` | Where `/api/contact` emails — the church's real mailbox. Must be a **verified destination address** |
 | `CONTACT_EMAIL_FROM` | `welkom@sdatygerberg.co.za` | From address (DKIM-aligned via cf-bounce selectors) — the church replies to the enquirer via Reply-To |
-| `CONTACT_EMAIL_BCC` | `archive@sdatygerberg.co.za, rainiersvn1@gmail.com` | Copies of every enquiry. `archive@` has a literal routing rule that hands it to `cloudkid-link-r2-explorer`, which files it in R2; the second is a plain monitoring copy. A comma-separated list — every address must also be in `allowed_destination_addresses` or the whole send is rejected |
+| `CONTACT_EMAIL_BCC` | `archive@sdatygerberg.co.za` | One church-controlled archive copy of every enquiry. `archive@` has a literal routing rule that hands it to `cloudkid-link-r2-explorer`, which files it in R2. The address must also be in `allowed_destination_addresses` or the whole send is rejected |
 | `TURNSTILE_HOSTNAMES` | `sdatygerberg.co.za` (devtest: `tygerberg-sda.cloudkid.link`) | Hostnames siteverify must echo back; tokens minted on any other domain are refused. Unset disables the hostname check |
 | `MAIL_FORWARD_TO` | `sdatygerbergklerk@gmail.com` | Inbound mail: the zone's catch-all hands every address to the Worker, which forwards a copy here. Must be a verified destination address — a failure **rejects** the message so the sender learns |
 | `MAIL_ARCHIVE_TO` | `archive@sdatygerberg.co.za` | The second, best-effort copy of every inbound message: a literal routing rule sends this address to `cloudkid-link-r2-explorer`, which files it in R2 |
+| `MAIL_ROUTES` | `{ "tesourier@sdatygerberg.co.za": "a2msars@gmail.com" }` | Inbound exceptions to `MAIL_FORWARD_TO`, per local address. `tesourier@` is the Zapper merchant address, so payment notifications reach the treasurer. Each destination must be a verified destination address |
 
 The BCC used to point at an unread Worker inbox, where a second recipient could
 fail the whole send on the free path
 ([C-31](./CONCERNS.md#c-31--email-is-tried-first-and-the-webhook-is-the-fallback)).
-Both addresses now point at destinations that terminate — R2 storage and a
-mailbox — and `contactEmail.ts` splits the var on commas.
+It now points at one terminating destination — R2 storage — and
+`contactEmail.ts` splits the var on commas.
 
-The two `MAIL_*` vars are the **inbound** side of the same problem — one
+Diagram of every address and where it routes: [docs/email-routing.md](./docs/email-routing.md).
+
+The `MAIL_*` vars are the **inbound** side of the same problem — one
 catch-all, one Worker, two forwards. See CONCERNS.md
 [C-65](./CONCERNS.md#c-65--inbound-mail-is-one-catch-all-two-forwards-and-a-stored-copy)
 and SETUP-INSTRUCTIONS §6.6; the failure modes are logged to the Worker's tail
@@ -114,12 +117,12 @@ Set neither and the form submits exactly as before.
 - **`main`** — production. Moves only via a reviewed `dev` → `main` promotion PR;
   merging deploys the production Worker at `sdatygerberg.co.za`.
 
-Promotions merge as **merge commits, never squashes**. `dev` contains `main`'s
-history, so the promotion lands as a fast-forward and both branches end on the
-same commit — `git diff origin/dev origin/main` is empty and
-`git rev-list --count origin/dev..origin/main` is zero. Squashing rewrites
-`dev`'s commits on `main` and the two drift apart for good
-([RELEASE.md](./RELEASE.md)).
+Promotions merge as **merge commits, never squashes** — squash rewrites `dev`'s
+commits on `main` and the two drift apart for good. The merge leaves `main` one
+commit ahead, so the promotion finishes by fast-forwarding `dev` onto it
+(`git push origin origin/main:dev`). Both branches then sit on the same commit:
+`git diff origin/dev origin/main` is empty and `git rev-list --count` is zero in
+both directions ([RELEASE.md](./RELEASE.md)).
 
 | Workflow | Target | Trigger | Build env |
 |---|---|---|---|

@@ -72,6 +72,7 @@ them in the dashboard, or with `wrangler secret put`.
 | `TURNSTILE_HOSTNAMES` | `sdatygerberg.co.za` (devtest: `tygerberg-sda.cloudkid.link`) | Hostnames siteverify must echo back; tokens minted on any other domain are refused. Unset disables the hostname check |
 | `MAIL_FORWARD_TO` | `sdatygerbergklerk@gmail.com` | Inbound mail: the zone's catch-all hands every address to the Worker, which forwards a copy here. Must be a verified destination address — a failure **rejects** the message so the sender learns |
 | `MAIL_ARCHIVE_TO` | `archive@sdatygerberg.co.za` | The second, best-effort copy of every inbound message: a literal routing rule sends this address to `cloudkid-link-r2-explorer`, which files it in R2 |
+| `MAIL_ROUTES` | `{ "tesourier@sdatygerberg.co.za": "a2msars@gmail.com" }` | Inbound exceptions to `MAIL_FORWARD_TO`, per local address. `tesourier@` is the Zapper merchant address, so payment notifications reach the treasurer. Each destination must be a verified destination address |
 
 The BCC used to point at an unread Worker inbox, where a second recipient could
 fail the whole send on the free path
@@ -79,7 +80,9 @@ fail the whole send on the free path
 It now points at one terminating destination — R2 storage — and
 `contactEmail.ts` splits the var on commas.
 
-The two `MAIL_*` vars are the **inbound** side of the same problem — one
+Diagram of every address and where it routes: [docs/email-routing.md](./docs/email-routing.md).
+
+The `MAIL_*` vars are the **inbound** side of the same problem — one
 catch-all, one Worker, two forwards. See CONCERNS.md
 [C-65](./CONCERNS.md#c-65--inbound-mail-is-one-catch-all-two-forwards-and-a-stored-copy)
 and SETUP-INSTRUCTIONS §6.6; the failure modes are logged to the Worker's tail

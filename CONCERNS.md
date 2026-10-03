@@ -345,17 +345,24 @@ Three things about what is stored:
   retention rule, that `wrangler.jsonc`'s own comment says nobody reads.
   `ConsentRecord` having no `message` field is true and beside the point.
 
-  **That BCC is removed from `wrangler.jsonc`.** With no BCC set, the message
-  goes only to the church inbox and the consent bucket holds only the record —
-  which is what makes the paragraph above a design decision again rather than a
-  POPIA claim the deployment contradicts. `contactEmail.ts` still honours a BCC
-  set as a Worker secret, so re-adding one re-opens this; re-add the fence entry
-  with it (C-31) and re-read this bullet first.
+  **`CONTACT_EMAIL_BCC` is now exactly one church-controlled archive address.**
+  `CONTACT_EMAIL_BCC=archive@sdatygerberg.co.za` routes via a literal rule to
+  the `cloudkid-link-r2-explorer` Worker, which files it in R2
+  (`email-notifications`). The personal monitoring inbox `rainiersvn1@gmail.com`
+  that was added alongside it was removed in 2026-10: a private mailbox outside
+  the church's control, with no retention rule, was the worst retention location
+  of the two. Because the archive now holds the full message body at rest,
+  `email-notifications` needs a dashboard R2 lifecycle rule just like the
+  consent bucket — SETUP-INSTRUCTIONS §3.6. The consent bucket still holds only
+  the record (no `message`), which is what makes the paragraph above a design
+  decision rather than a POPIA claim the deployment contradicts.
+  `contactEmail.ts` still honours a BCC set as a Worker secret, so re-adding one
+  re-opens this; re-add the fence entry with it (C-31) and re-read this bullet
+  first.
 
-  That was the reason to drop it: the difference between the paragraph above
-  being a design decision and being a POPIA claim the deployment contradicts.
   Read this bullet as "the *consent record* does not hold the message" — the
-  message itself lives in the church inbox, which is where replies happen.
+  message itself lives in the church inbox (replies) and in the one
+  church-controlled archive (retention).
 
 Retention is a dashboard-only R2 lifecycle rule and **is not configured by this
 repo** — SETUP-INSTRUCTIONS.md §3.6. Personal data with no expiry is the failure
@@ -456,9 +463,10 @@ Three things bound the email path, and none of them are obvious from the code:
   binding to send confirmations back to the person who filled in the form — it
   will fail with `E_SENDER_NOT_VERIFIED` or eat quota, depending on setup.
 
-  Note the plural. `CONTACT_EMAIL_BCC` adds a second recipient, and *every*
-  recipient is checked, so an unverified BCC fails the whole send rather than
-  dropping just the blind copy. Adding an archive address can therefore stop the
+  `CONTACT_EMAIL_BCC` adds one archive recipient, and *every* recipient is
+  checked, so a BCC that is not a verified destination address — or that is not
+  listed in `allowed_destination_addresses` — fails the whole send rather than
+  dropping just the blind copy. A bad archive address can therefore stop the
   church receiving enquiries at all. Put one real submission through the form
   after setting it — `via` in the response tells you which channel survived.
 
@@ -487,14 +495,20 @@ Three things bound the email path, and none of them are obvious from the code:
 
   Different selectors, deliberately: onboarding one product does not onboard the
   other, and a domain can have routing without sending.
-- **`CONTACT_EMAIL_BCC` used to archive into a script, not an inbox.**
-  `notifications@cloudkid.link` is routed by Email Routing to the
-  `cloudkid-link-r2-explorer` Worker, which has nothing to do with contact
-  enquiries. So the blind copy was at best discarded, and at worst — on the free
-  path, where it cannot be a verified destination address — it failed the *whole*
-  send and pushed every enquiry onto the webhook fallback. **It is removed from
-  `wrangler.jsonc` and from the send fence.** `contactEmail.ts` still honours one
-  set as a Worker secret, but re-add the address to
+- **`CONTACT_EMAIL_BCC` archives to one church-controlled address, not an unread
+  inbox.** `archive@sdatygerberg.co.za` is routed by Email Routing literal rule
+  to the `cloudkid-link-r2-explorer` Worker, which files mail in R2 and does
+  nothing else; that Worker has nothing to do with contact enquiries, which is
+  exactly what keeps a second pass through Email Routing from being a loop
+  (C-65). The old `notifications@cloudkid.link` blind copy was at best discarded,
+  and at worst — on the free path, where it could not be a verified destination
+  address — it failed the *whole* send and pushed every enquiry onto the webhook
+  fallback. The personal monitoring inbox `rainiersvn1@gmail.com` that was
+  briefly added alongside `archive@` was removed in 2026-10: a private mailbox
+  outside the church's control, with no retention rule, is not a lawful retention
+  location. The remaining obligation is the R2 lifecycle rule on
+  `email-notifications` (SETUP-INSTRUCTIONS §3.6). `contactEmail.ts` still honours
+  a BCC set as a Worker secret, but re-add the address to
   `allowed_destination_addresses` at the same time or the send is rejected.
 - **The three addresses are committed to `wrangler.jsonc`, not Worker secrets.**
   This reverses the original decision and is deliberate, temporary, and written

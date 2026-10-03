@@ -107,22 +107,18 @@ describe('sendContactEmail BCC parsing', () => {
     assert.deepEqual(f.sent[0].bcc, ['archive@sdatygerberg.co.za']);
   });
 
-  test('the production three-address value is split, trimmed, and kept whole', async () => {
+  test('multiple BCC addresses are split, trimmed, and kept in order', async () => {
     const f = fakeEmail();
     await sendContactEmail(
       {
         ...baseEnv(),
         ...f,
-        CONTACT_EMAIL_BCC: 'archive@sdatygerberg.co.za, rainiersvn1@gmail.com, sdatygerbergkerk@gmail.com',
+        CONTACT_EMAIL_BCC: 'a@x.co.za, b@x.co.za, c@x.co.za',
       },
       fields(),
       AT,
     );
-    assert.deepEqual(f.sent[0].bcc, [
-      'archive@sdatygerberg.co.za',
-      'rainiersvn1@gmail.com',
-      'sdatygerbergkerk@gmail.com',
-    ]);
+    assert.deepEqual(f.sent[0].bcc, ['a@x.co.za', 'b@x.co.za', 'c@x.co.za']);
   });
 
   test('stray commas and whitespace produce no empty recipients', async () => {

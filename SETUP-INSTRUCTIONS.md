@@ -310,6 +310,13 @@ records accumulate with no expiry.
    decision, not a technical one. If nobody has an opinion, **7 years** matches
    ordinary South African record-keeping practice and is the safe default.
 
+The same lifecycle rule is needed on the `email-notifications` bucket, because
+it holds the contact-form archive copy written by the `archive@` literal rule
+(and the inbound-mail archive from §6.6). That archive contains the full
+message body, so it is personal data at rest and needs its own expiry. Use the
+same governance process: pick the period with the church, and if nobody has an
+opinion, **7 years** is the safe default.
+
 This binding is why **Workers R2 Storage: Edit** is in the §3.2 table. Without
 it the deploy uploads the script and the assets, then dies on the bucket with
 `Authentication error [code: 10000]` — everything looks fine until the very
@@ -483,13 +490,16 @@ That applies on the Workers **Free** plan. On **Workers Paid**, Email Sending
 may address any recipient and §6.1 stops mattering. Check the plan before
 spending time on it — it decides whether there is anything to do here.
 
-> There used to be a `CONTACT_EMAIL_BCC` archiving a copy to
-> `notifications@cloudkid.link`, which routes to an unrelated Worker nobody
-> reads — and on the free path that second recipient could fail the whole send.
-> It is removed; `contactEmail.ts` still honours one set as a Worker secret, but
-> re-add the address to `allowed_destination_addresses` at the same time.
-> Either way, put one real submission through the form and confirm the response
-> says `"via":"email"` before considering this done.
+> `CONTACT_EMAIL_BCC` archives one church-controlled copy to
+> `archive@sdatygerberg.co.za`. For it to work: (a) `archive@` must be a verified
+> destination address under Email Routing, (b) the literal routing rule for
+> `archive@` must hand the message to the `cloudkid-link-r2-explorer` Worker, and
+> (c) the `email-notifications` R2 bucket must have a lifecycle rule so the
+> archive does not keep personal data forever (§3.6). `contactEmail.ts` still
+> honours a BCC set as a Worker secret, but re-add the address to
+> `allowed_destination_addresses` at the same time. Put one real submission
+> through the form and confirm the response says `"via":"email"` before
+> considering this done.
 
 A submission arrives as plain text, subject `Webwerf — Verbind: <name>` (or
 `Bybelstudie`), with **Reply-To set to the visitor's address** when they gave

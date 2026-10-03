@@ -23,10 +23,15 @@ const bccList = String(config.vars.CONTACT_EMAIL_BCC)
   .filter(Boolean);
 
 describe('wrangler contact mail fence — C-31', () => {
-  test('CONTACT_EMAIL_BCC carries the archive and the monitoring inbox', () => {
-    for (const addr of ['archive@sdatygerberg.co.za', 'rainiersvn1@gmail.com']) {
-      assert.ok(bccList.includes(addr), `${addr} missing from CONTACT_EMAIL_BCC`);
-    }
+  test('CONTACT_EMAIL_BCC carries only the church-controlled archive', () => {
+    assert.ok(
+      bccList.includes('archive@sdatygerberg.co.za'),
+      'archive@sdatygerberg.co.za missing from CONTACT_EMAIL_BCC',
+    );
+    assert.ok(
+      !bccList.includes('rainiersvn1@gmail.com'),
+      'personal monitoring inbox must not be in CONTACT_EMAIL_BCC',
+    );
   });
 
   test('every BCC recipient sits in allowed_destination_addresses', () => {

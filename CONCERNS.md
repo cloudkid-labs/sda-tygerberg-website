@@ -352,8 +352,8 @@ Three things about what is stored:
   that was added alongside it was removed in 2026-10: a private mailbox outside
   the church's control, with no retention rule, was the worst retention location
   of the two. Because the archive now holds the full message body at rest,
-  `email-notifications` needs a dashboard R2 lifecycle rule just like the
-  consent bucket — SETUP-INSTRUCTIONS §3.6. The consent bucket still holds only
+  `email-notifications` carries a lifecycle rule just like the consent bucket —
+  both expire after 7 years (SETUP-INSTRUCTIONS §3.6). The consent bucket still holds only
   the record (no `message`), which is what makes the paragraph above a design
   decision rather than a POPIA claim the deployment contradicts.
   `contactEmail.ts` still honours a BCC set as a Worker secret, so re-adding one
@@ -364,9 +364,11 @@ Three things about what is stored:
   message itself lives in the church inbox (replies) and in the one
   church-controlled archive (retention).
 
-Retention is a dashboard-only R2 lifecycle rule and **is not configured by this
-repo** — SETUP-INSTRUCTIONS.md §3.6. Personal data with no expiry is the failure
-mode to watch here.
+Retention lives on the buckets, not in this repo: a `wrangler r2 bucket
+lifecycle` rule, not `wrangler.jsonc`. Both buckets expire after 7 years (set
+2026-10-04 — SETUP-INSTRUCTIONS.md §3.6), but because it is not config, a
+deletion or edit is invisible to typecheck, tests and deploy. Personal data with
+no expiry is the failure mode to watch here.
 
 **Update (2026-09-08):** a minimization of the record to `id` + `email` +
 `submittedAt` shipped in v1.6.2 and was reverted the same day on the church's

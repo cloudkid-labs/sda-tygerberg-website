@@ -294,28 +294,33 @@ done; echo
 ### 3.6 Consent records — retention rule **(do this, it is not optional)**
 
 `/api/contact` writes one JSON consent record per submission to the
-`consent-cloudkid-link` R2 bucket. The binding is in `wrangler.jsonc` and needs
-no dashboard step — **the retention rule does**, because R2 lifecycle rules
-cannot be expressed in Wrangler config.
+`consent-cloudkid-link` R2 bucket, and the `email-notifications` bucket holds
+the mail archive (the contact-form copy written by the `archive@` literal rule,
+and the inbound-mail archive from §6.6). Both are personal data at rest.
 
-Personal data kept forever is a POPIA problem. Until a rule exists, these
-records accumulate with no expiry.
+**Both buckets expire their contents after 7 years** — the rule was set
+2026-10-04. Retention is not expressed in `wrangler.jsonc`, so a change here is
+invisible to typecheck, tests and deploy; manage it with the CLI (the dashboard
+works too):
 
-1. Cloudflare dashboard → **R2** → `consent-cloudkid-link` → **Settings**
-2. **Object lifecycle rules** → *Add rule*
-3. Scope it to the prefix `20` (every key starts `YYYY/MM/DD/`, so this covers
-   all records and nothing else)
-4. **Delete objects after N days** — pick the period with the church. Consent
-   needs to outlive the relationship it authorises, so this is a governance
-   decision, not a technical one. If nobody has an opinion, **7 years** matches
-   ordinary South African record-keeping practice and is the safe default.
+```sh
+npx wrangler r2 bucket lifecycle list consent-cloudkid-link
+npx wrangler r2 bucket lifecycle add consent-cloudkid-link \
+  "Retain consent records 7 years" 20 --expire-days 2557
+npx wrangler r2 bucket lifecycle add email-notifications \
+  "Retain mail archive 7 years" ".r2-explorer/emails/" --expire-days 2557
+```
 
-The same lifecycle rule is needed on the `email-notifications` bucket, because
-it holds the contact-form archive copy written by the `archive@` literal rule
-(and the inbound-mail archive from §6.6). That archive contains the full
-message body, so it is personal data at rest and needs its own expiry. Use the
-same governance process: pick the period with the church, and if nobody has an
-opinion, **7 years** is the safe default.
+- `consent-cloudkid-link`: prefix `20` — every key starts `YYYY/MM/DD/`, so this
+  covers all records and nothing else.
+- `email-notifications`: prefix `.r2-explorer/emails/` — where the r2-explorer
+  Worker files mail. The archive holds the full message body, so it needs its
+  own expiry (C-34).
+
+`--expire-days 2557` is 7 years. Pick the period with the church: consent needs
+to outlive the relationship it authorises, so this is a governance decision, not
+a technical one. If nobody has an opinion, **7 years** matches ordinary South
+African record-keeping practice and is the safe default.
 
 This binding is why **Workers R2 Storage: Edit** is in the §3.2 table. Without
 it the deploy uploads the script and the assets, then dies on the bucket with

@@ -263,7 +263,9 @@ never fails a submission — the enquiry email carries the consent line either w
 ([C-34](./CONCERNS.md#c-34--the-consent-record-is-written-before-delivery-and-never-blocks-it)).
 Records are keyed `YYYY/MM/DD/<timestamp>-<uuid>.json` and the id appears in the
 enquiry email as `Toestemmingsrekord`, so mail and object tie together.
-**Retention is a manual dashboard step** — SETUP-INSTRUCTIONS.md §3.6.
+**Retention is set on the buckets** (7 years) and managed with
+`wrangler r2 bucket lifecycle`, not by this repo's config — SETUP-INSTRUCTIONS.md
+§3.6.
 
 `POST /api/contact` returns an `outcome`: `forwarded`, `not-configured`,
 `invalid` (with `errors` naming the fields), or `forward-error`. On `forwarded`

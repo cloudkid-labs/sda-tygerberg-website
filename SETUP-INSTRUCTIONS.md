@@ -64,6 +64,7 @@ YOUTUBE_API_KEY="<your-key>"
 YOUTUBE_CHANNEL_ID="UCtZlioPBBORWMMMSJ9BE1Wg"
 CONTACT_EMAIL_TO="kerk@example.org"
 CONTACT_EMAIL_FROM="webwerf@example.org"
+CONTACT_EMAIL_BCC="argief@example.org"
 CONTACT_WEBHOOK_URL="https://<your-webhook>"
 ```
 
@@ -72,9 +73,9 @@ Three local-testing tips:
 - Widening `LIVE_CHECK_CRON` to `* * * * *` in `.dev.vars` saves waiting
   until Saturday morning to see the LIVE badge work.
 - The email channel needs no Cloudflare account locally. `wrangler dev`
-  simulates the binding: the two addresses above can be anything, and the
+  simulates the binding: the three addresses above can be anything, and the
   message is printed and written to `.wrangler/tmp/email/` rather than sent.
-- To test the webhook fallback, leave the two `CONTACT_EMAIL_*` lines out —
+- To test the webhook fallback, leave the three `CONTACT_EMAIL_*` lines out —
   email is preferred whenever it is configured — and point
   `CONTACT_WEBHOOK_URL` at any local server that returns `200`.
 
@@ -659,7 +660,7 @@ receiving it — and `via` tells you which channel did the work.
 | LIVE badge never shows | Missing/invalid key, or outside the window | `curl /api/live-status` and read `source` |
 | `/api/live-status` says `not-configured` | Secrets missing on the Worker | Step 4 — and check they weren't added as Actions secrets by mistake |
 | `/api/live-status` says `invalid-schedule` | Malformed cron or unknown timezone in `wrangler.jsonc` | Fails closed and spends no quota; fix the expression and redeploy |
-| Contact form says it isn't live yet | Neither delivery channel is configured | Step 6 — the two `CONTACT_EMAIL_*` secrets *or* `CONTACT_WEBHOOK_URL` — then redeploy |
+| Contact form says it isn't live yet | Neither delivery channel is configured | There is nothing to set — the three `CONTACT_EMAIL_*` values are committed vars in `wrangler.jsonc` (§6.3); check for a wrong address value, or `CONTACT_WEBHOOK_URL` when relying on the webhook — then redeploy |
 | Contact form reports a send failure | Every configured channel failed | Worker logs name the cause; see the two rows below |
 | Log shows `E_SENDER_NOT_VERIFIED` | `CONTACT_EMAIL_FROM` is not in `allowed_sender_addresses`, or its domain is not DKIM-alignable | Check the fence and the `cf-bounce` DKIM record; §6.2 is only needed to send to arbitrary recipients |
 | Email silently never arrives, `via` says `webhook` | `CONTACT_EMAIL_TO` isn't a *verified* destination address | Step 6.1 — click the confirmation link Cloudflare emailed |

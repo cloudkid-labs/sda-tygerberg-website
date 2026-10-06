@@ -30,7 +30,7 @@ and widen `LIVE_CHECK_CRON` to `* * * * *` so you needn't wait for Saturday.
 
 The contact form's email channel needs no Cloudflare account locally: `wrangler
 dev` simulates the `send_email` binding, printing From/To/Subject and writing the
-body to `.wrangler/tmp/email/` instead of sending. Put any two addresses in
+body to `.wrangler/tmp/email/` instead of sending. Put any three addresses in
 `.dev.vars` and you can read what the church would receive.
 
 ## Configuration

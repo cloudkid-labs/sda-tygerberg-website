@@ -132,6 +132,12 @@ The personal monitoring copy `rainiersvn1@gmail.com` has been removed from
 `cloudkid-link-r2-explorer` Worker and into the `email-notifications` R2 bucket.
 The reason is POPIA retention: a private inbox outside the responsible party's
 control, with no documented retention rule, is not a lawful place to keep
-personal data. Update 2026-10-04: Retention is configured: the R2 lifecycle rule on
-`email-notifications` expires the archive after 7 years (set 2026-10-04 via
-`wrangler r2 bucket lifecycle`; SETUP-INSTRUCTIONS §3.6).
+personal data. The remaining obligation is a dashboard R2 lifecycle rule on
+`email-notifications`; until that exists, the archive accumulates personal data
+with no expiry.
+
+## Amendment (2026-10-04)
+
+Retention is configured: the R2 lifecycle rule on `email-notifications` expires
+the archive after 7 years (set 2026-10-04 via `wrangler r2 bucket lifecycle`;
+SETUP-INSTRUCTIONS §3.6).

@@ -496,9 +496,11 @@ Three things bound the email path, and none of them are obvious from the code:
   `CONTACT_EMAIL_FROM` needed no further setup then.) Re-check alignment with:
 
   ```sh
-  dig +short TXT cf-bounce._domainkey.cloudkid.link   # Email Sending DKIM
-  dig +short TXT cf2024-1._domainkey.cloudkid.link    # Email Routing DKIM
+  dig +short TXT cf-bounce._domainkey.sdatygerberg.co.za   # Email Sending DKIM on the church zone
   ```
+
+  (The `cloudkid.link` records of the same names are history — see above — not
+  the current check.)
 
   Different selectors, deliberately: onboarding one product does not onboard the
   other, and a domain can have routing without sending.
@@ -535,9 +537,22 @@ Three things bound the email path, and none of them are obvious from the code:
   not the other and Cloudflare rejects the send.
 
   **Update (2026-09-08):** both addresses are now the single church role
-  address `welkom@sdatygerberg.co.za` — each address in exactly two places (its var and the matching fence list: recipients in `allowed_destination_addresses`, the From in `allowed_sender_addresses`). The recipient addresses must be added and verified as destination addresses
-  before production relies on email; the "already onboarded" statements above
-  describe cloudkid.link's history, not the current state. (Superseded by the 2026-09-22 move recorded in ADR-0001: TO is now the church's Gmail mailbox and BCC the archive address.)
+  address `welkom@sdatygerberg.co.za` — one address in three places (the two
+  vars and both fence lists). The sending domain must be onboarded (§6.2 of
+  SETUP-INSTRUCTIONS) and `welkom@` added and verified as a destination address
+  before production relies on email. (Any "already onboarded" wording elsewhere
+  in this file describes `cloudkid.link`'s history, not this zone's state on
+  this date.)
+
+  **Amendment (2026-10-06):** the addresses have moved again — TO is now the
+  church's Gmail mailbox `sdatygerbergklerk@gmail.com` and BCC the archive
+  address `archive@sdatygerberg.co.za`, with the From
+  `welkom@sdatygerberg.co.za` unchanged (the 2026-09-22 move recorded in
+  ADR-0001). Each address sits in exactly two places: its var and the matching
+  fence list — recipients in `allowed_destination_addresses`, the From in
+  `allowed_sender_addresses`. Both recipients must be verified destination
+  addresses before production relies on email; Email Sending is still not
+  required for this channel.
 
 A missing binding or a missing value is not an error: `sendContactEmail` returns
 false and delivery moves on. That is what keeps a partial configuration working
@@ -1599,7 +1614,7 @@ CI `worker` job and the devtest smoke can never exercise this channel.
 Operating rules:
 
 - After any change to `CONTACT_EMAIL_TO`, the `send_email` binding, or the
-  account's Email Service onboarding / destination addresses: verify one real
+  account's verified destination addresses: verify one real
   delivery. Submit the form for real — once Turnstile's secret is bound the
   captcha check runs *before* delivery, so no script can reach the channel
   (C-21) — and confirm the mail lands, with `via: email` in the form's

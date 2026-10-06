@@ -127,8 +127,8 @@ async function forward(url: string, payload: unknown): Promise<boolean> {
  * it, or `null` if every configured channel failed.
  *
  * Email first because it needs no third-party service and lands in an inbox a
- * person already reads; the webhook stays as the fallback so an account without
- * Email Service onboarding still works. Both configured means the webhook is
+ * person already reads; the webhook stays as the fallback so a deploy without
+ * the `send_email` binding still works. Both configured means the webhook is
  * only reached when email fails — deliberately not both at once, which would
  * double every enquiry. CONCERNS.md C-31.
  */

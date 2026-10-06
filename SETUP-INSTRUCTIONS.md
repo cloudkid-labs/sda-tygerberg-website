@@ -64,6 +64,7 @@ YOUTUBE_API_KEY="<your-key>"
 YOUTUBE_CHANNEL_ID="UCtZlioPBBORWMMMSJ9BE1Wg"
 CONTACT_EMAIL_TO="kerk@example.org"
 CONTACT_EMAIL_FROM="webwerf@example.org"
+CONTACT_EMAIL_BCC="argief@example.org"
 CONTACT_WEBHOOK_URL="https://<your-webhook>"
 ```
 
@@ -72,9 +73,9 @@ Three local-testing tips:
 - Widening `LIVE_CHECK_CRON` to `* * * * *` in `.dev.vars` saves waiting
   until Saturday morning to see the LIVE badge work.
 - The email channel needs no Cloudflare account locally. `wrangler dev`
-  simulates the binding: the two addresses above can be anything, and the
+  simulates the binding: the three addresses above can be anything, and the
   message is printed and written to `.wrangler/tmp/email/` rather than sent.
-- To test the webhook fallback, leave the two `CONTACT_EMAIL_*` lines out —
+- To test the webhook fallback, leave the three `CONTACT_EMAIL_*` lines out —
   email is preferred whenever it is configured — and point
   `CONTACT_WEBHOOK_URL` at any local server that returns `200`.
 
@@ -413,8 +414,8 @@ widening it.
 `/connect` and `/bible-studies` post to `/api/contact`, which delivers each
 validated submission down **one** of two channels:
 
-1. **Email** (preferred) — Cloudflare Email Sending, straight to the church
-   inbox. No third-party account, no automation service.
+1. **Email** (preferred) — the `send_email` binding, straight to the church
+   inbox (verified destination addresses only on Free). No third-party account, no automation service.
 2. **A webhook** (fallback) — used only when email is unconfigured or fails.
 
 Set up whichever suits you. Email is fewer moving parts and is what the rest of
@@ -434,19 +435,25 @@ the sending quota.
 Use a shared church inbox, not an individual's personal address. Whoever
 receives these is handling personal information under POPIA.
 
-### 6.2 Onboard the sending domain — **must be done for `sdatygerberg.co.za`**
+### 6.2 Onboard the sending domain — **only required to send to arbitrary recipients**
 
 The From address must sit on a domain Cloudflare is authorised to send for, and
-the domain must use Cloudflare DNS. `sdatygerberg.co.za` is **not** onboarded
-yet — nothing is pre-satisfied on the church zone.
+the domain must use Cloudflare DNS. `sdatygerberg.co.za` is not enabled for
+Email Sending yet, but the `cf-bounce` records already exist in DNS and already
+DKIM-align `welkom@sdatygerberg.co.za`; Email Sending is only required to send
+to arbitrary recipients.
 
 1. Dashboard → **Email** → **Email Sending** → add `sdatygerberg.co.za`.
 2. Cloudflare adds the DNS records itself — SPF, DKIM, DMARC, and MX records on
    a `cf-bounce` subdomain. Propagation is usually 5–15 minutes.
 3. Wait for the domain to show as verified before testing.
 
-Until this is done, `welkom@sdatygerberg.co.za` is not a valid sender and the
-email channel fails. Confirm onboarding at any time — all four must answer:
+Until this is done, `welkom@sdatygerberg.co.za` can still send to the verified
+destination addresses above (the current channel); it only blocks sending to
+arbitrary recipients. The four records below already exist in DNS and already
+DKIM-align `welkom@` — their presence is not the onboarding state, so check the
+domain's Email Sending status in the dashboard (Email → Email Sending) rather
+than by `dig` alone:
 
 ```sh
 dig +short MX  cf-bounce.sdatygerberg.co.za           # bounce routing
@@ -460,36 +467,41 @@ selectors (`cf-bounce._domainkey` vs `cf2024-1._domainkey`). A domain that
 routes mail is not thereby allowed to send it, so do not read the apex MX
 records as evidence for this step.
 
-### 6.3 Set the two secrets
+### 6.3 Contact addresses — nothing to set
 
-**There is nothing to set.** The two addresses are committed in
+**There is nothing to set.** The three addresses are committed in
 `wrangler.jsonc`, so a deploy carries them:
 
 ```jsonc
-"CONTACT_EMAIL_TO":   "welkom@sdatygerberg.co.za",
-"CONTACT_EMAIL_FROM": "welkom@sdatygerberg.co.za"
+"CONTACT_EMAIL_TO":   "sdatygerbergklerk@gmail.com",
+"CONTACT_EMAIL_FROM": "welkom@sdatygerberg.co.za",
+"CONTACT_EMAIL_BCC":  "archive@sdatygerberg.co.za"
 ```
 
-**`TO` has to be an address a person reads.** `welkom@` must be wired to an
-inbox — as an Email Routing custom address on `sdatygerberg.co.za` forwarding
-onward, or however the church resolves it — so the enquiry goes somewhere.
+**`TO` is the church's real mailbox, which a person reads.** Enquiries land in
+`sdatygerbergklerk@gmail.com`; `FROM` is the role address
+`welkom@sdatygerberg.co.za` the message is sent as, and `BCC` files one
+church-controlled archive copy via `archive@` (the §6.6 literal rule, with its
+retention in §3.6).
 
 This is a deliberate, temporary reversal of the "delivery addresses are secrets"
 rule — read [ADR-0001](./docs/adr/0001-hardcode-contact-addresses.md) before
 changing it. The `send_email` binding is declared there too, fenced to exactly
 these addresses.
 
-To use different addresses, edit **three** places in `wrangler.jsonc` — the
-`vars` block and the binding's `allowed_destination_addresses` /
-`allowed_sender_addresses` — then redeploy. Out of step, Cloudflare rejects the
-send.
+To use different addresses, edit **two** places per address in `wrangler.jsonc` — the
+`vars` entry and the matching list of the binding's `allowed_destination_addresses` /
+`allowed_sender_addresses` (recipients in the former, the From in the latter) — then redeploy. Out of step, Cloudflare rejects the
+whole send.
 
-What is left is **both §6.1 and §6.2**: `welkom@` is an Email Routing *custom
-address* on `sdatygerberg.co.za` — a routing-rule pattern — and a working
-routing rule is not the same permission as being a verified **destination
-address**. Add it under **Destination Addresses** and click its confirmation
-link. The sending domain must be onboarded too (§6.2); nothing on
-`sdatygerberg.co.za` is pre-satisfied.
+What is left is **§6.1 only**: each recipient (`TO` and `BCC`) must be
+added under **Destination Addresses** with its confirmation link clicked — a
+working routing rule is not the same permission as being a verified
+**destination address**. There is nothing further to onboard today: the
+channel works because both recipients are verified destination addresses
+(§6.1) and the From is DKIM-aligned by the `cf-bounce` records already in
+DNS. §6.2 / Email Sending is only required to send to arbitrary recipients
+(see `docs/cloudflare-smtp-sending.md`).
 
 That applies on the Workers **Free** plan. On **Workers Paid**, Email Sending
 may address any recipient and §6.1 stops mattering. Check the plan before
@@ -497,10 +509,11 @@ spending time on it — it decides whether there is anything to do here.
 
 > `CONTACT_EMAIL_BCC` archives one church-controlled copy to
 > `archive@sdatygerberg.co.za`. For it to work: (a) `archive@` must be a verified
-> destination address under Email Routing, (b) the literal routing rule for
-> `archive@` must hand the message to the `cloudkid-link-r2-explorer` Worker, and
-> (c) the `email-notifications` R2 bucket must have a lifecycle rule so the
-> archive does not keep personal data forever (§3.6). `contactEmail.ts` still
+> destination address under Email Routing, and (b) the literal routing rule for
+> `archive@` must hand the message to the `cloudkid-link-r2-explorer` Worker.
+> Separately, the `email-notifications` R2 bucket keeps the archive under a
+> 7-year lifecycle rule (§3.6) — a POPIA obligation, already satisfied, not a
+> delivery prerequisite. `contactEmail.ts` still
 > honours a BCC set as a Worker secret, but re-add the address to
 > `allowed_destination_addresses` at the same time. Put one real submission
 > through the form and confirm the response says `"via":"email"` before
@@ -647,9 +660,9 @@ receiving it — and `via` tells you which channel did the work.
 | LIVE badge never shows | Missing/invalid key, or outside the window | `curl /api/live-status` and read `source` |
 | `/api/live-status` says `not-configured` | Secrets missing on the Worker | Step 4 — and check they weren't added as Actions secrets by mistake |
 | `/api/live-status` says `invalid-schedule` | Malformed cron or unknown timezone in `wrangler.jsonc` | Fails closed and spends no quota; fix the expression and redeploy |
-| Contact form says it isn't live yet | Neither delivery channel is configured | Step 6 — the two `CONTACT_EMAIL_*` secrets *or* `CONTACT_WEBHOOK_URL` — then redeploy |
+| Contact form says it isn't live yet | Neither delivery channel is configured | There is nothing to set — the three `CONTACT_EMAIL_*` values are committed vars in `wrangler.jsonc` (§6.3); check for a wrong address value, or `CONTACT_WEBHOOK_URL` when relying on the webhook — then redeploy |
 | Contact form reports a send failure | Every configured channel failed | Worker logs name the cause; see the two rows below |
-| Log shows `E_SENDER_NOT_VERIFIED` | `CONTACT_EMAIL_FROM` is on a domain not onboarded to Email Sending | Step 6.2, and check the domain shows as verified |
+| Log shows `E_SENDER_NOT_VERIFIED` | `CONTACT_EMAIL_FROM` is not in `allowed_sender_addresses`, or its domain is not DKIM-alignable | Check the fence and the `cf-bounce` DKIM record; §6.2 is only needed to send to arbitrary recipients |
 | Email silently never arrives, `via` says `webhook` | `CONTACT_EMAIL_TO` isn't a *verified* destination address | Step 6.1 — click the confirmation link Cloudflare emailed |
 | Webhook fallback times out | Endpoint slow or returning non-2xx | Check the webhook; the Worker waits 10s |
 | A secret change had no effect | Secrets apply at deploy time | Re-run the production workflow, or `npm run deploy` |

@@ -447,7 +447,7 @@ verification active; `502`/`503` means the check was skipped.
 ### C-31 — Email is tried first, and the webhook is the fallback
 
 `/api/contact` has two delivery channels and uses exactly one per submission:
-Cloudflare Email Sending if it is configured, otherwise `CONTACT_WEBHOOK_URL`.
+the `send_email` binding if it is configured, otherwise `CONTACT_WEBHOOK_URL`.
 The webhook is only reached when email is unconfigured *or* fails. That order is
 deliberate — email needs no third-party automation account and lands in an inbox
 someone already reads — and so is the exclusivity: running both on every
@@ -477,23 +477,30 @@ Three things bound the email path, and none of them are obvious from the code:
   a *custom address*; the destination is the external inbox behind it. On the free
   path the binding wants the latter.
 
-  **Both configured recipients are custom addresses, not destination addresses.**
-  `hello@` and `notifications@` are routing-rule patterns on `cloudkid.link`. Each
-  has to be added and verified under **Email Routing → Destination Addresses**
+  **A custom address on your own routed domain is not automatically a permitted destination.**
+  The configured recipients are `sdatygerbergklerk@gmail.com` — a genuine
+  verified destination address — and `archive@sdatygerberg.co.za` — a custom
+  address on the zone that must itself be added and verified under **Email Routing → Destination Addresses**
   before the free path will send to it; being a working routing rule is not the
-  same permission and does not substitute for it. On the Workers Paid plan the
-  question is moot — any recipient is allowed — so which of the two applies
+  same permission and does not substitute for it. Both must also be listed in
+  `allowed_destination_addresses`, or the whole send is rejected rather than
+  dropping just the bad recipient. On the Workers Paid plan the question is
+  moot — any recipient is allowed — so which of the two applies
   depends on the account's plan, not on anything in this repo.
-- **The sending domain is already onboarded.** This was an open blocker and is
-  not one: `cloudkid.link` carries all four Email Sending records — `cf-bounce`
-  MX and SPF, `cf-bounce._domainkey` DKIM, and `_dmarc` — alongside the separate
-  Email Routing records on the apex. `CONTACT_EMAIL_FROM` is therefore a valid
-  sender and needs no further setup. Re-check with:
+- **The sending domain needs no onboarding for the current channel.** The
+  current From `welkom@sdatygerberg.co.za` is a valid sender because the zone's
+  already-present `cf-bounce` DKIM records align it — without Email Sending
+  being enabled. (History: `cloudkid.link` carried all four Email Sending
+  records — `cf-bounce` MX and SPF, `cf-bounce._domainkey` DKIM, and `_dmarc` —
+  alongside the separate Email Routing records on the apex; that is why
+  `CONTACT_EMAIL_FROM` needed no further setup then.) Re-check alignment with:
 
   ```sh
-  dig +short TXT cf-bounce._domainkey.cloudkid.link   # Email Sending DKIM
-  dig +short TXT cf2024-1._domainkey.cloudkid.link    # Email Routing DKIM
+  dig +short TXT cf-bounce._domainkey.sdatygerberg.co.za   # Email Sending DKIM on the church zone
   ```
+
+  (The `cloudkid.link` records of the same names are history — see above — not
+  the current check.)
 
   Different selectors, deliberately: onboarding one product does not onboard the
   other, and a domain can have routing without sending.
@@ -508,17 +515,18 @@ Three things bound the email path, and none of them are obvious from the code:
   fallback. The personal monitoring inbox `rainiersvn1@gmail.com` that was
   briefly added alongside `archive@` was removed in 2026-10: a private mailbox
   outside the church's control, with no retention rule, is not a lawful retention
-  location. The remaining obligation is the R2 lifecycle rule on
-  `email-notifications` (SETUP-INSTRUCTIONS §3.6). `contactEmail.ts` still honours
+  location. Retention is configured: the R2 lifecycle rule on
+  `email-notifications` expires the archive after 7 years (set 2026-10-04; SETUP-INSTRUCTIONS §3.6). `contactEmail.ts` still honours
   a BCC set as a Worker secret, but re-add the address to
   `allowed_destination_addresses` at the same time or the send is rejected.
 - **The three addresses are committed to `wrangler.jsonc`, not Worker secrets.**
   This reverses the original decision and is deliberate, temporary, and written
   up in [ADR-0001](./docs/adr/0001-hardcode-contact-addresses.md) — read that
   before changing it, and revert it when any of its three triggers fires. The
-  short version: they are role addresses on the operator's own domain rather
-  than personal or church-member data, so publishing them costs spam to three
-  controlled mailboxes, and it buys a self-contained deploy plus the fence below.
+  short version: two are role addresses on the church's domain and
+  CONTACT_EMAIL_TO is the church's shared Gmail mailbox — all controlled
+  mailboxes rather than personal or church-member data, so publishing them
+  costs spam to these mailboxes, and it buys a self-contained deploy plus the fence below.
 - **The binding is fenced by `allowed_destination_addresses` and
   `allowed_sender_addresses`.** This was impossible while the addresses were
   secret — naming them in the fence would have published them, which was the
@@ -532,8 +540,19 @@ Three things bound the email path, and none of them are obvious from the code:
   address `welkom@sdatygerberg.co.za` — one address in three places (the two
   vars and both fence lists). The sending domain must be onboarded (§6.2 of
   SETUP-INSTRUCTIONS) and `welkom@` added and verified as a destination address
-  before production relies on email; the "already onboarded" statements above
-  describe cloudkid.link's history, not the current state.
+  before production relies on email. (Any "already onboarded" wording elsewhere
+  in this file describes `cloudkid.link`'s history, not this zone's state on
+  this date.)
+
+  **Amendment (2026-10-06):** the addresses have moved again — TO is now the
+  church's Gmail mailbox `sdatygerbergklerk@gmail.com` and BCC the archive
+  address `archive@sdatygerberg.co.za`, with the From
+  `welkom@sdatygerberg.co.za` unchanged (the 2026-09-22 move recorded in
+  ADR-0001). Each address sits in exactly two places: its var and the matching
+  fence list — recipients in `allowed_destination_addresses`, the From in
+  `allowed_sender_addresses`. Both recipients must be verified destination
+  addresses before production relies on email; Email Sending is still not
+  required for this channel.
 
 A missing binding or a missing value is not an error: `sendContactEmail` returns
 false and delivery moves on. That is what keeps a partial configuration working
@@ -1595,7 +1614,7 @@ CI `worker` job and the devtest smoke can never exercise this channel.
 Operating rules:
 
 - After any change to `CONTACT_EMAIL_TO`, the `send_email` binding, or the
-  account's Email Service onboarding / destination addresses: verify one real
+  account's verified destination addresses: verify one real
   delivery. Submit the form for real — once Turnstile's secret is bound the
   captcha check runs *before* delivery, so no script can reach the channel
   (C-21) — and confirm the mail lands, with `via: email` in the form's

@@ -413,8 +413,8 @@ widening it.
 `/connect` and `/bible-studies` post to `/api/contact`, which delivers each
 validated submission down **one** of two channels:
 
-1. **Email** (preferred) — Cloudflare Email Sending, straight to the church
-   inbox. No third-party account, no automation service.
+1. **Email** (preferred) — the `send_email` binding, straight to the church
+   inbox (verified destination addresses only on Free). No third-party account, no automation service.
 2. **A webhook** (fallback) — used only when email is unconfigured or fails.
 
 Set up whichever suits you. Email is fewer moving parts and is what the rest of
@@ -434,19 +434,25 @@ the sending quota.
 Use a shared church inbox, not an individual's personal address. Whoever
 receives these is handling personal information under POPIA.
 
-### 6.2 Onboard the sending domain — **must be done for `sdatygerberg.co.za`**
+### 6.2 Onboard the sending domain — **only required to send to arbitrary recipients**
 
 The From address must sit on a domain Cloudflare is authorised to send for, and
-the domain must use Cloudflare DNS. `sdatygerberg.co.za` is **not** onboarded
-yet — nothing is pre-satisfied on the church zone.
+the domain must use Cloudflare DNS. `sdatygerberg.co.za` is not enabled for
+Email Sending yet, but the `cf-bounce` records already exist in DNS and already
+DKIM-align `welkom@sdatygerberg.co.za`; Email Sending is only required to send
+to arbitrary recipients.
 
 1. Dashboard → **Email** → **Email Sending** → add `sdatygerberg.co.za`.
 2. Cloudflare adds the DNS records itself — SPF, DKIM, DMARC, and MX records on
    a `cf-bounce` subdomain. Propagation is usually 5–15 minutes.
 3. Wait for the domain to show as verified before testing.
 
-Until this is done, `welkom@sdatygerberg.co.za` is not a valid sender and the
-email channel fails. Confirm onboarding at any time — all four must answer:
+Until this is done, `welkom@sdatygerberg.co.za` can still send to the verified
+destination addresses above (the current channel); it only blocks sending to
+arbitrary recipients. The four records below already exist in DNS and already
+DKIM-align `welkom@` — their presence is not the onboarding state, so check the
+domain's Email Sending status in the dashboard (Email → Email Sending) rather
+than by `dig` alone:
 
 ```sh
 dig +short MX  cf-bounce.sdatygerberg.co.za           # bounce routing
@@ -502,10 +508,11 @@ spending time on it — it decides whether there is anything to do here.
 
 > `CONTACT_EMAIL_BCC` archives one church-controlled copy to
 > `archive@sdatygerberg.co.za`. For it to work: (a) `archive@` must be a verified
-> destination address under Email Routing, (b) the literal routing rule for
-> `archive@` must hand the message to the `cloudkid-link-r2-explorer` Worker, and
-> (c) the `email-notifications` R2 bucket must have a lifecycle rule so the
-> archive does not keep personal data forever (§3.6). `contactEmail.ts` still
+> destination address under Email Routing, and (b) the literal routing rule for
+> `archive@` must hand the message to the `cloudkid-link-r2-explorer` Worker.
+> Separately, the `email-notifications` R2 bucket keeps the archive under a
+> 7-year lifecycle rule (§3.6) — a POPIA obligation, already satisfied, not a
+> delivery prerequisite. `contactEmail.ts` still
 > honours a BCC set as a Worker secret, but re-add the address to
 > `allowed_destination_addresses` at the same time. Put one real submission
 > through the form and confirm the response says `"via":"email"` before
@@ -654,7 +661,7 @@ receiving it — and `via` tells you which channel did the work.
 | `/api/live-status` says `invalid-schedule` | Malformed cron or unknown timezone in `wrangler.jsonc` | Fails closed and spends no quota; fix the expression and redeploy |
 | Contact form says it isn't live yet | Neither delivery channel is configured | Step 6 — the two `CONTACT_EMAIL_*` secrets *or* `CONTACT_WEBHOOK_URL` — then redeploy |
 | Contact form reports a send failure | Every configured channel failed | Worker logs name the cause; see the two rows below |
-| Log shows `E_SENDER_NOT_VERIFIED` | `CONTACT_EMAIL_FROM` is on a domain not onboarded to Email Sending | Step 6.2, and check the domain shows as verified |
+| Log shows `E_SENDER_NOT_VERIFIED` | `CONTACT_EMAIL_FROM` is not in `allowed_sender_addresses`, or its domain is not DKIM-alignable | Check the fence and the `cf-bounce` DKIM record; §6.2 is only needed to send to arbitrary recipients |
 | Email silently never arrives, `via` says `webhook` | `CONTACT_EMAIL_TO` isn't a *verified* destination address | Step 6.1 — click the confirmation link Cloudflare emailed |
 | Webhook fallback times out | Endpoint slow or returning non-2xx | Check the webhook; the Worker waits 10s |
 | A secret change had no effect | Secrets apply at deploy time | Re-run the production workflow, or `npm run deploy` |

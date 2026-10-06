@@ -87,9 +87,10 @@
     // Setting a Worker *secret* of the same name is the way back: remove the
     // line here and `wrangler secret put` it, and no code changes.
     //
-    // CONTACT_EMAIL_TO must be a verified destination address on the account,
-    // and the domain must be onboarded to Email Sending (SETUP-INSTRUCTIONS
-    // §6.2) for the From to work.
+    // CONTACT_EMAIL_TO and CONTACT_EMAIL_BCC must each be a verified
+    // destination address on the account. The From is DKIM-aligned by the
+    // cf-bounce records already in DNS; SETUP-INSTRUCTIONS §6.2 / Email
+    // Sending is only needed to send to arbitrary recipients.
     //
     // CONTACT_EMAIL_BCC archives exactly one church-controlled copy of every
     // enquiry via the address's literal routing rule (SETUP-INSTRUCTIONS §6.6).

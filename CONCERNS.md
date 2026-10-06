@@ -508,8 +508,8 @@ Three things bound the email path, and none of them are obvious from the code:
   fallback. The personal monitoring inbox `rainiersvn1@gmail.com` that was
   briefly added alongside `archive@` was removed in 2026-10: a private mailbox
   outside the church's control, with no retention rule, is not a lawful retention
-  location. The remaining obligation is the R2 lifecycle rule on
-  `email-notifications` (SETUP-INSTRUCTIONS §3.6). `contactEmail.ts` still honours
+  location. Retention is configured: the R2 lifecycle rule on
+  `email-notifications` expires the archive after 7 years (set 2026-10-04; SETUP-INSTRUCTIONS §3.6). `contactEmail.ts` still honours
   a BCC set as a Worker secret, but re-add the address to
   `allowed_destination_addresses` at the same time or the send is rejected.
 - **The three addresses are committed to `wrangler.jsonc`, not Worker secrets.**
@@ -529,11 +529,10 @@ Three things bound the email path, and none of them are obvious from the code:
   not the other and Cloudflare rejects the send.
 
   **Update (2026-09-08):** both addresses are now the single church role
-  address `welkom@sdatygerberg.co.za` — one address in three places (the two
-  vars and both fence lists). The sending domain must be onboarded (§6.2 of
-  SETUP-INSTRUCTIONS) and `welkom@` added and verified as a destination address
+  address `welkom@sdatygerberg.co.za` — each address in exactly two places (its var and the matching fence list: recipients in `allowed_destination_addresses`, the From in `allowed_sender_addresses`). The sending domain must be onboarded (§6.2 of
+  SETUP-INSTRUCTIONS) and the recipient addresses added and verified as destination addresses — `welkom@` as the sender needs the sending-domain onboarding, not destination verification
   before production relies on email; the "already onboarded" statements above
-  describe cloudkid.link's history, not the current state.
+  describe cloudkid.link's history, not the current state. (Superseded by the 2026-09-22 move recorded in ADR-0001: TO is now the church's Gmail mailbox and BCC the archive address.)
 
 A missing binding or a missing value is not an error: `sendContactEmail` returns
 false and delivery moves on. That is what keeps a partial configuration working

@@ -460,35 +460,38 @@ selectors (`cf-bounce._domainkey` vs `cf2024-1._domainkey`). A domain that
 routes mail is not thereby allowed to send it, so do not read the apex MX
 records as evidence for this step.
 
-### 6.3 Set the two secrets
+### 6.3 Contact addresses — nothing to set
 
-**There is nothing to set.** The two addresses are committed in
+**There is nothing to set.** The three addresses are committed in
 `wrangler.jsonc`, so a deploy carries them:
 
 ```jsonc
-"CONTACT_EMAIL_TO":   "welkom@sdatygerberg.co.za",
-"CONTACT_EMAIL_FROM": "welkom@sdatygerberg.co.za"
+"CONTACT_EMAIL_TO":   "sdatygerbergklerk@gmail.com",
+"CONTACT_EMAIL_FROM": "welkom@sdatygerberg.co.za",
+"CONTACT_EMAIL_BCC":  "archive@sdatygerberg.co.za"
 ```
 
-**`TO` has to be an address a person reads.** `welkom@` must be wired to an
-inbox — as an Email Routing custom address on `sdatygerberg.co.za` forwarding
-onward, or however the church resolves it — so the enquiry goes somewhere.
+**`TO` is the church's real mailbox, which a person reads.** Enquiries land in
+`sdatygerbergklerk@gmail.com`; `FROM` is the role address
+`welkom@sdatygerberg.co.za` the message is sent as, and `BCC` files one
+church-controlled archive copy via `archive@` (the §6.6 literal rule, with its
+retention in §3.6).
 
 This is a deliberate, temporary reversal of the "delivery addresses are secrets"
 rule — read [ADR-0001](./docs/adr/0001-hardcode-contact-addresses.md) before
 changing it. The `send_email` binding is declared there too, fenced to exactly
 these addresses.
 
-To use different addresses, edit **three** places in `wrangler.jsonc` — the
-`vars` block and the binding's `allowed_destination_addresses` /
-`allowed_sender_addresses` — then redeploy. Out of step, Cloudflare rejects the
-send.
+To use different addresses, edit **two** places per address in `wrangler.jsonc` — the
+`vars` entry and the matching list of the binding's `allowed_destination_addresses` /
+`allowed_sender_addresses` (recipients in the former, the From in the latter) — then redeploy. Out of step, Cloudflare rejects the
+whole send.
 
-What is left is **both §6.1 and §6.2**: `welkom@` is an Email Routing *custom
-address* on `sdatygerberg.co.za` — a routing-rule pattern — and a working
-routing rule is not the same permission as being a verified **destination
-address**. Add it under **Destination Addresses** and click its confirmation
-link. The sending domain must be onboarded too (§6.2); nothing on
+What is left is **both §6.1 and §6.2**: each recipient (`TO` and `BCC`) must be
+added under **Destination Addresses** with its confirmation link clicked — a
+working routing rule is not the same permission as being a verified
+**destination address**. The sending domain must be onboarded too (§6.2) so
+`welkom@` is a valid sender; nothing on
 `sdatygerberg.co.za` is pre-satisfied.
 
 That applies on the Workers **Free** plan. On **Workers Paid**, Email Sending

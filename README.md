@@ -55,10 +55,10 @@ The two YouTube values may be stored as repo secrets instead — the production
 workflow uploads them — but remove one from repo settings without removing it
 from the workflow and an empty value gets uploaded.
 
-The three contact values are deliberately **not** on that bridge. It passes
-secrets by name, so listing an optional one there overwrites a working
-dashboard value with an empty string the moment the repo secret is absent. Set
-them in the dashboard, or with `wrangler secret put`.
+The three contact values are committed vars in `wrangler.jsonc` (see the vars
+table below) and are deliberately **not** on that bridge. It passes secrets by
+name, so listing one there would overwrite a working value with an empty string
+the moment the repo secret is absent. There is nothing to set.
 
 **Worker vars** — `wrangler.jsonc`, edit and redeploy, no code change:
 
@@ -88,11 +88,11 @@ catch-all, one Worker, two forwards. See CONCERNS.md
 and SETUP-INSTRUCTIONS §6.6; the failure modes are logged to the Worker's tail
 and visible nowhere else.
 
-Changing the address means changing it in **three** places in
-`wrangler.jsonc` — the `vars` block and both lists of the `send_email`
-binding, `allowed_destination_addresses` /
-`allowed_sender_addresses`. Out of step, the
-send is rejected ([C-31](./CONCERNS.md#c-31--email-is-tried-first-and-the-webhook-is-the-fallback)).
+Changing an address means changing it in **two** places in
+`wrangler.jsonc` — its `vars` entry and the matching list of the `send_email`
+binding (recipients in `allowed_destination_addresses`, the From in
+`allowed_sender_addresses`). Out of step, Cloudflare rejects the whole
+send ([C-31](./CONCERNS.md#c-31--email-is-tried-first-and-the-webhook-is-the-fallback)).
 
 **Build-time env vars** — set by the workflows; unset means "on":
 

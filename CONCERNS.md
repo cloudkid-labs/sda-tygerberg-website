@@ -477,12 +477,15 @@ Three things bound the email path, and none of them are obvious from the code:
   a *custom address*; the destination is the external inbox behind it. On the free
   path the binding wants the latter.
 
-  **Both configured recipients are custom addresses, not destination addresses.**
-  `hello@` and `notifications@` are routing-rule patterns on `cloudkid.link`. Each
-  has to be added and verified under **Email Routing → Destination Addresses**
+  **A custom address on your own routed domain is not automatically a permitted destination.**
+  The configured recipients are `sdatygerbergklerk@gmail.com` — a genuine
+  verified destination address — and `archive@sdatygerberg.co.za` — a custom
+  address on the zone that must itself be added and verified under **Email Routing → Destination Addresses**
   before the free path will send to it; being a working routing rule is not the
-  same permission and does not substitute for it. On the Workers Paid plan the
-  question is moot — any recipient is allowed — so which of the two applies
+  same permission and does not substitute for it. Both must also be listed in
+  `allowed_destination_addresses`, or the whole send is rejected rather than
+  dropping just the bad recipient. On the Workers Paid plan the question is
+  moot — any recipient is allowed — so which of the two applies
   depends on the account's plan, not on anything in this repo.
 - **The sending domain is already onboarded.** This was an open blocker and is
   not one: `cloudkid.link` carries all four Email Sending records — `cf-bounce`
@@ -529,8 +532,7 @@ Three things bound the email path, and none of them are obvious from the code:
   not the other and Cloudflare rejects the send.
 
   **Update (2026-09-08):** both addresses are now the single church role
-  address `welkom@sdatygerberg.co.za` — each address in exactly two places (its var and the matching fence list: recipients in `allowed_destination_addresses`, the From in `allowed_sender_addresses`). The sending domain must be onboarded (§6.2 of
-  SETUP-INSTRUCTIONS) and the recipient addresses added and verified as destination addresses — `welkom@` as the sender needs the sending-domain onboarding, not destination verification
+  address `welkom@sdatygerberg.co.za` — each address in exactly two places (its var and the matching fence list: recipients in `allowed_destination_addresses`, the From in `allowed_sender_addresses`). The recipient addresses must be added and verified as destination addresses
   before production relies on email; the "already onboarded" statements above
   describe cloudkid.link's history, not the current state. (Superseded by the 2026-09-22 move recorded in ADR-0001: TO is now the church's Gmail mailbox and BCC the archive address.)
 

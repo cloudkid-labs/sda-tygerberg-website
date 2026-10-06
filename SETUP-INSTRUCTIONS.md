@@ -487,12 +487,14 @@ To use different addresses, edit **two** places per address in `wrangler.jsonc` 
 `allowed_sender_addresses` (recipients in the former, the From in the latter) — then redeploy. Out of step, Cloudflare rejects the
 whole send.
 
-What is left is **both §6.1 and §6.2**: each recipient (`TO` and `BCC`) must be
+What is left is **§6.1 only**: each recipient (`TO` and `BCC`) must be
 added under **Destination Addresses** with its confirmation link clicked — a
 working routing rule is not the same permission as being a verified
-**destination address**. The sending domain must be onboarded too (§6.2) so
-`welkom@` is a valid sender; nothing on
-`sdatygerberg.co.za` is pre-satisfied.
+**destination address**. There is nothing further to onboard today: the
+channel works because both recipients are verified destination addresses
+(§6.1) and the From is DKIM-aligned by the `cf-bounce` records already in
+DNS. §6.2 / Email Sending is only required to send to arbitrary recipients
+(see `docs/cloudflare-smtp-sending.md`).
 
 That applies on the Workers **Free** plan. On **Workers Paid**, Email Sending
 may address any recipient and §6.1 stops mattering. Check the plan before

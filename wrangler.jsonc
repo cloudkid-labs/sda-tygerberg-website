@@ -75,11 +75,14 @@
     "LIVE_CHECK_TZ": "Africa/Johannesburg",
 
     // Contact-form delivery. These were Worker secrets; they are vars now by
-    // decision — see C-31. Both are the same address: a single role address on
-    // the church's own domain, welkom@sdatygerberg.co.za, used for delivery
-    // (To) and the From header. Not personal or church-member data, and the
-    // cost of publishing it is spam to one mailbox rather than exposure of
-    // anyone's information. The From appears in every message header anyway.
+    // decision — see C-31. TO is the church's real mailbox
+    // (sdatygerbergklerk@gmail.com); FROM is the role address
+    // welkom@sdatygerberg.co.za (not a mailbox itself — mail sent to it
+    // reaches the clerk via the catch-all); BCC is the church-controlled
+    // archive (archive@sdatygerberg.co.za). Not personal or church-member
+    // data, and the cost of publishing them is spam to these mailboxes
+    // rather than exposure of anyone's information. The From appears in
+    // every message header anyway.
     //
     // Setting a Worker *secret* of the same name is the way back: remove the
     // line here and `wrangler secret put` it, and no code changes.

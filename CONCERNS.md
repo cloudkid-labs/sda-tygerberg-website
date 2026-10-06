@@ -1675,3 +1675,28 @@ it can carry a token. And the user agent is newline-stripped and clipped to 100
 characters, so a crafted header cannot forge a second line in the tail — the
 fixture for that shape lives in `test/requestLog.test.mjs`, which is the one
 input the edge would never actually deliver.
+
+### C-67 — The mobile menu dismisses on distance scrolled, not on any scroll
+
+`Header.tsx` closes the mobile panel when the visitor really scrolls, and the
+rule is a 10px displacement from the position at open — not any `scroll` event
+at all. An unconditional listener reads correctly on desktop and breaks the
+menu on a phone: tapping the burger mid-page fires a scroll event in the same
+frame, from residual momentum after the scroll plus scroll anchoring shifting
+the page when the panel is inserted, so the menu opened and closed before it
+ever painted. The report was "the hamburger never expands when opened
+mid-page".
+
+10px is the order of magnitude that swallows both jitters — rubber-band and
+anchoring settle inside a few px — while a deliberate scroll still dismisses
+within a finger's first movement. The baseline is captured once, when the menu
+opens, and never re-based on later events; closing flips `menuOpen` false,
+which runs the effect cleanup and drops the listener, so a continued scroll
+cannot reopen or double-fire anything. Escape closes too, inside the same
+effect, because keyboard users get no scroll to dismiss with and `aria-expanded`
+already follows `menuOpen`.
+
+What not to add: body-scroll locking, outside-click handling, or animation
+workarounds. Each changes behaviour beyond the reported bug — locking the page
+under an open panel is its own argument — and none of them addresses the
+cause, which was the listener firing on jitter rather than on travel.

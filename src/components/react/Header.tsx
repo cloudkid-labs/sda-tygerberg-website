@@ -53,9 +53,27 @@ export function Header() {
 
   useEffect(() => {
     if (!menuOpen) return;
-    const handleScroll = () => setMenuOpen(false);
+    // The baseline is the position at open, not at first event: the menu
+    // must survive the jitter of its own insertion (scroll anchoring shifts
+    // the page a few px when the panel mounts, and iOS fires residual
+    // momentum scrolls after a tap mid-page) while still dismissing on a
+    // genuine scroll. 10px swallows both without making a deliberate scroll
+    // feel ignored. Closing flips menuOpen false, which runs this cleanup
+    // and drops both listeners — nothing lingers for the next open.
+    const openY = window.scrollY;
+    const handleScroll = () => {
+      if (Math.abs(window.scrollY - openY) > 10) setMenuOpen(false);
+    };
+    // Keyboard users get no scroll to dismiss with, so Escape closes too.
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setMenuOpen(false);
+    };
     window.addEventListener('scroll', handleScroll, { passive: true });
-    return () => window.removeEventListener('scroll', handleScroll);
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      window.removeEventListener('scroll', handleScroll);
+      window.removeEventListener('keydown', handleKeyDown);
+    };
   }, [menuOpen]);
 
   return (

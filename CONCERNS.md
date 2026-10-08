@@ -1693,12 +1693,14 @@ unconditional listener treated as a dismiss: at `scrollY` 2000, opening jumped
 to 2352, the handler closed the menu, the panel unmounted, and the page
 snapped back to 2000. With `overflow-anchor: none` there is no shift and no
 event and the menu stays open, which proves anchoring of the in-flow panel is
-the entire cause.
+the entire cause. Those figures were measured in headless Chromium at 390x844;
+the behaviour on the reported platform (iOS Safari) has not yet been checked on
+a device, and the residual-momentum path there is untested.
 
-The fix survives because the baseline is captured in `useEffect`, which runs
-after the browser has applied the anchoring adjustment, so the displacement
-caused by opening is already baked into the baseline and never compared
-against itself. The 10px threshold is a deliberate deadband for genuine user
+The fix survives because the baseline is captured after the anchoring
+adjustment has applied, so the displacement caused by opening is already baked
+into the baseline and never compared against itself. The 10px threshold is a
+deliberate deadband for genuine user
 scrolling after opening — not a guard against the opening shift, which at
 352px it could never absorb. Dismissal is measured as absolute distance from
 the position at open, giving a fixed deadband around it: excursions do not

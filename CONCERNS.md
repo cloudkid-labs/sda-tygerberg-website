@@ -1681,22 +1681,42 @@ input the edge would never actually deliver.
 `Header.tsx` closes the mobile panel when the visitor really scrolls, and the
 rule is a 10px displacement from the position at open — not any `scroll` event
 at all. An unconditional listener reads correctly on desktop and breaks the
-menu on a phone: tapping the burger mid-page fires a scroll event in the same
-frame, from residual momentum after the scroll plus scroll anchoring shifting
-the page when the panel is inserted, so the menu opened and closed before it
-ever painted. The report was "the hamburger never expands when opened
+menu on a phone: tapping the burger mid-page opened and closed the menu before
+it ever painted, and the report was "the hamburger never expands when opened
 mid-page".
 
-10px is the order of magnitude that swallows both jitters — rubber-band and
-anchoring settle inside a few px — while a deliberate scroll still dismisses
-within a finger's first movement. The baseline is captured once, when the menu
-opens, and never re-based on later events; closing flips `menuOpen` false,
-which runs the effect cleanup and drops the listener, so a continued scroll
-cannot reopen or double-fire anything. Escape closes too, inside the same
-effect, because keyboard users get no scroll to dismiss with and `aria-expanded`
-already follows `menuOpen`.
+The cause is the panel being in-flow, not tap jitter. Mounting it grows the
+document by its own height — 352px measured at 390x844 (header 71px closed,
+423px open) — and the browser's scroll anchoring shifts `scrollY` by that
+amount to compensate. That adjustment fires a scroll event which the old
+unconditional listener treated as a dismiss: at `scrollY` 2000, opening jumped
+to 2352, the handler closed the menu, the panel unmounted, and the page
+snapped back to 2000. With `overflow-anchor: none` there is no shift and no
+event and the menu stays open, which proves anchoring of the in-flow panel is
+the entire cause.
+
+The fix survives because the baseline is captured in `useEffect`, which runs
+after the browser has applied the anchoring adjustment, so the displacement
+caused by opening is already baked into the baseline and never compared
+against itself. The 10px threshold is a deliberate deadband for genuine user
+scrolling after opening — not a guard against the opening shift, which at
+352px it could never absorb. Dismissal is measured as absolute distance from
+the position at open, giving a fixed deadband around it: excursions do not
+accumulate. The baseline is captured once and never re-based on later events —
+re-basing inside the handler would let a slow continuous scroll walk the
+baseline along and never dismiss. As a second guarantee the baseline is only
+armed after a 250ms settling delay, so scroll events that are artefacts of
+opening are ignored even if some engine applies the anchoring shift after the
+effect runs; survival does not depend on effect-versus-layout ordering.
+Closing flips `menuOpen` false, which clears the arming timer and runs the
+effect cleanup to drop both listeners, so a continued scroll cannot reopen or
+double-fire anything and nothing lingers for the next open. Escape closes too,
+inside the same effect, because keyboard users get no scroll to dismiss with
+and `aria-expanded` already follows `menuOpen`.
 
 What not to add: body-scroll locking, outside-click handling, or animation
 workarounds. Each changes behaviour beyond the reported bug — locking the page
 under an open panel is its own argument — and none of them addresses the
-cause, which was the listener firing on jitter rather than on travel.
+cause, which was scroll anchoring of the in-flow panel shifting `scrollY` by
+the panel's full height, not the listener firing on jitter rather than on
+travel.

@@ -220,7 +220,7 @@ export const homeCopy: Record<Lang, HomeCopy> = {
     footerBlurb: '’n Gemeente wat hoop, genesing en die liefde van Jesus met die Tygerberg-omgewing deel.',
     footerVisit: 'Besoek ons',
     footerTimesLabel: 'Dienstye',
-    footerCreditBuilder: 'Geskep deur Cloudkid Technologist ™ · cloudkid.link',
+    footerCreditBuilder: 'Geskep deur CK Labs ™',
     footerCreditChurch: 'Deel van die wêreldwye Adventistekerk · adventist.org',
   },
   en: {
@@ -326,7 +326,7 @@ export const homeCopy: Record<Lang, HomeCopy> = {
     footerBlurb: 'A congregation sharing hope, healing and the love of Jesus with the Tygerberg community.',
     footerVisit: 'Visit us',
     footerTimesLabel: 'Service times',
-    footerCreditBuilder: 'Created by Cloudkid Technologist ™ · cloudkid.link',
+    footerCreditBuilder: 'Created & Maintained by CK Labs ™',
     footerCreditChurch: 'Part of the worldwide Adventist Church · adventist.org',
   },
 };

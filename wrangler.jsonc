@@ -75,18 +75,22 @@
     "LIVE_CHECK_TZ": "Africa/Johannesburg",
 
     // Contact-form delivery. These were Worker secrets; they are vars now by
-    // decision — see C-31. Both are the same address: a single role address on
-    // the church's own domain, welkom@sdatygerberg.co.za, used for delivery
-    // (To) and the From header. Not personal or church-member data, and the
-    // cost of publishing it is spam to one mailbox rather than exposure of
-    // anyone's information. The From appears in every message header anyway.
+    // decision — see C-31. TO is the church's real mailbox
+    // (sdatygerbergklerk@gmail.com); FROM is the role address
+    // welkom@sdatygerberg.co.za (not a mailbox itself — mail sent to it
+    // reaches the clerk via the catch-all); BCC is the church-controlled
+    // archive (archive@sdatygerberg.co.za). Not personal or church-member
+    // data, and the cost of publishing them is spam to these mailboxes
+    // rather than exposure of anyone's information. The From appears in
+    // every message header anyway.
     //
     // Setting a Worker *secret* of the same name is the way back: remove the
     // line here and `wrangler secret put` it, and no code changes.
     //
-    // CONTACT_EMAIL_TO must be a verified destination address on the account,
-    // and the domain must be onboarded to Email Sending (SETUP-INSTRUCTIONS
-    // §6.2) for the From to work.
+    // CONTACT_EMAIL_TO and CONTACT_EMAIL_BCC must each be a verified
+    // destination address on the account. The From is DKIM-aligned by the
+    // cf-bounce records already in DNS; SETUP-INSTRUCTIONS §6.2 / Email
+    // Sending is only needed to send to arbitrary recipients.
     //
     // CONTACT_EMAIL_BCC archives exactly one church-controlled copy of every
     // enquiry via the address's literal routing rule (SETUP-INSTRUCTIONS §6.6).
@@ -96,8 +100,8 @@
     // outside the church's control, with no retention rule, is the worst
     // available retention location. archive@sdatygerberg.co.za is a verified
     // destination address that terminates in R2 storage — the loop-safe shape
-    // C-65 describes. The R2 lifecycle rule on the email-notifications bucket
-    // is the remaining obligation; SETUP-INSTRUCTIONS §3.6.
+    // C-65 describes. That archive expires after 7 years under the R2 lifecycle
+    // rule on the email-notifications bucket; SETUP-INSTRUCTIONS §3.6.
     "CONTACT_EMAIL_TO": "sdatygerbergklerk@gmail.com",
     "CONTACT_EMAIL_FROM": "welkom@sdatygerberg.co.za",
     // Archive copy: the same message BCC'd to archive@sdatygerberg.co.za,
@@ -139,9 +143,11 @@
   // in the Worker could do — a mistake in `contactEmail.ts` cannot mail a
   // stranger, it fails instead.
   //
-  // Keep this in step with the `CONTACT_EMAIL_*` vars above: one address,
-  // welkom@sdatygerberg.co.za, in three places — the two vars and both lists
-  // here. Out of step, Cloudflare rejects the send. See C-31.
+  // Keep this in step with the `CONTACT_EMAIL_*` vars above: each address in
+  // exactly two places — a recipient in its var and
+  // `allowed_destination_addresses`, the From in its var and
+  // `allowed_sender_addresses`. Out of step, Cloudflare rejects the whole
+  // send. See C-31.
   "send_email": [
     {
       "name": "EMAIL",
@@ -152,8 +158,8 @@
   // Consent records for /api/contact submissions — CONCERNS.md C-34.
   //
   // A bucket that already existed in the account and had nothing writing to it:
-  // the enquiry BCC goes to notifications@, which Email Routing hands to the
-  // cloudkid-link-r2-explorer Worker, and that Worker is configured with
+  // the enquiry BCC then went to notifications@, which Email Routing handed to
+  // the cloudkid-link-r2-explorer Worker, and that Worker was configured with
   // `targetBucket: "email-notifications"`. So consent was demonstrable only as
   // a raw .txt email dump in a different bucket. This binding is what makes the
   // Worker that *validates* consent also the one that records it.
@@ -162,9 +168,10 @@
   // unbound namespace as "not configured" and the enquiry email keeps carrying
   // the consent line, exactly as before.
   //
-  // Retention is NOT set here — R2 lifecycle rules are dashboard-only. See
-  // SETUP-INSTRUCTIONS.md §3.6; personal data with no expiry is a POPIA problem
-  // that this file cannot solve.
+  // Retention is not expressible here — R2 lifecycle rules live on the buckets,
+  // not in this file. Both are configured: `consent-cloudkid-link` and
+  // `email-notifications` each expire after 7 years, set 2026-10-04 via
+  // `wrangler r2 bucket lifecycle`. See SETUP-INSTRUCTIONS.md §3.6.
   "r2_buckets": [
     {
       "binding": "CONSENT",

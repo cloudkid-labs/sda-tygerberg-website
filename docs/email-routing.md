@@ -91,7 +91,8 @@ disappears; the only diagnostic is `wrangler tail tygerberg-sda-website`
 - **Email Sending:** not enabled on the domain yet (the account is on Workers Free), so only the Worker sends, and only to the verified destination addresses above. Sending as `welkom@` to arbitrary recipients needs Email Sending — see [cloudflare-smtp-sending.md](./cloudflare-smtp-sending.md).
 - **Zapper merchant profile:** notification email `tesourier@sdatygerberg.co.za`.
 - **R2 buckets:** the archive bucket is configured on `cloudkid-link-r2-explorer`;
-  neither bucket has a retention rule in this repo (C-34).
+  both buckets expire after 7 years via `wrangler r2 bucket lifecycle` (set
+  2026-10-04) — retention is not expressible in this repo's config (§3.6, C-34).
 
 The devtest Worker has no mail bindings or vars: it sends nothing and receives nothing (C-61).
 

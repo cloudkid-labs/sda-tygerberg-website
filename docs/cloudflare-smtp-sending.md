@@ -32,7 +32,9 @@ and Google retires "Send as" for third-party addresses in **January 2027**
 
 ## DNS
 
-Email Sending manages — and locks — these on the domain. Do not hand-edit them
+Once onboarded, Email Sending owns — and locks — these on the domain. Today the
+`cf-bounce` DKIM record already exists (it is what DKIM-aligns the Worker's
+`welkom@` From) and is not locked. Do not hand-edit them
 while locked; unlock from the Email Sending settings page first if a migration
 is ever needed.
 

@@ -5,7 +5,7 @@ import type { ContactTopic } from './contact';
 export type ContactEmailEnv = {
   /**
    * The `send_email` binding declared in wrangler.jsonc. Absent when the
-   * account has no Email Service onboarding yet, so the code treats a missing
+   * deploy carries no `send_email` binding, so the code treats a missing
    * binding as "email not configured" rather than crashing.
    */
   EMAIL?: SendEmail;
@@ -20,8 +20,8 @@ export type ContactEmailEnv = {
    */
   CONTACT_EMAIL_TO?: string;
   /**
-   * The From address, on a domain onboarded to Cloudflare Email Service, and
-   * within the binding's `allowed_sender_addresses`.
+   * The From address, DKIM-aligned by the domain's `cf-bounce` records and
+   * listed in the binding's `allowed_sender_addresses`.
    */
   CONTACT_EMAIL_FROM?: string;
   /**

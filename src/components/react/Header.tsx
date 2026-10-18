@@ -53,9 +53,34 @@ export function Header() {
 
   useEffect(() => {
     if (!menuOpen) return;
-    const handleScroll = () => setMenuOpen(false);
+    // The panel is in-flow, so mounting it grows the document by its own
+    // height (352px measured: header 71px closed, 423px open) and the
+    // browser's scroll anchoring shifts scrollY to compensate — that fires a
+    // scroll event that is an artefact of opening, not a user scroll. Arm
+    // the baseline only after that settles, so the guard does not depend on
+    // effect-versus-layout timing: anything before the baseline exists is
+    // ignored, and dismissal is then a fixed 10px deadband around the
+    // position at open for genuine scrolling after opening. The baseline is
+    // captured once and never re-based inside the handler — re-basing would
+    // let a slow scroll walk the deadband along and never dismiss. Closing
+    // flips menuOpen false, which runs this cleanup, clears the timer, and
+    // drops both listeners — nothing lingers for the next open.
+    let baseline: number | null = null;
+    const arm = window.setTimeout(() => { baseline = window.scrollY; }, 250);
+    const handleScroll = () => {
+      if (baseline !== null && Math.abs(window.scrollY - baseline) > 10) setMenuOpen(false);
+    };
+    // Keyboard users get no scroll to dismiss with, so Escape closes too.
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setMenuOpen(false);
+    };
     window.addEventListener('scroll', handleScroll, { passive: true });
-    return () => window.removeEventListener('scroll', handleScroll);
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      window.clearTimeout(arm);
+      window.removeEventListener('scroll', handleScroll);
+      window.removeEventListener('keydown', handleKeyDown);
+    };
   }, [menuOpen]);
 
   return (

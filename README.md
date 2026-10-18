@@ -30,7 +30,7 @@ and widen `LIVE_CHECK_CRON` to `* * * * *` so you needn't wait for Saturday.
 
 The contact form's email channel needs no Cloudflare account locally: `wrangler
 dev` simulates the `send_email` binding, printing From/To/Subject and writing the
-body to `.wrangler/tmp/email/` instead of sending. Put any two addresses in
+body to `.wrangler/tmp/email/` instead of sending. Put any three addresses in
 `.dev.vars` and you can read what the church would receive.
 
 ## Configuration
@@ -55,10 +55,10 @@ The two YouTube values may be stored as repo secrets instead — the production
 workflow uploads them — but remove one from repo settings without removing it
 from the workflow and an empty value gets uploaded.
 
-The three contact values are deliberately **not** on that bridge. It passes
-secrets by name, so listing an optional one there overwrites a working
-dashboard value with an empty string the moment the repo secret is absent. Set
-them in the dashboard, or with `wrangler secret put`.
+The three contact values are committed vars in `wrangler.jsonc` (see the vars
+table below) and are deliberately **not** on that bridge. It passes secrets by
+name, so listing one there would overwrite a working value with an empty string
+the moment the repo secret is absent. There is nothing to set.
 
 **Worker vars** — `wrangler.jsonc`, edit and redeploy, no code change:
 
@@ -88,11 +88,11 @@ catch-all, one Worker, two forwards. See CONCERNS.md
 and SETUP-INSTRUCTIONS §6.6; the failure modes are logged to the Worker's tail
 and visible nowhere else.
 
-Changing the address means changing it in **three** places in
-`wrangler.jsonc` — the `vars` block and both lists of the `send_email`
-binding, `allowed_destination_addresses` /
-`allowed_sender_addresses`. Out of step, the
-send is rejected ([C-31](./CONCERNS.md#c-31--email-is-tried-first-and-the-webhook-is-the-fallback)).
+Changing an address means changing it in **two** places in
+`wrangler.jsonc` — its `vars` entry and the matching list of the `send_email`
+binding (recipients in `allowed_destination_addresses`, the From in
+`allowed_sender_addresses`). Out of step, Cloudflare rejects the whole
+send ([C-31](./CONCERNS.md#c-31--email-is-tried-first-and-the-webhook-is-the-fallback)).
 
 **Build-time env vars** — set by the workflows; unset means "on":
 
@@ -263,7 +263,9 @@ never fails a submission — the enquiry email carries the consent line either w
 ([C-34](./CONCERNS.md#c-34--the-consent-record-is-written-before-delivery-and-never-blocks-it)).
 Records are keyed `YYYY/MM/DD/<timestamp>-<uuid>.json` and the id appears in the
 enquiry email as `Toestemmingsrekord`, so mail and object tie together.
-**Retention is a manual dashboard step** — SETUP-INSTRUCTIONS.md §3.6.
+**Retention is set on the buckets** (7 years) and managed with
+`wrangler r2 bucket lifecycle`, not by this repo's config — SETUP-INSTRUCTIONS.md
+§3.6.
 
 `POST /api/contact` returns an `outcome`: `forwarded`, `not-configured`,
 `invalid` (with `errors` naming the fields), or `forward-error`. On `forwarded`

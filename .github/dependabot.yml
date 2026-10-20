@@ -1,0 +1,18 @@
+# Weekly update PRs, each gated by the repo's PR checks, so a bump that breaks the build or a test does not merge.
+# Minor and patch bumps arrive as one grouped PR per directory; every major gets its own PR to review alone.
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    target-branch: dev
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    groups:
+      minor-and-patch:
+        update-types: [minor, patch]
+  - package-ecosystem: github-actions
+    directory: /
+    target-branch: dev
+    schedule:
+      interval: weekly

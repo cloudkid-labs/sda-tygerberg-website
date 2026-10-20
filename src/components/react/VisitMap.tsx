@@ -90,29 +90,17 @@ export function VisitMap() {
           </a>
         </div>
 
-        {/* Tile credit renders on the map itself (/map/) and again below it —
-            OSM requires a visible credit, CONCERNS.md C-01. */}
-        <div className="flex flex-col">
-          <div className="relative min-h-[300px] flex-1 overflow-hidden rounded-card-lg">
-            {/* `/map/`, not `/map.html`: the map is a page now, so this loads
-                directly instead of taking a 307 first. C-47 */}
-            <iframe
-              src={withBase('/map/')}
-              title={t.mapTitle}
-              loading="lazy"
-              className="absolute inset-0 h-full w-full border-0"
-            />
-          </div>
-          <p className="mt-2 text-right text-xs text-slate-muted">
-            <a
-              href="https://www.openstreetmap.org/copyright"
-              target="_blank"
-              rel="noopener"
-              className="underline hover:text-navy"
-            >
-              © OpenStreetMap contributors
-            </a>
-          </p>
+        {/* The OSM tile credit renders on the map itself (/map/), which is what
+            the OSMF tile policy asks for — CONCERNS.md C-01. */}
+        <div className="relative min-h-[300px] overflow-hidden rounded-card-lg">
+          {/* `/map/`, not `/map.html`: the map is a page now, so this loads
+              directly instead of taking a 307 first. C-47 */}
+          <iframe
+            src={withBase('/map/')}
+            title={t.mapTitle}
+            loading="lazy"
+            className="absolute inset-0 h-full w-full border-0"
+          />
         </div>
       </div>
     </section>

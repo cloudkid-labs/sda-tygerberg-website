@@ -35,9 +35,11 @@ OSMF guidelines allow the credit *adjacent to* the map rather than on it), or
 move to a tile provider whose terms do not require visible attribution.
 
 **Update:** the credit is restored — `attributionControl: true` with an
-`© OpenStreetMap contributors` tile attribution on `/map/`, plus the same link
-adjacent to the embedded map on the homepage. The breach paragraph above is kept
-as the history of why the lines exist; do not re-disable the control.
+`© OpenStreetMap contributors` tile attribution on `/map/`. The duplicate link
+that sat under the embedded map on the homepage was removed at the repo owner's
+request; the credit still shows inside that map, which the tile policy accepts.
+The breach paragraph above is kept as the history of why the line exists; do not
+re-disable the control.
 
 ---
 

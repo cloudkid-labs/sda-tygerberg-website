@@ -214,8 +214,33 @@ describe('handleContact delivery — C-31, C-34', () => {
     assert.ok(store.puts[0].key.includes(record.id));
   });
 
-  test('a failed consent put still delivers — storage never blocks — C-34', async () => {
+  test('the inbox copy lands in SUBMISSIONS with the full message — C-69', async () => {
+    const store = r2();
+    const { env } = emailEnv({ SUBMISSIONS: store.bucket });
+    const json = await (await handleContact(post(goodBody()), env)).json();
+    assert.equal(json.outcome, 'forwarded');
+    assert.equal(store.puts.length, 1);
+    assert.match(store.puts[0].key, /^submissions\/202\d\//);
+    const submission = JSON.parse(store.puts[0].body);
+    assert.equal(submission.message, 'Hallo');
+    assert.deepEqual(submission.replies, []);
+    assert.equal(submission.topic, 'connect');
+  });
+
+  test('a failed inbox put still delivers — storage never blocks — C-69', async () => {
     const { env, sent } = emailEnv({
+      SUBMISSIONS: {
+        async put() {
+          throw new Error('r2 down');
+        },
+      },
+    });
+    const json = await (await handleContact(post(goodBody()), env)).json();
+    assert.equal(json.outcome, 'forwarded');
+    assert.equal(sent.length, 1);
+  });
+
+  test('a failed consent put still delivers — storage never blocks — C-34', async () => {    const { env, sent } = emailEnv({
       CONSENT: {
         async put() {
           throw new Error('r2 down');

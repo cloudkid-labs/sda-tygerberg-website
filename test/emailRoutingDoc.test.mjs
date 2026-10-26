@@ -29,6 +29,7 @@ const configured = new Set(
     vars.CONTACT_EMAIL_TO,
     vars.CONTACT_EMAIL_FROM,
     ...String(vars.CONTACT_EMAIL_BCC ?? '').split(','),
+    ...String(vars.MAIL_SEND_FROM ?? '').split(','),
     vars.MAIL_FORWARD_TO,
     vars.MAIL_ARCHIVE_TO,
     ...Object.keys(vars.MAIL_ROUTES ?? {}),

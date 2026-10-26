@@ -89,6 +89,37 @@ describe('worker branches — C-60, C-63', () => {
     assert.deepEqual(assetHits, []);
   });
 
+  test('/auth/login without secrets answers not-configured, not proxied', async () => {
+    const res = await worker.fetch(new Request('https://x/auth/login'), env(), ctx());
+    assert.equal(res.status, 503);
+    assert.equal((await res.json()).outcome, 'not-configured');
+    assert.deepEqual(assetHits, []);
+  });
+
+  test('/api/mail/session without secrets answers not-configured, not proxied', async () => {
+    const res = await worker.fetch(new Request('https://x/api/mail/session'), env(), ctx());
+    assert.equal(res.status, 503);
+    assert.deepEqual(assetHits, []);
+  });
+
+  test('a non-POST /api/mail/send is rejected, not proxied', async () => {
+    const res = await worker.fetch(new Request('https://x/api/mail/send'), env(), ctx());
+    assert.equal(res.status, 405);
+    assert.deepEqual(assetHits, []);
+  });
+
+  test('/api/mail/inbox without secrets answers not-configured, not proxied', async () => {
+    const res = await worker.fetch(new Request('https://x/api/mail/inbox'), env(), ctx());
+    assert.equal(res.status, 503);
+    assert.deepEqual(assetHits, []);
+  });
+
+  test('a non-POST /api/mail/reply is rejected, not proxied', async () => {
+    const res = await worker.fetch(new Request('https://x/api/mail/reply'), env(), ctx());
+    assert.equal(res.status, 405);
+    assert.deepEqual(assetHits, []);
+  });
+
   test('/api/live-status answers JSON with a source and cached flag', async () => {
     const res = await worker.fetch(new Request('https://x/api/live-status'), env(), ctx());
     const json = await res.json();

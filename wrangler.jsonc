@@ -112,6 +112,12 @@
     "CONTACT_EMAIL_BCC": "archive@sdatygerberg.co.za",
     // Hostnames siteverify must echo back for /api/contact tokens — C-21.
     "TURNSTILE_HOSTNAMES": "sdatygerberg.co.za",
+    // Board mail (/kerkraad). The role addresses the board may send as,
+    // comma-separated like CONTACT_EMAIL_BCC. Public role addresses, so a var
+    // (ADR-0001); the allow-list of board members stays a secret. Production
+    // and devtest inherit this; devtest still answers `not-configured` until
+    // its secrets are set, and it never sends without them.
+    "MAIL_SEND_FROM": "welkom@sdatygerberg.co.za,klerk@sdatygerberg.co.za,tesourier@sdatygerberg.co.za,kerk@sdatygerberg.co.za",
 
     // Inbound mail. Email Routing's catch-all for sdatygerberg.co.za hands
     // every address to this Worker; `inboundEmail.ts` forwards one copy to
@@ -176,6 +182,13 @@
     {
       "binding": "CONSENT",
       "bucket_name": "consent-cloudkid-link"
+    },
+    // Visitor submissions for the /kerkraad inbox. Same 7-year retention as
+    // consent (lifecycle rule lives on the bucket, set at creation). C-69.
+    // Create with: wrangler r2 bucket create tygerberg-submissions
+    {
+      "binding": "SUBMISSIONS",
+      "bucket_name": "tygerberg-submissions"
     }
   ],
   "routes": [
@@ -210,7 +223,16 @@
         "LIVE_CHECK_TZ": "Africa/Johannesburg",
         // Hostnames siteverify must echo back for /api/contact tokens — C-21.
         "TURNSTILE_HOSTNAMES": "tygerberg-sda.cloudkid.link"
-      }
+      },
+      // Devtest reads and writes its own submissions bucket, so trialling the
+      // inbox never touches the production queue. Create with:
+      // wrangler r2 bucket create tygerberg-submissions-devtest
+      "r2_buckets": [
+        {
+          "binding": "SUBMISSIONS",
+          "bucket_name": "tygerberg-submissions-devtest"
+        }
+      ]
       // No send_email, r2_buckets or CONTACT_EMAIL_* here on purpose: a preview
       // sends no church email and writes no consent records, so /api/contact
       // answers `not-configured` (C-61). wrangler prints an advisory warning

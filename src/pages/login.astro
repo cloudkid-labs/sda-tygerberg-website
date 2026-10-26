@@ -1,0 +1,11 @@
+---
+import Layout from '../layouts/Layout.astro';
+import { LoginPage } from '../components/react/LoginPage';
+import { boardCopy } from '../data/boardCopy';
+
+const copy = boardCopy.af;
+---
+
+<Layout title={copy.loginPageTitle} description={copy.loginPageDescription}>
+  <LoginPage client:load />
+</Layout>

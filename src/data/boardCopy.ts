@@ -8,7 +8,6 @@ import type { Lang } from './site';
 export type BoardCopy = {
   pageTitle: string;
   pageDescription: string;
-  adminLoginLabel: string;
   backHome: string;
   heading: string;
   sub: string;
@@ -76,7 +75,6 @@ export const boardCopy: Record<Lang, BoardCopy> = {
     pageTitle: 'Kerkraadpos · Tygerberg SDA Kerk',
     pageDescription:
       'Privaat bladsy vir kerkraadslede om as die kerk se amptelike adresse te skryf.',
-    adminLoginLabel: 'Meld aan',
     backHome: 'Tuis',
     heading: 'Kerkraadpos',
     sub: 'Boodskappe van besoekers, en skryf as die kerk se amptelike adresse. Net kerkraadslede het toegang.',
@@ -136,7 +134,6 @@ export const boardCopy: Record<Lang, BoardCopy> = {
     pageTitle: 'Board Mail · Tygerberg SDA Church',
     pageDescription:
       'Private page for board members to write as the church’s official addresses.',
-    adminLoginLabel: 'Sign in',
     backHome: 'Home',
     heading: 'Board mail',
     sub: 'Messages from visitors, and write as the church’s official addresses. Board members only.',

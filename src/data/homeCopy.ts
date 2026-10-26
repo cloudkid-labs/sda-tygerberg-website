@@ -40,7 +40,7 @@ export type HomeCopy = {
   navVisit: string;
   navConnect: string;
   navResources: string;
-  navDirections: string;
+  navLogin: string;
   give: string;
   heroEyebrow: string;
   heroTitle: string;
@@ -120,7 +120,7 @@ export const homeCopy: Record<Lang, HomeCopy> = {
     navVisit: 'Besoek',
     navConnect: 'Verbind',
     navResources: 'Hulpbronne',
-    navDirections: 'Aanwysings',
+    navLogin: 'Meld aan',
     give: 'Skenk',
     heroEyebrow: 'Sewendedag Adventiste Kerk · Tygerberg',
     heroTitle: 'Vind rus, hoop en genesing in Jesus',
@@ -230,7 +230,7 @@ export const homeCopy: Record<Lang, HomeCopy> = {
     navVisit: 'Visit',
     navConnect: 'Connect',
     navResources: 'Resources',
-    navDirections: 'Directions',
+    navLogin: 'Login',
     give: 'Give',
     heroEyebrow: 'Seventh-day Adventist Church · Tygerberg',
     heroTitle: 'Find rest, hope and healing in Jesus',

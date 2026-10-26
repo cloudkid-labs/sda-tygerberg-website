@@ -15,6 +15,11 @@ export type ContactEnv = ContactEmailEnv &
     // The fallback channel now: email is tried first when it is configured — see
     // `deliver()` below and C-31.
     CONTACT_WEBHOOK_URL?: string;
+    /**
+     * The /kerkraad inbox bucket. Unset skips the inbox copy (devtest used to
+     * have none; production and devtest each bind their own now — C-69).
+     */
+    SUBMISSIONS?: R2Bucket;
   };
 
 /** Which page the request came from — decides who the church routes it to. */
@@ -155,6 +160,31 @@ async function deliver(
   // than saying nothing. Both downstreams take it from `storedId` for that
   // reason; `contactEmail.ts` already omits the line when it is absent.
   const storedId = consentStored ? record.id : undefined;
+
+  // The /kerkraad inbox copy: the full submission as JSON, keyed by the same
+  // id. Best-effort like consent — a failed put is logged, never fatal, and
+  // the email below still carries the enquiry to a human. C-69.
+  if (env.SUBMISSIONS) {
+    try {
+      const [date] = submittedAt.split('T');
+      await env.SUBMISSIONS.put(
+        `submissions/${date.replaceAll('-', '/')}/${submittedAt}-${record.id}.json`,
+        JSON.stringify({
+          id: record.id,
+          submittedAt,
+          topic: clean.topic,
+          name: clean.name,
+          email: clean.email || null,
+          phone: clean.phone || null,
+          lang,
+          message: clean.message,
+          replies: [],
+        }),
+      );
+    } catch {
+      console.error('contact: submission store FAILED');
+    }
+  }
 
   if (await sendContactEmail(env, clean, submittedAt, storedId)) {
     return { via: 'email', consentStored };

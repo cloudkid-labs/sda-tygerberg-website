@@ -1,4 +1,5 @@
-import { LanguageProvider } from '../../context/LanguageContext';
+import { LanguageProvider, useLanguage } from '../../context/LanguageContext';
+import { boardCopy } from '../../data/boardCopy';
 import type { LatestVideo } from '../../lib/latestVideo';
 import { Header } from './Header';
 import { Hero } from './Hero';
@@ -12,8 +13,18 @@ import { FirstVisit } from './FirstVisit';
 import { VisitMap } from './VisitMap';
 import { Footer } from './Footer';
 
-export function Home({ latestVideo = null }: { latestVideo?: LatestVideo | null }) {
+function HomeAdminDoor() {
+  const { lang } = useLanguage();
   return (
+    <p className="pb-8 text-center text-[13px]">
+      <a href="/auth/login" className="text-slate-muted underline">
+        {boardCopy[lang].adminLoginLabel}
+      </a>
+    </p>
+  );
+}
+
+export function Home({ latestVideo = null }: { latestVideo?: LatestVideo | null }) {  return (
     <LanguageProvider>
       <div className="flex min-h-screen flex-col font-sans text-ink">
         <Header />
@@ -31,6 +42,9 @@ export function Home({ latestVideo = null }: { latestVideo?: LatestVideo | null 
           <FirstVisit />
           <VisitMap />
         </main>
+        {/* The one door to the board's admin mail: homepage only, everywhere
+            else untouched. */}
+        <HomeAdminDoor />
         <Footer />
       </div>
     </LanguageProvider>

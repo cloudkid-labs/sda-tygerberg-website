@@ -104,7 +104,6 @@ describe('wrangler routes and bindings', () => {
   test('devtest carries no mail or consent bindings — a preview never emails — C-61', () => {
     const devtest = config.env.devtest;
     assert.ok(!('send_email' in devtest), 'devtest must not send mail');
-    assert.ok(!('r2_buckets' in devtest), 'devtest must not write consent');
     assert.ok(
       !Object.keys(devtest.vars).some((k) => k.startsWith('CONTACT_EMAIL')),
       'devtest must not name church addresses',
@@ -116,5 +115,12 @@ describe('wrangler routes and bindings', () => {
     assert.ok(
       devtest.routes.some((r) => r.pattern === 'tygerberg-sda.cloudkid.link' && r.custom_domain),
     );
+  });
+
+  test('devtest binds only its own submissions bucket — trialling the inbox never touches prod — C-69', () => {
+    const buckets = config.env.devtest.r2_buckets ?? [];
+    assert.equal(buckets.length, 1);
+    assert.equal(buckets[0].binding, 'SUBMISSIONS');
+    assert.equal(buckets[0].bucket_name, 'tygerberg-submissions-devtest');
   });
 });

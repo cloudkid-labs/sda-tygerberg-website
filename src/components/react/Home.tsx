@@ -17,7 +17,7 @@ function HomeAdminDoor() {
   const { lang } = useLanguage();
   return (
     <p className="pb-8 text-center text-[13px]">
-      <a href="/auth/login" className="text-slate-muted underline">
+      <a href="/login" className="text-slate-muted underline">
         {boardCopy[lang].adminLoginLabel}
       </a>
     </p>

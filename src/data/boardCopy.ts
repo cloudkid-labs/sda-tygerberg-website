@@ -14,6 +14,12 @@ export type BoardCopy = {
   sub: string;
   signIn: string;
   signInHint: string;
+  loginHeading: string;
+  loginSub: string;
+  loginPageTitle: string;
+  loginPageDescription: string;
+  privacyLabel: string;
+  termsLabel: string;
   signOut: string;
   signedInAs: string;
   inboxTabs: string;
@@ -76,6 +82,13 @@ export const boardCopy: Record<Lang, BoardCopy> = {
     sub: 'Boodskappe van besoekers, en skryf as die kerk se amptelike adresse. Net kerkraadslede het toegang.',
     signIn: 'Meld aan met Google',
     signInHint: 'Jou Google-rekening moet op die kerkraadlys wees.',
+    loginHeading: 'Meld aan',
+    loginSub:
+      'Die kerkraadpos is vir lede met ’n leierspos (’n ampsdraer) in die kerk. Meld aan met jou Google-rekening om voort te gaan.',
+    loginPageTitle: 'Meld aan · Tygerberg SDA Kerk',
+    loginPageDescription: 'Meld aan met jou Google-rekening vir kerkraadpos.',
+    privacyLabel: 'Privaatheidsbeleid',
+    termsLabel: 'Algemene voorwaardes',
     signOut: 'Meld af',
     signedInAs: 'Aangemeld as',
     inboxTabs: 'Kies inkassie of nuwe boodskap',
@@ -129,6 +142,13 @@ export const boardCopy: Record<Lang, BoardCopy> = {
     sub: 'Messages from visitors, and write as the church’s official addresses. Board members only.',
     signIn: 'Sign in with Google',
     signInHint: 'Your Google account must be on the board list.',
+    loginHeading: 'Sign in',
+    loginSub:
+      'Board mail is for anyone with a lead position (an office-bearer) in the church. Sign in with your Google account to continue.',
+    loginPageTitle: 'Sign in · Tygerberg SDA Church',
+    loginPageDescription: 'Sign in with your Google account for board mail.',
+    privacyLabel: 'Privacy policy',
+    termsLabel: 'Terms & conditions',
     signOut: 'Sign out',
     signedInAs: 'Signed in as',
     inboxTabs: 'Choose inbox or new message',

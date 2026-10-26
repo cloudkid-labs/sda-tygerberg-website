@@ -114,10 +114,6 @@ export const departmentHeads: DepartmentHead[] = [
     name: 'Monique Spammer',
     roles: { af: ['Senior Jeugleier'], en: ['Senior Youth Leader'] },
     photo: 'TG-DH-Monique.jpg',
-    // Senior youth is dormant — hidden from the carousel until the board
-    // resumes it. Delete this line to restore; the roster entry and the photo
-    // stay exactly as they are.
-    active: false,
   },
   {
     id: 'tiener-jeug',

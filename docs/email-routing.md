@@ -10,6 +10,7 @@ flowchart LR
   subgraph SRC["Where mail starts"]
     direction TB
     FORM["Connect & Bible study forms<br/>/connect · /bible-studies"]
+    BOARD["Board member<br/>/kerkraad"]
     ZAPPER["Zapper<br/>payment notifications"]
     PUBLIC["Anyone emailing<br/>any@sdatygerberg.co.za"]
   end
@@ -18,6 +19,7 @@ flowchart LR
   subgraph CF["Cloudflare"]
     direction TB
     API["Worker · /api/contact<br/>From: welkom@sdatygerberg.co.za<br/>Reply-To: the visitor"]
+    KERKRAAD["Worker · /api/mail/send<br/>From: welkom@sdatygerberg.co.za, klerk@sdatygerberg.co.za,<br/>tesourier@sdatygerberg.co.za, kerk@sdatygerberg.co.za<br/>Reply-To: the From address"]
     CATCHALL["Email Routing<br/>catch-all rule"]
     INBOUND["Worker · email() handler"]
     ARCHIVE["archive@sdatygerberg.co.za<br/>literal routing rule"]
@@ -28,6 +30,7 @@ flowchart LR
   subgraph DEST["Where mail ends up"]
     direction TB
     R2CONSENT[("R2 · consent-cloudkid-link")]
+    BREVO["Brevo API<br/>v3 smtp email"]
     HOOK["CONTACT_WEBHOOK_URL<br/>(Worker secret)"]
     KLERK["sdatygerbergklerk@gmail.com<br/>church clerk"]
     TREASURER["a2msars@gmail.com<br/>treasurer"]
@@ -49,6 +52,16 @@ flowchart LR
   INBOUND -->|"every other address · MAIL_FORWARD_TO"| KLERK
   INBOUND -.->|"copy of everything, best effort · MAIL_ARCHIVE_TO"| ARCHIVE
 
+  %% Board mail (outbound via Brevo)
+  BOARD -->|"Google sign-in + allow-list"| KERKRAAD
+  KERKRAAD -->|"via the Brevo API"| BREVO
+  KERKRAAD -->|"BCC"| ARCHIVE
+
+  %% Inbox: visitor submissions stored for the board to answer
+  FORM -->|"JSON copy"| SUBS["R2 · tygerberg-submissions"]
+  SUBS -->|"list / read"| KERKRAAD
+  KERKRAAD -->|"reply from role address"| BREVO
+
   %% Archive hop
   ARCHIVE --> R2X --> R2ARCHIVE
 
@@ -58,10 +71,10 @@ flowchart LR
   classDef cloudflare fill:#fff7ed,stroke:#f97316,color:#431407
   classDef inbox fill:#ecfdf5,stroke:#10b981,color:#064e3b
   classDef store fill:#f1f5f9,stroke:#64748b,color:#0f172a
-  class FORM,ZAPPER,PUBLIC source
-  class API,CATCHALL,INBOUND,ARCHIVE,R2X cloudflare
+  class FORM,ZAPPER,PUBLIC,BOARD source
+  class API,CATCHALL,INBOUND,ARCHIVE,R2X,KERKRAAD cloudflare
   class KLERK,TREASURER inbox
-  class R2ARCHIVE,R2CONSENT,HOOK store
+  class R2ARCHIVE,R2CONSENT,HOOK,BREVO,SUBS store
 ```
 
 Solid arrows always happen. Dotted arrows are fallbacks or best-effort copies.
@@ -70,14 +83,34 @@ Solid arrows always happen. Dotted arrows are fallbacks or best-effort copies.
 
 | Address | Role | Set in `wrangler.jsonc` |
 |---|---|---|
-| `welkom@sdatygerberg.co.za` | From on every form email. Not a mailbox: replies go to the visitor via Reply-To; mail sent *to* it goes to the clerk | `CONTACT_EMAIL_FROM`, `allowed_sender_addresses` |
+| `welkom@sdatygerberg.co.za` | From on every form email. Not a mailbox: replies go to the visitor via Reply-To; mail sent *to* it goes to the clerk. Also a board send-as address | `CONTACT_EMAIL_FROM`, `allowed_sender_addresses`, `MAIL_SEND_FROM` |
+| `klerk@sdatygerberg.co.za` | Board send-as address | `MAIL_SEND_FROM` |
+| `kerk@sdatygerberg.co.za` | Board send-as address | `MAIL_SEND_FROM` |
 | `sdatygerbergklerk@gmail.com` | Receives every form email (To) and all inbound mail with no route | `CONTACT_EMAIL_TO`, `MAIL_FORWARD_TO` |
-| `tesourier@sdatygerberg.co.za` | Zapper's merchant notification address. Not a mailbox | `MAIL_ROUTES` key |
+| `tesourier@sdatygerberg.co.za` | Zapper's merchant notification address. Not a mailbox. Also a board send-as address | `MAIL_ROUTES` key, `MAIL_SEND_FROM` |
 | `a2msars@gmail.com` | Treasurer. Receives everything sent to `tesourier@` | `MAIL_ROUTES` value |
 | `archive@sdatygerberg.co.za` | Archive. BCC on form emails and a copy of all inbound mail, filed in R2 | `CONTACT_EMAIL_BCC`, `MAIL_ARCHIVE_TO` |
 
 Every form-email recipient must also be in `send_email.allowed_destination_addresses`,
 or the whole send is rejected (C-31).
+
+## Board mail
+
+Board members sign in with Google on the private `/kerkraad` page and send as
+one of the four role addresses through the Brevo API. The Worker holds the
+Brevo key; replies go to the From role address, so they return through Email
+Routing to the church inbox. Every send is BCC'd to `archive@`, filed in R2
+under the same 7-year retention. The allow-list of board members is personal
+data, so it ships as the `BOARD_ALLOWED_EMAILS` Worker secret — never a
+committed var (C-68).
+
+`/kerkraad` is also an inbox: every connect and bible-study submission is
+stored as JSON in the `SUBMISSIONS` bucket (`tygerberg-submissions` in
+production, `tygerberg-submissions-devtest` on devtest) and the page lists,
+reads and replies from there. Replies go through Brevo from the topic's role
+address and are appended to the stored thread. The stored copy holds the full
+message text, kept 7 years like consent (C-69). The buckets and their
+lifecycle rules are created outside Terraform, like every Worker binding.
 
 ## Outside this repo (Cloudflare dashboard and Zapper)
 
@@ -94,7 +127,7 @@ disappears; the only diagnostic is `wrangler tail tygerberg-sda-website`
   both buckets expire after 7 years via `wrangler r2 bucket lifecycle` (set
   2026-10-04) — retention is not expressible in this repo's config (§3.6, C-34).
 
-The devtest Worker has no mail bindings or vars: it sends nothing and receives nothing (C-61).
+The devtest Worker inherits `MAIL_SEND_FROM` but carries no mail secrets: it answers `not-configured` and sends nothing (C-61).
 
 ## Changing an address
 

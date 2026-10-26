@@ -1743,3 +1743,30 @@ under an open panel is its own argument — and none of them addresses the
 cause, which was scroll anchoring of the in-flow panel shifting `scrollY` by
 the panel's full height, not the listener firing on jitter rather than on
 travel.
+
+### C-68 — Board mail sends as the church via Brevo, behind Google sign-in
+
+Board members sign in with Google on the private `/kerkraad` page and send as
+`welkom@`, `klerk@`, `tesourier@` or `kerk@` through the Brevo API, replacing
+Gmail "Send mail as" before Google ends it in January 2027. The Worker runs the
+OIDC code flow with PKCE, keeps no Google tokens, and issues its own 8-hour
+HMAC session cookie; the allow-list lives in the `BOARD_ALLOWED_EMAILS` secret
+because it is personal data, while the role addresses stay public vars per
+ADR-0001. `/kerkraad`, `/auth/` and `/api/mail/` are disallowed in robots.txt
+and out of the sitemap. Replies return through Email Routing and every send is
+BCC'd to `archive@` under the 7-year R2 retention, confirmed as intended for
+outgoing mail.
+
+### C-69 — The inbox reads visitor submissions from R2 and replies via Brevo
+
+`/kerkraad` is an inbox now, not just a compose page: every contact-form
+submission is stored as JSON in a `SUBMISSIONS` R2 bucket (production and
+devtest each bind their own, so trialling the queue never touches the live
+one) and board members read and reply from the page. Replies go through Brevo
+from the topic's role address (`welkom@` for both form topics), so they return
+through Email Routing like everything else. The stored copy holds the full
+message text — the minimum the inbox needs to do its job, kept 7 years like
+consent, gated by the same session and allow-list as sending, and never in
+logs. Creating the buckets (`tygerberg-submissions`,
+`tygerberg-submissions-devtest`) and their lifecycle rules is a dashboard step,
+outside Terraform like every other Worker binding.

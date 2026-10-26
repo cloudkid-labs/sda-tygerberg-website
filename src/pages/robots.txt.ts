@@ -18,7 +18,10 @@ import type { APIContext } from 'astro';
  */
 export function robotsTxt(indexable: boolean, sitemapUrl: string): string {
   if (!indexable) return 'User-agent: *\nDisallow: /\n';
-  return `User-agent: *\nAllow: /\n\nSitemap: ${sitemapUrl}\n`;
+  // /kerkraad is a private board page: crawlable site, uncrawlable page.
+  return (
+    `User-agent: *\nAllow: /\nDisallow: /kerkraad/\nDisallow: /auth/\nDisallow: /api/mail/\n\nSitemap: ${sitemapUrl}\n`
+  );
 }
 
 export function GET({ site }: APIContext) {

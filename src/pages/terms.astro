@@ -1,0 +1,11 @@
+---
+import Layout from '../layouts/Layout.astro';
+import { LegalPage } from '../components/react/LegalPage';
+import { termsCopy } from '../data/legalCopy';
+
+const copy = termsCopy.af;
+---
+
+<Layout title={copy.pageTitle} description={copy.pageDescription}>
+  <LegalPage kind="terms" client:load />
+</Layout>

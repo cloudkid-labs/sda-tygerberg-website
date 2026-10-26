@@ -18,6 +18,13 @@ describe('robotsTxt', () => {
     assert.match(txt, /^User-agent: \*$/m);
     assert.match(txt, /^Allow: \/$/m);
     assert.match(txt, new RegExp(`^Sitemap: ${SITEMAP}$`, 'm'));
-    assert.doesNotMatch(txt, /Disallow:/i);
+    assert.match(txt, /^Allow: \/$/m);
+  });
+
+  test('production disallows the private board-mail paths', () => {
+    const txt = robotsTxt(true, SITEMAP);
+    assert.match(txt, /^Disallow: \/kerkraad\/$/m);
+    assert.match(txt, /^Disallow: \/auth\/$/m);
+    assert.match(txt, /^Disallow: \/api\/mail\/$/m);
   });
 });

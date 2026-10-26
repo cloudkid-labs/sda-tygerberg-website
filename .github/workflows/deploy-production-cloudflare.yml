@@ -128,14 +128,28 @@ jobs:
           # runtime `env`, so without this block they are set in GitHub, absent
           # in production, and the LIVE badge stays hidden with no error
           # anywhere to explain why.
+          # The board-mail secrets, created by terraform/ (`outputs.tf`
+          # worker_secrets_block). All five repo secrets must exist before the
+          # first deploy carrying this block: a listed-but-unset name uploads
+          # an empty value and blanks a working secret.
           secrets: |
             YOUTUBE_API_KEY
             YOUTUBE_CHANNEL_ID
+            GOOGLE_CLIENT_ID
+            GOOGLE_CLIENT_SECRET
+            SESSION_SECRET
+            BREVO_API_KEY
+            BOARD_ALLOWED_EMAILS
         env:
           # Scoped to this step, so the key is never present during
           # `npm run build` above and cannot reach the client bundle.
           YOUTUBE_API_KEY: ${{ secrets.YOUTUBE_API_KEY }}
           YOUTUBE_CHANNEL_ID: ${{ secrets.YOUTUBE_CHANNEL_ID }}
+          GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
+          GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
+          SESSION_SECRET: ${{ secrets.SESSION_SECRET }}
+          BREVO_API_KEY: ${{ secrets.BREVO_API_KEY }}
+          BOARD_ALLOWED_EMAILS: ${{ secrets.BOARD_ALLOWED_EMAILS }}
 
       # Between the deploy and the tag, deliberately. `wrangler deploy` reporting
       # success only means Cloudflare accepted the upload — it says nothing about

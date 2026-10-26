@@ -1,0 +1,11 @@
+---
+import Layout from '../layouts/Layout.astro';
+import { LegalPage } from '../components/react/LegalPage';
+import { privacyCopy } from '../data/legalCopy';
+
+const copy = privacyCopy.af;
+---
+
+<Layout title={copy.pageTitle} description={copy.pageDescription}>
+  <LegalPage kind="privacy" client:load />
+</Layout>

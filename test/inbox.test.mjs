@@ -152,6 +152,8 @@ describe('handleInboxReply', () => {
     assert.equal(res.status, 200);
     assert.equal(brevoCalls[0].body.sender.email, 'welkom@sdatygerberg.co.za');
     assert.deepEqual(brevoCalls[0].body.to, [{ email: 'jan@example.co.za' }]);
+    assert.ok(brevoCalls[0].body.htmlContent.includes('Dankie vir jou boodskap.'));
+    assert.ok(brevoCalls[0].body.htmlContent.includes('mailto:welkom@sdatygerberg.co.za'));
     const updated = JSON.parse(store.get(key));
     assert.equal(updated.replies.length, 1);
     assert.equal(updated.replies[0].by, 'boss@example.co.za');

@@ -85,22 +85,22 @@ function body(fields: Record<string, string>, submittedAt: string, recordId?: st
 }
 
 /**
- * The Gmail receivers never get the enquiry itself — only this notification
- * naming who wrote, about what, and when, with the login link. The message
- * lives in the /kerkraad inbox (R2) and the archive copy below; reading it
- * means signing in. No contact details either: with the address in hand a
- * reply could bypass the inbox entirely, which is what this withholds.
+ * What the Gmail receivers get: the full enquiry plus the login link, so the
+ * message is readable right in the inbox while the /kerkraad thread stays the
+ * working copy. Closes by pointing at the attached login screenshots, then
+ * the church signature in plain text.
  */
-function notificationBody(fields: Record<string, string>, submittedAt: string): string {
+function notificationBody(fields: Record<string, string>, submittedAt: string, recordId?: string): string {
   return [
-    'Nuwe boodskap op die webwerf.',
+    body(fields, submittedAt, recordId),
     '',
-    `Onderwerp: ${TOPIC_LABELS[fields.topic as ContactTopic] ?? fields.topic}`,
-    `Naam: ${headerSafe(fields.name, 80)}`,
-    `Ontvang: ${submittedAt}`,
-    '',
-    'Meld aan by https://sdatygerberg.co.za/login om dit te lees.',
+    'Teken in by https://sdatygerberg.co.za/login om dit in die inkassie te lees.',
     'Die aangehegte media wys hoe om aan te meld.',
+    '',
+    '—',
+    'Tygerberg SDA Kerk',
+    'welkom@sdatygerberg.co.za',
+    '54 Boston St, Boston, Kaapstad, 7530 · sdatygerberg.co.za',
   ].join('\n');
 }
 
@@ -142,14 +142,12 @@ async function loadAttachments(
 }
 
 /**
- * Emails one validated submission to the church.
- *
- * Two sends, two audiences: the notification tells the Gmail receivers there
- * is mail waiting behind the login; the archive copy carries the full enquiry
- * to the church-controlled address that files into R2. Either may fail
- * without failing the other — the archive is best-effort (its R2 bucket has
- * the SUBMISSIONS copy anyway), but a failed notification fails the channel
- * because nobody was told.
+ * Emails one validated submission to the church: the full enquiry plus the
+ * login link to the Gmail receivers, with the login screenshots attached;
+ * the same full enquiry to the church-controlled archive address for the R2
+ * record. Either may fail without failing the other — the archive is
+ * best-effort, but a failed notification fails the channel because nobody
+ * was told.
  *
  * Returns false rather than throwing: the caller decides what a failed channel
  * means, and a contact form should never surface a platform error to a visitor.
@@ -179,7 +177,7 @@ export async function sendContactEmail(
       to: CONTACT_EMAIL_TO,
       from: CONTACT_EMAIL_FROM,
       subject: `Nuwe boodskap — ${label}: ${headerSafe(fields.name, 60)} — meld aan om te lees`,
-      text: notificationBody(fields, submittedAt),
+      text: notificationBody(fields, submittedAt, recordId),
       ...(attachment.length > 0 ? { attachment } : {}),
     });
     console.log(`contact send: notified in ${Date.now() - startedAt}ms to=${CONTACT_EMAIL_TO}`);

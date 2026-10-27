@@ -8,7 +8,7 @@ type Phase = 'loading' | 'signed-out' | 'ready';
 type View = 'inbox' | 'sent' | 'write';
 type SendOutcome = 'invalid' | 'unauthorised' | 'forbidden' | 'not-allowed' | 'not-configured' | 'send-error' | 'network';
 
-type ThreadReply = { by: string; at: string };
+type ThreadReply = { by: string; at: string; body?: string };
 type ThreadSummary = {
   id: string;
   submittedAt: string;
@@ -55,7 +55,7 @@ function ThreadSections({
 }) {
   const fresh = threads.filter((x) => x.replies.length === 0);
   const done = threads.filter((x) => x.replies.length > 0);
-  const table = (items: ThreadSummary[]) => (
+  const table = (items: ThreadSummary[], answered: boolean) => (
     <table className="w-full border-collapse text-left">
       <thead>
         <tr className="border-b border-subtle text-[13px] text-slate">
@@ -79,6 +79,11 @@ function ThreadSections({
                 {x.name}
               </button>
               <span className="block text-[13px] text-slate">{x.email ?? x.phone ?? ''}</span>
+              {answered && (
+                <span className="mt-1.5 inline-block rounded-pill bg-orange px-2.5 py-0.5 text-[12px] font-bold text-ink">
+                  {t.sectionReplied}
+                </span>
+              )}
             </td>
             <td className="py-3 pr-3 text-[14px]">{topicLabel(x.topic)}</td>
             <td className="tabular-nums py-3 pr-3 text-[14px] text-slate">{fmtDate(x.submittedAt)}</td>
@@ -100,13 +105,13 @@ function ThreadSections({
     <div>
       <h2 className="mb-2 font-serif text-xl font-medium text-ink">{t.sectionNew}</h2>
       {fresh.length > 0 ? (
-        table(fresh)
+        table(fresh, false)
       ) : (
         <p className="mb-8 text-[14.5px] text-slate">{t.emptyHeading}</p>
       )}
       <h2 className="mb-2 mt-10 font-serif text-xl font-medium text-ink">{t.sectionReplied}</h2>
       {done.length > 0 ? (
-        table(done)
+        table(done, true)
       ) : (
         <p className="text-[14.5px] text-slate">{t.emptyReplied}</p>
       )}
@@ -140,6 +145,7 @@ function KerkraadContent() {
   const [openSentId, setOpenSentId] = useState<string | null>(null);
   const [openSent, setOpenSent] = useState<SentItem | null>(null);
   const [openSentError, setOpenSentError] = useState(false);
+  const [sentThread, setSentThread] = useState<Thread | null>(null);
   const [reply, setReply] = useState('');
   const [replySending, setReplySending] = useState(false);
   const [replyError, setReplyError] = useState<SendOutcome | null>(null);
@@ -215,6 +221,7 @@ function KerkraadContent() {
     async (id: string) => {
       showView('sent', id);
       setOpenSent(null);
+      setSentThread(null);
       setOpenSentError(false);
       try {
         const res = await fetch(`/api/mail/sent?id=${encodeURIComponent(id)}`, {
@@ -223,6 +230,23 @@ function KerkraadContent() {
         if (!res.ok) throw new Error(String(res.status));
         const data = (await res.json()) as { item?: SentItem };
         setOpenSent(data.item ?? null);
+        // Replies read best against the thread they answered: pull the full
+        // original so the Sent view carries the whole conversation, not just
+        // the outgoing half.
+        if (data.item?.threadId) {
+          try {
+            const tres = await fetch(`/api/mail/message?id=${encodeURIComponent(data.item.threadId)}`, {
+              headers: { Accept: 'application/json' },
+            });
+            if (tres.ok) {
+              const tdata = (await tres.json()) as { item?: Thread };
+              setSentThread(tdata.item ?? null);
+            }
+          } catch {
+            // Thread gone (deleted) while the sent copy survives — the sent
+            // half still renders on its own.
+          }
+        }
       } catch {
         setOpenSentError(true);
       }
@@ -346,9 +370,9 @@ function KerkraadContent() {
       const data = (await res.json().catch(() => ({}))) as { outcome?: string };
       if (res.ok && data.outcome === 'sent') {
         const at = new Date().toISOString();
-        setOpenThread({ ...openThread, replies: [...openThread.replies, { by: email, at }] });
+        setOpenThread({ ...openThread, replies: [...openThread.replies, { by: email, at, body: reply }] });
         setThreads((ts) =>
-          ts.map((x) => (x.id === openThread.id ? { ...x, replies: [...x.replies, { by: email, at }] } : x)),
+          ts.map((x) => (x.id === openThread.id ? { ...x, replies: [...x.replies, { by: email, at, body: reply }] } : x)),
         );
         setReply('');
       } else if (data.outcome === 'unauthorised') {
@@ -552,11 +576,20 @@ function KerkraadContent() {
                           <p className="mb-6 whitespace-pre-wrap text-[15px] leading-relaxed">{openThread.message}</p>
                           {openThread.replies.length > 0 && (
                             <div className="mb-6">
-                              <p className="mb-2 text-[13px] font-bold text-navy">{t.earlierReplies}</p>
-                              <ul className="grid gap-2">
+                              <p className="mb-2">
+                                <span className="inline-block rounded-pill bg-orange px-3 py-1 text-[12.5px] font-bold text-ink">
+                                  {t.earlierReplies}
+                                </span>
+                              </p>
+                              <ul className="grid gap-2.5">
                                 {openThread.replies.map((r, i) => (
-                                  <li key={i} className="tabular-nums text-[13.5px] text-slate">
-                                    {r.by} · {fmtDate(r.at)}
+                                  <li key={i} className="rounded-card border border-subtle bg-cream-card p-4">
+                                    <p className="tabular-nums mb-1.5 text-[13px] font-bold text-navy">
+                                      {r.by} · {fmtDate(r.at)}
+                                    </p>
+                                    {r.body && (
+                                      <p className="whitespace-pre-wrap text-[14.5px] leading-relaxed text-ink">{r.body}</p>
+                                    )}
                                   </li>
                                 ))}
                               </ul>
@@ -691,6 +724,7 @@ function KerkraadContent() {
                         type="button"
                         onClick={() => {
                           setOpenSent(null);
+                          setSentThread(null);
                           showView('sent');
                           void loadSent();
                         }}
@@ -720,6 +754,13 @@ function KerkraadContent() {
                             {t.sentTo} {openSent.to.join(', ')}
                           </p>
                           <p className="tabular-nums mb-4 text-[13px] text-slate">{fmtDate(openSent.at)}</p>
+                          {sentThread && (
+                            <div className="mb-6 rounded-card border border-subtle bg-cream-card p-4">
+                              <p className="mb-1 text-[13px] font-bold text-navy">{t.sentOriginal}</p>
+                              <p className="mb-1 font-serif text-[16px] text-ink">{sentThread.name}</p>
+                              <p className="whitespace-pre-wrap text-[14.5px] leading-relaxed text-slate">{sentThread.message}</p>
+                            </div>
+                          )}
                           <p className="whitespace-pre-wrap text-[15px] leading-relaxed">{openSent.body}</p>
                         </article>
                       )}

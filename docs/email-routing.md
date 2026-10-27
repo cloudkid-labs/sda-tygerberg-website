@@ -33,7 +33,7 @@ flowchart LR
     BREVO["Brevo API<br/>v3 smtp email"]
     HOOK["CONTACT_WEBHOOK_URL<br/>(Worker secret)"]
     KLERK["sdatygerbergklerk@gmail.com<br/>church clerk"]
-    TREASURER["a2msars@gmail.com<br/>treasurer"]
+    TREASURER["muller31jp@gmail.com<br/>treasurer"]
     R2ARCHIVE[("R2 · mail archive")]
   end
 
@@ -88,7 +88,7 @@ Solid arrows always happen. Dotted arrows are fallbacks or best-effort copies.
 | `kerk@sdatygerberg.co.za` | Board send-as address | `MAIL_SEND_FROM` |
 | `sdatygerbergklerk@gmail.com` | Receives every form email (To) and all inbound mail with no route | `CONTACT_EMAIL_TO`, `MAIL_FORWARD_TO` |
 | `tesourier@sdatygerberg.co.za` | Zapper's merchant notification address. Not a mailbox. Also a board send-as address | `MAIL_ROUTES` key, `MAIL_SEND_FROM` |
-| `a2msars@gmail.com` | Treasurer. Receives everything sent to `tesourier@` | `MAIL_ROUTES` value |
+| `muller31jp@gmail.com` | Treasurer. Receives everything sent to `tesourier@`; sends and is notified as treasurer only | `MAIL_ROUTES` value, `BOARD_SEND_AS` |
 | `archive@sdatygerberg.co.za` | Archive. BCC on form emails and a copy of all inbound mail, filed in R2 | `CONTACT_EMAIL_BCC`, `MAIL_ARCHIVE_TO` |
 
 Every form-email recipient must also be in `send_email.allowed_destination_addresses`,
@@ -104,6 +104,13 @@ under the same 7-year retention. The allow-list of board members is a plain-text
 `BOARD_ALLOWED_EMAILS` var in `wrangler.jsonc` (not a secret, so the dashboard
 shows the value) — readable to repo and Cloudflare collaborators, never on the
 public site (C-68).
+
+Per-sender send-as: `BOARD_SEND_AS` fences a listed address to named role
+addresses (the treasurer writes only as `tesourier@`); anyone unlisted may
+use them all. The Worker enforces it on compose and reply alike (403
+`not-allowed`), the page filters the From dropdown to match. Treasurer
+notifications stay treasurer-scoped: visitor notifications go only to the
+clerk, never to the treasurer address.
 
 Visitor submissions notify rather than deliver: the Gmail receivers get who,
 what topic and when plus the login link — never the message or contact

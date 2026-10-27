@@ -6,7 +6,7 @@ import { SubPageFooter } from './SubPageFooter';
 
 type Phase = 'loading' | 'signed-out' | 'ready';
 type View = 'inbox' | 'sent' | 'write';
-type SendOutcome = 'invalid' | 'unauthorised' | 'forbidden' | 'not-configured' | 'send-error' | 'network';
+type SendOutcome = 'invalid' | 'unauthorised' | 'forbidden' | 'not-allowed' | 'not-configured' | 'send-error' | 'network';
 
 type ThreadReply = { by: string; at: string };
 type ThreadSummary = {
@@ -126,6 +126,7 @@ function KerkraadContent() {
   const [phase, setPhase] = useState<Phase>('loading');
   const [email, setEmail] = useState('');
   const [isAdmin, setIsAdmin] = useState(false);
+  const [allowedSenders, setAllowedSenders] = useState<string[]>([]);
   const [view, setView] = useState<View>('inbox');
   const [threads, setThreads] = useState<ThreadSummary[]>([]);
   const [threadsError, setThreadsError] = useState(false);
@@ -259,9 +260,12 @@ function KerkraadContent() {
           setPhase('signed-out');
           return;
         }
-        const data = (await res.json()) as { email?: string; admin?: boolean };
+        const data = (await res.json()) as { email?: string; admin?: boolean; allowedFrom?: string[] };
         setEmail(data.email ?? '');
         setIsAdmin(data.admin === true);
+        const allowed = Array.isArray(data.allowedFrom) && data.allowedFrom.length > 0 ? data.allowedFrom : FROM_ADDRESSES;
+        setAllowedSenders(allowed);
+        if (!allowed.includes(from)) setFrom(allowed[0]);
         setPhase('ready');
         const params = new URLSearchParams(window.location.search);
         const msg = params.get('msg');
@@ -282,6 +286,7 @@ function KerkraadContent() {
     await fetch('/auth/logout', { method: 'POST' });
     setEmail('');
     setIsAdmin(false);
+    setAllowedSenders([]);
     setPhase('signed-out');
   }
 
@@ -353,6 +358,8 @@ function KerkraadContent() {
         setReplyError('not-configured');
       } else if (data.outcome === 'send-error') {
         setReplyError('send-error');
+      } else if (data.outcome === 'not-allowed') {
+        setReplyError('not-allowed');
       } else {
         setReplyError('invalid');
       }
@@ -385,6 +392,8 @@ function KerkraadContent() {
         setError('not-configured');
       } else if (data.outcome === 'send-error') {
         setError('send-error');
+      } else if (data.outcome === 'not-allowed') {
+        setError('not-allowed');
       } else {
         setError('invalid');
       }
@@ -399,6 +408,7 @@ function KerkraadContent() {
     invalid: t.errValidation,
     unauthorised: t.errUnauthorised,
     forbidden: t.errForbidden,
+    'not-allowed': t.errNotAllowed,
     'not-configured': t.errNotConfigured,
     'send-error': t.errSend,
     network: t.errNetwork,
@@ -553,6 +563,11 @@ function KerkraadContent() {
                             </div>
                           )}
                           {openThread.email ? (
+                            // Replies go out as the topic's role address (see TOPIC_FROM in
+                            // src/worker/inbox.ts); a sender fenced to another address
+                            // gets the note instead of a form that would 403.
+                            ['connect', 'bible-study'].includes(openThread.topic) &&
+                            (allowedSenders.length === 0 || allowedSenders.includes('welkom@sdatygerberg.co.za')) ? (
                             <form onSubmit={sendReply} className="grid gap-3">
                               {replyError && (
                                 <p className="rounded-card border border-subtle bg-cream-card px-4 py-3 text-[14.5px] text-slate">
@@ -578,6 +593,11 @@ function KerkraadContent() {
                                 {replySending ? t.replySending : t.replySubmit}
                               </button>
                             </form>
+                            ) : (
+                              <p className="rounded-card border border-subtle bg-cream-card px-4 py-3 text-[14.5px] text-slate">
+                                {t.errNotAllowed}
+                              </p>
+                            )
                           ) : (
                             <p className="rounded-card border border-subtle bg-cream-card px-4 py-3 text-[14.5px] text-slate">
                               {t.noEmailBody}
@@ -737,7 +757,7 @@ function KerkraadContent() {
                       <label className="grid gap-1.5">
                         <span className="text-[13px] font-bold text-navy">{t.fromLabel}</span>
                         <select value={from} onChange={(e) => setFrom(e.target.value)} className={inputClass}>
-                          {FROM_ADDRESSES.map((a) => (
+                          {(allowedSenders.length > 0 ? allowedSenders : FROM_ADDRESSES).map((a) => (
                             <option key={a} value={a}>
                               {a}
                             </option>

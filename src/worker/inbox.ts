@@ -1,6 +1,6 @@
 /// <reference types="@cloudflare/workers-types" />
 
-import { verifySession, isAdmin, type AuthEnv } from './auth';
+import { verifySession, isAdmin, allowedFrom, type AuthEnv } from './auth';
 import { sendViaBrevo, storeSent, type MailSendEnv, type SentItem } from './mailSend';
 import { mailHtml } from './signature';
 
@@ -246,6 +246,9 @@ export async function handleInboxReply(request: Request, env: InboxEnv): Promise
     (env.MAIL_SEND_FROM ?? '').split(',').map((s) => s.trim().toLowerCase()).filter(Boolean),
   );
   if (!senders.has(from)) return json({ ok: false, outcome: 'not-configured' }, 503);
+  if (!allowedFrom(env, session.email).includes(from)) {
+    return json({ ok: false, outcome: 'not-allowed', errors: ['from'] }, 403);
+  }
 
   const subject = `Re: ${item.topic === 'bible-study' ? 'Bybelstudie-versoek' : 'Jou boodskap aan Tygerberg SDA'}`;
   const ok = await sendViaBrevo(

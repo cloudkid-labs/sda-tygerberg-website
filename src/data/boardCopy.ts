@@ -55,6 +55,7 @@ export type BoardCopy = {
   deleteConfirm: string;
   deleting: string;
   errForbidden: string;
+  errNotAllowed: string;
   fromLabel: string;
   toLabel: string;
   toPlaceholder: string;
@@ -135,6 +136,7 @@ export const boardCopy: Record<Lang, BoardCopy> = {
     deleteConfirm: 'Vee hierdie boodskap uit?',
     deleting: 'Vee uit …',
     errForbidden: 'Net admins kan boodskappe uitvee.',
+    errNotAllowed: 'Jy mag nie as hierdie adres skryf nie.',
     fromLabel: 'Stuur as',
     toLabel: 'Aan',
     toPlaceholder: 'ontvanger@voorbeeld.co.za',
@@ -206,6 +208,7 @@ export const boardCopy: Record<Lang, BoardCopy> = {
     deleteConfirm: 'Delete this message?',
     deleting: 'Deleting …',
     errForbidden: 'Only admins can delete messages.',
+    errNotAllowed: 'You may not send as this address.',
     fromLabel: 'Send as',
     toLabel: 'To',
     toPlaceholder: 'recipient@example.co.za',

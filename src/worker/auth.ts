@@ -20,6 +20,12 @@ export type AuthEnv = {
    * (dashboard shows the value); keep it to as few addresses as possible.
    */
   BOARD_ADMIN_EMAILS?: string;
+  /**
+   * Per-sender send-as limits, `email=address[;email=address]`. Anyone unlisted
+   * may use every MAIL_SEND_FROM address; a listed sender is fenced to theirs.
+   * The treasurer writes only as tesourier@.
+   */
+  BOARD_SEND_AS?: string;
 };
 
 export type SessionCheck = { ok: true; email: string } | { ok: false; outcome: 'unauthorised' | 'not-configured' };
@@ -103,6 +109,38 @@ export function isAdmin(env: AuthEnv, email: string): boolean {
       .filter(Boolean),
   );
   return admins.has(email.toLowerCase()) && allowList(env).has(email.toLowerCase());
+}
+
+type SendersEnv = Pick<AuthEnv, 'BOARD_SEND_AS'> & { MAIL_SEND_FROM?: string };
+
+export function senders(env: SendersEnv): Set<string> {
+  return new Set(
+    (env.MAIL_SEND_FROM ?? '')
+      .split(',')
+      .map((s) => s.trim().toLowerCase())
+      .filter(Boolean),
+  );
+}
+
+/**
+ * The role addresses one board member may send as. Unlisted senders get them
+ * all; a listed sender is fenced to their entry, intersected with the senders
+ * above so a stale config line can never grant more than the role list holds.
+ * Fail closed: a listed sender whose entry names nothing valid may send
+ * nothing, loudly, rather than everything quietly.
+ */
+export function allowedFrom(env: SendersEnv, email: string): string[] {
+  const all = senders(env);
+  const entry = (env.BOARD_SEND_AS ?? '')
+    .split(';')
+    .map((s) => s.trim().toLowerCase())
+    .find((s) => s.startsWith(`${email.trim().toLowerCase()}=`));
+  if (!entry) return [...all];
+  return entry
+    .slice(entry.indexOf('=') + 1)
+    .split(',')
+    .map((s) => s.trim().toLowerCase())
+    .filter((s) => all.has(s));
 }
 
 function isConfigured(env: AuthEnv): boolean {
@@ -298,5 +336,5 @@ export async function handleAuthLogout(request: Request): Promise<Response> {
 export async function handleMailSession(request: Request, env: AuthEnv): Promise<Response> {
   const check = await verifySession(request, env);
   if (!check.ok) return json({ ok: false, outcome: check.outcome }, check.outcome === 'not-configured' ? 503 : 401);
-  return json({ ok: true, email: check.email, admin: isAdmin(env, check.email) }, 200);
+  return json({ ok: true, email: check.email, admin: isAdmin(env, check.email), allowedFrom: allowedFrom(env, check.email) }, 200);
 }

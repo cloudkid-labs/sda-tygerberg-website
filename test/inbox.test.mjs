@@ -180,6 +180,19 @@ describe('handleInboxReply', () => {
     assert.equal(res.status, 400);
     assert.equal(brevoCalls.length, 0);
   });
+
+  test('a fenced sender cannot reply outside their address — 403', async () => {
+    mockBrevo();
+    const { bucket } = r2({ [key]: JSON.stringify(item()) });
+    const session = await signSession('boss@example.co.za', SECRET);
+    const res = await handleInboxReply(
+      post({ id: 'abc-1', body: 'Hi' }, session),
+      env(bucket, { BOARD_SEND_AS: 'boss@example.co.za=kerk@sdatygerberg.co.za' }),
+    );
+    assert.equal(res.status, 403);
+    assert.equal((await res.json()).outcome, 'not-allowed');
+    assert.equal(brevoCalls.length, 0);
+  });
 });
 
 describe('handleInboxDelete', () => {

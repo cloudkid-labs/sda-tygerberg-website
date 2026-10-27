@@ -1,6 +1,6 @@
 /// <reference types="@cloudflare/workers-types" />
 
-import { verifySession, type AuthEnv } from './auth';
+import { verifySession, allowedFrom, senders, type AuthEnv } from './auth';
 import { mailHtml } from './signature';
 
 export type MailSendEnv = AuthEnv & {
@@ -58,7 +58,7 @@ const ARCHIVE_BCC = 'archive@sdatygerberg.co.za';
 // moves, promote this to MAIL_SEND_BCC and pin it in the routing doc + test.
 // (archive@ files into R2 under the 7-year retention, C-65.)
 
-export type MailSendOutcome = 'sent' | 'invalid' | 'unauthorised' | 'not-configured' | 'send-error';
+export type MailSendOutcome = 'sent' | 'invalid' | 'unauthorised' | 'not-allowed' | 'not-configured' | 'send-error';
 
 /** Deliberately loose, same as contact.ts — replying proves deliverability. */
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -89,15 +89,6 @@ function headerSafe(value: string, max: number): string {
   }
   const flattened = out.replace(/\s+/g, ' ').trim();
   return flattened.length > max ? `${flattened.slice(0, max - 1)}…` : flattened;
-}
-
-function senders(env: MailSendEnv): Set<string> {
-  return new Set(
-    (env.MAIL_SEND_FROM ?? '')
-      .split(',')
-      .map((s) => s.trim().toLowerCase())
-      .filter(Boolean),
-  );
 }
 
 function isConfigured(env: MailSendEnv): boolean {
@@ -213,6 +204,12 @@ export async function handleMailSend(request: Request, env: MailSendEnv): Promis
   const text = str(body.body);
   if (!text || text.length > MAX_BODY_CHARS) errors.push('body');
   if (errors.length > 0) return json({ ok: false, outcome: 'invalid', errors }, 400);
+
+  // Per-sender send-as fence: the treasurer writes only as tesourier@.
+  // Unknown addresses fail the allow-list above; this is the finer fence.
+  if (!allowedFrom(env, session.email).includes(from)) {
+    return json({ ok: false, outcome: 'not-allowed', errors: ['from'] }, 403);
+  }
 
   const cleanSubject = headerSafe(subject, MAX_SUBJECT);
   const cleanTo = [...new Set(to.map((a) => a.toLowerCase()))];

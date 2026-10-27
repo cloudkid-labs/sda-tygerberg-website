@@ -173,8 +173,9 @@ export async function handleMailSend(request: Request, env: MailSendEnv): Promis
 
   const cleanSubject = headerSafe(subject, MAX_SUBJECT);
   const cleanTo = [...new Set(to.map((a) => a.toLowerCase()))];
-  // Shared role addresses stay attributable: the footer names the sender.
-  const textContent = `${text}\n\n—\nGestuur deur ${session.email}`;
+  // The body goes out exactly as written — no attribution footer. Who sent
+  // what stays in the Worker logs and the R2 archive, never in the message.
+  const textContent = text;
 
   if (!(await sendViaBrevo(env, from, cleanTo, cleanSubject, textContent))) {
     console.log(`mailsend: outcome=send-error from=${from} by=${session.email}`);

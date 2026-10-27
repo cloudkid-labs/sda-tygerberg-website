@@ -136,7 +136,7 @@ describe('handleMailSend validation', () => {
 });
 
 describe('handleMailSend delivery', () => {
-  test('success posts the Brevo shape with replyTo, archive BCC, and footer', async () => {
+  test('success posts the Brevo shape with replyTo and archive BCC, and no footer', async () => {
     mockBrevo();
     const session = await signSession('boss@example.co.za', SECRET);
     const res = await handleMailSend(post(goodBody(), { cookie: session }), env());
@@ -147,7 +147,7 @@ describe('handleMailSend delivery', () => {
     assert.deepEqual(sent.to, [{ email: 'friend@example.co.za' }]);
     assert.equal(sent.replyTo.email, FROM);
     assert.deepEqual(sent.bcc, [{ email: 'archive@sdatygerberg.co.za' }]);
-    assert.match(sent.textContent, /Gestuur deur boss@example\.co\.za/);
+    assert.ok(!/Gestuur deur/.test(sent.textContent));
   });
 
   test('Brevo failure and timeout become send-error', async () => {

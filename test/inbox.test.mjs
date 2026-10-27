@@ -1,6 +1,6 @@
 import { strict as assert } from 'node:assert';
 import { test, describe, beforeEach, afterEach } from 'node:test';
-import { handleInboxList, handleInboxMessage, handleInboxReply, handleInboxDelete, handleInboxSent } from '../src/worker/inbox.ts';
+import { handleInboxList, handleInboxMessage, handleInboxReply, handleInboxDelete, handleInboxTrash, handleInboxSent } from '../src/worker/inbox.ts';
 import { signSession } from '../src/worker/auth.ts';
 
 /*
@@ -230,6 +230,75 @@ describe('handleInboxDelete', () => {
     const session = await signSession('boss@example.co.za', SECRET);
     assert.equal((await handleInboxDelete(del('nope', session), env(bucket))).status, 404);
     assert.equal((await handleInboxDelete(del('../x', session), env(bucket))).status, 400);
+  });
+});
+
+describe('handleInboxTrash', () => {
+  const del = (id, session) =>
+    new Request(`https://x/api/mail/message?id=${id}`, {
+      method: 'DELETE',
+      headers: session ? { cookie: `__Host-kerkraad=${session}` } : {},
+    });
+  const trash = (id, session) =>
+    new Request(`https://x/api/mail/trash?id=${id}`, {
+      method: 'PUT',
+      headers: session ? { cookie: `__Host-kerkraad=${session}` } : {},
+    });
+  const sentKey = 'sent/2026/10/27/2026-10-27T10:00:00.000Z-abc123.json';
+  const sentItem = (over = {}) => ({
+    id: 'abc123',
+    at: '2026-10-27T10:00:00.000Z',
+    by: 'boss@example.co.za',
+    from: 'welkom@sdatygerberg.co.za',
+    to: ['friend@example.co.za'],
+    subject: 'Sondag se diens',
+    body: 'Hallo daar',
+    kind: 'compose',
+    threadId: null,
+    ...over,
+  });
+
+  test('401 without a session, 403 for a non-admin', async () => {
+    const { bucket } = r2({ [key]: JSON.stringify(item()) });
+    const session = await signSession('boss@example.co.za', SECRET);
+    assert.equal((await handleInboxTrash(trash('abc-1'), env(bucket))).status, 401);
+    const pa = await signSession('pa@example.co.za', SECRET);
+    const res = await handleInboxTrash(trash('abc-1', pa), env(bucket));
+    assert.equal(res.status, 403);
+    assert.equal((await res.json()).outcome, 'forbidden');
+  });
+
+  test('trash soft-deletes the thread; list with ?trashed=1 shows it, normal list does not', async () => {
+    const { bucket, store } = r2({ [key]: JSON.stringify(item()) });
+    const session = await signSession('boss@example.co.za', SECRET);
+    assert.equal((await handleInboxTrash(trash('abc-1', session), env(bucket))).status, 200);
+    const saved = JSON.parse(store.get(key));
+    assert.ok(saved.trashedAt);
+
+    const normal = await handleInboxList(get('/api/mail/inbox?trashed=0', session), env(bucket));
+    assert.equal((await normal.json()).items.length, 0);
+    const onlyTrashed = await handleInboxList(get('/api/mail/inbox?trashed=1', session), env(bucket));
+    assert.equal((await onlyTrashed.json()).items.length, 1);
+  });
+
+  test('404 on unknown id', async () => {
+    const { bucket } = r2({ [key]: JSON.stringify(item()) });
+    const session = await signSession('boss@example.co.za', SECRET);
+    assert.equal((await handleInboxTrash(trash('nope', session), env(bucket))).status, 404);
+  });
+
+  test('permanent delete removes a trashed thread', async () => {
+    const { bucket, store } = r2({ [key]: JSON.stringify(item({ trashedAt: '2026-10-26T10:00:00.000Z' })) });
+    const session = await signSession('boss@example.co.za', SECRET);
+    assert.equal((await handleInboxDelete(del('abc-1', session), env(bucket))).status, 200);
+    assert.equal(store.size, 0);
+  });
+
+  test('permanent delete removes a sent item too', async () => {
+    const { bucket, store } = r2({ [sentKey]: JSON.stringify(sentItem()) });
+    const session = await signSession('boss@example.co.za', SECRET);
+    assert.equal((await handleInboxDelete(del('abc123', session), env(bucket))).status, 200);
+    assert.equal(store.size, 0);
   });
 });
 

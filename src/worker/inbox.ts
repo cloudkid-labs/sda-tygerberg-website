@@ -20,6 +20,7 @@ export type Submission = {
   lang: string;
   message: string;
   replies: SubmissionReply[];
+  trashedAt?: string;
 };
 
 /** Visitor-facing enquiries always answer as the public role address. */
@@ -53,6 +54,21 @@ async function findSubmissionKey(env: InboxEnv, id: string): Promise<string | nu
 }
 
 /**
+ * Finds a stored item by id across both the inbox and sent prefixes — used by
+ * trash and permanent delete so either kind of mail can be addressed by id.
+ */
+async function findObjectKey(env: InboxEnv, id: string): Promise<string | null> {
+  if (!id || id.includes('/') || id.includes('..')) return null;
+  if (!env.SUBMISSIONS) return null;
+  for (const prefix of ['submissions/', 'sent/']) {
+    const listed = await env.SUBMISSIONS.list({ prefix, limit: 1000 });
+    const hit = listed.objects.map((o) => o.key).find((k) => k.endsWith(`-${id}.json`));
+    if (hit) return hit;
+  }
+  return null;
+}
+
+/**
  * Lists the newest submissions first. Keys sort oldest-first (ISO timestamp
  * prefix), so the Worker reverses after a bounded list — R2 has no desc.
  */
@@ -68,6 +84,7 @@ export async function handleInboxList(request: Request, env: InboxEnv): Promise<
 
   const listed = await env.SUBMISSIONS.list({ limit: MAX_LIST, prefix: 'submissions/' });
   const keys = listed.objects.map((o) => o.key).reverse();
+  const trashedOnly = new URL(request.url).searchParams.get('trashed') === '1';
   const items: Omit<Submission, 'message'>[] = [];
   for (const key of keys) {
     const obj = await env.SUBMISSIONS.get(key);
@@ -75,14 +92,50 @@ export async function handleInboxList(request: Request, env: InboxEnv): Promise<
     try {
       const s = (await obj.json()) as Submission;
       const { message: _omitted, ...summary } = s;
+      if (trashedOnly !== Boolean(s.trashedAt)) continue;
       items.push(summary);
     } catch {
       // A stray object is skipped, never fatal — the log says which key.
       console.error(`inbox: unreadable object skipped key=${key}`);
     }
   }
-  console.log(`inbox: list count=${items.length} by=${session.email}`);
+  console.log(`inbox: list count=${items.length} trashed=${trashedOnly} by=${session.email}`);
   return json({ ok: true, items }, 200);
+}
+
+/**
+ * PUT /api/mail/trash?id= — soft-deletes the thread by stamping trashedAt.
+ * Admin only, like permanent delete. The copy stays in R2 until permanent
+ * delete removes it.
+ */
+export async function handleInboxTrash(request: Request, env: InboxEnv): Promise<Response> {
+  const session = await verifySession(request, env);
+  if (!session.ok) {
+    return json(
+      { ok: false, outcome: session.outcome },
+      session.outcome === 'not-configured' ? 503 : 401,
+    );
+  }
+  if (!env.SUBMISSIONS) return json({ ok: false, outcome: 'not-configured' }, 503);
+  if (!isAdmin(env, session.email)) {
+    return json({ ok: false, outcome: 'forbidden' }, 403);
+  }
+  if (request.method !== 'PUT') {
+    return json({ ok: false, outcome: 'invalid', errors: ['method'] }, 405);
+  }
+  const id = str(new URL(request.url).searchParams.get('id'));
+  if (!id || id.includes('/') || id.includes('..')) {
+    return json({ ok: false, outcome: 'invalid', errors: ['id'] }, 400);
+  }
+  const key = await findObjectKey(env, id);
+  if (!key) return json({ ok: false, outcome: 'invalid', errors: ['id'] }, 404);
+  const obj = await env.SUBMISSIONS.get(key);
+  if (!obj) return json({ ok: false, outcome: 'invalid', errors: ['id'] }, 404);
+  const item = (await obj.json()) as Submission;
+  item.trashedAt = new Date().toISOString();
+  await env.SUBMISSIONS.put(key, JSON.stringify(item));
+  console.log(`inbox: trashed key=${key} by=${session.email}`);
+  return json({ ok: true }, 200);
 }
 
 /** GET /api/mail/message?id= — one full thread, message included. */
@@ -128,7 +181,7 @@ export async function handleInboxDelete(request: Request, env: InboxEnv): Promis
   if (!id || id.includes('/') || id.includes('..')) {
     return json({ ok: false, outcome: 'invalid', errors: ['id'] }, 400);
   }
-  const key = await findSubmissionKey(env, id);
+  const key = await findObjectKey(env, id);
   if (!key) return json({ ok: false, outcome: 'invalid', errors: ['id'] }, 404);
   await env.SUBMISSIONS.delete(key);
   console.log(`inbox: deleted key=${key} by=${session.email}`);
@@ -154,6 +207,7 @@ export async function handleInboxSent(request: Request, env: InboxEnv): Promise<
   const id = str(new URL(request.url).searchParams.get('id'));
   const listed = await env.SUBMISSIONS.list({ prefix: 'sent/', limit: 1000 });
   const keys = listed.objects.map((o) => o.key).reverse();
+  const trashedOnly = new URL(request.url).searchParams.get('trashed') === '1';
   if (id) {
     if (id.includes('/') || id.includes('..')) {
       return json({ ok: false, outcome: 'invalid', errors: ['id'] }, 400);
@@ -162,7 +216,9 @@ export async function handleInboxSent(request: Request, env: InboxEnv): Promise<
     if (!key) return json({ ok: false, outcome: 'invalid', errors: ['id'] }, 404);
     const obj = await env.SUBMISSIONS.get(key);
     if (!obj) return json({ ok: false, outcome: 'invalid', errors: ['id'] }, 404);
-    return json({ ok: true, item: (await obj.json()) as SentItem }, 200);
+    const item = (await obj.json()) as SentItem;
+    if (trashedOnly !== Boolean(item.trashedAt)) return json({ ok: false, outcome: 'invalid', errors: ['id'] }, 404);
+    return json({ ok: true, item }, 200);
   }
   const items: Omit<SentItem, 'body'>[] = [];
   for (const key of keys) {
@@ -170,6 +226,7 @@ export async function handleInboxSent(request: Request, env: InboxEnv): Promise<
     if (!obj) continue;
     try {
       const s = (await obj.json()) as SentItem;
+      if (trashedOnly !== Boolean(s.trashedAt)) continue;
       const { body: _omitted, ...summary } = s;
       items.push(summary);
     } catch {

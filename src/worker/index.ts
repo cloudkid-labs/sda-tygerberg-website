@@ -12,7 +12,7 @@ import {
   type AuthEnv,
 } from './auth';
 import { handleMailSend, type MailSendEnv } from './mailSend';
-import { handleInboxList, handleInboxMessage, handleInboxReply, handleInboxDelete, handleInboxSent, type InboxEnv } from './inbox';
+import { handleInboxList, handleInboxMessage, handleInboxReply, handleInboxDelete, handleInboxTrash, handleInboxSent, type InboxEnv } from './inbox';
 import { healthResponse } from './health';
 import { handleInboundEmail, type InboundEmailEnv } from './inboundEmail';
 import { requestFacts, requestLogEntry } from './requestLog';
@@ -138,6 +138,10 @@ async function route(request: Request, env: Env, ctx: ExecutionContext): Promise
   if (pathname === '/api/mail/message') {
     if (request.method === 'DELETE') return handleInboxDelete(request, env);
     return handleInboxMessage(request, env);
+  }
+
+  if (pathname === '/api/mail/trash') {
+    return handleInboxTrash(request, env);
   }
 
   if (pathname === '/api/mail/reply') {

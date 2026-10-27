@@ -24,7 +24,9 @@ export type BoardCopy = {
   inboxTabs: string;
   tabInbox: string;
   tabSent: string;
+  tabTrash: string;
   tabWrite: string;
+  colItem: string;
   colTo: string;
   colSubject: string;
   topicConnect: string;
@@ -55,6 +57,16 @@ export type BoardCopy = {
   deleteLabel: string;
   deleteConfirm: string;
   deleting: string;
+  trashLabel: string;
+  trashConfirm: string;
+  trashing: string;
+  deletePermanently: string;
+  deletePermanentlyConfirm: string;
+  deletingPermanently: string;
+  trashEmpty: string;
+  trashInbox: string;
+  trashSent: string;
+  errTrash: string;
   errForbidden: string;
   errNotAllowed: string;
   fromLabel: string;
@@ -106,9 +118,11 @@ export const boardCopy: Record<Lang, BoardCopy> = {
     inboxTabs: 'Kies inkassie, gestuurde boodskappe of nuwe boodskap',
     tabInbox: 'Inkassie',
     tabSent: 'Gestuur',
+    tabTrash: 'Vuilbak',
     tabWrite: 'Nuwe boodskap',
     topicConnect: 'Verbind',
     topicBibleStudy: 'Bybelstudie',
+    colItem: 'Boodskap',
     colFrom: 'Van',
     colTo: 'Aan',
     colSubject: 'Onderwerp',
@@ -129,6 +143,9 @@ export const boardCopy: Record<Lang, BoardCopy> = {
     backToInbox: 'Terug na die inkassie',
     theirMessage: 'Hul boodskap',
     earlierReplies: 'Vroeër geantwoord',
+    trashEmpty: 'Die vuilbak is leeg.',
+    trashInbox: 'Uitgegooi uit die inkassie.',
+    trashSent: 'Uitgegooi uit die gestuurde pos.',
     replyLabel: 'Antwoord',
     replyPlaceholder: 'Skryf jou antwoord hier …',
     replySubmit: 'Stuur antwoord',
@@ -137,7 +154,14 @@ export const boardCopy: Record<Lang, BoardCopy> = {
     deleteLabel: 'Vee uit',
     deleteConfirm: 'Vee hierdie boodskap uit?',
     deleting: 'Vee uit …',
+    trashLabel: 'Gooi weg',
+    trashConfirm: 'Gooi hierdie boodskap weg?',
+    trashing: 'Gooi weg …',
+    deletePermanently: 'Verwyder uit die vuilbak',
+    deletePermanentlyConfirm: 'Hierdie boordskap word permanent verwyder — dit kan nie ongedaan gemaak word nie. Weet u seker?',
+    deletingPermanently: 'Verwyder …',
     errForbidden: 'Net admins kan boodskappe uitvee.',
+    errTrash: 'Die boodskap kon nie in die vuilbak beland nie. Probeer weer.',
     errNotAllowed: 'Jy mag nie as hierdie adres skryf nie.',
     fromLabel: 'Stuur as',
     toLabel: 'Aan',
@@ -179,9 +203,11 @@ export const boardCopy: Record<Lang, BoardCopy> = {
     inboxTabs: 'Choose inbox, sent mail or new message',
     tabInbox: 'Inbox',
     tabSent: 'Sent',
+    tabTrash: 'Trash',
     tabWrite: 'New message',
     topicConnect: 'Connect',
     topicBibleStudy: 'Bible study',
+    colItem: 'Message',
     colFrom: 'From',
     colTo: 'To',
     colSubject: 'Subject',
@@ -202,6 +228,9 @@ export const boardCopy: Record<Lang, BoardCopy> = {
     backToInbox: 'Back to the inbox',
     theirMessage: 'Their message',
     earlierReplies: 'Answered before',
+    trashEmpty: 'The trash is empty.',
+    trashInbox: 'Thrown out of the inbox.',
+    trashSent: 'Thrown out of sent mail.',
     replyLabel: 'Reply',
     replyPlaceholder: 'Write your reply here …',
     replySubmit: 'Send reply',
@@ -210,7 +239,14 @@ export const boardCopy: Record<Lang, BoardCopy> = {
     deleteLabel: 'Delete',
     deleteConfirm: 'Delete this message?',
     deleting: 'Deleting …',
+    trashLabel: 'Trash',
+    trashConfirm: 'Trash this message?',
+    trashing: 'Trashing …',
+    deletePermanently: 'Delete from trash',
+    deletePermanentlyConfirm: 'This will be permanently deleted — it cannot be undone. Are you sure?',
+    deletingPermanently: 'Deleting …',
     errForbidden: 'Only admins can delete messages.',
+    errTrash: 'The message could not be trashed. Try again.',
     errNotAllowed: 'You may not send as this address.',
     fromLabel: 'Send as',
     toLabel: 'To',

@@ -5,8 +5,8 @@ import { SubPageHeader } from './SubPageHeader';
 import { SubPageFooter } from './SubPageFooter';
 
 type Phase = 'loading' | 'signed-out' | 'ready';
-type View = 'inbox' | 'sent' | 'write';
-type SendOutcome = 'invalid' | 'unauthorised' | 'forbidden' | 'not-allowed' | 'not-configured' | 'send-error' | 'network';
+type View = 'inbox' | 'sent' | 'trash' | 'write';
+type SendOutcome = 'invalid' | 'unauthorised' | 'forbidden' | 'not-allowed' | 'not-configured' | 'send-error' | 'trash' | 'network';
 
 type ThreadReply = { by: string; at: string; body?: string };
 type ThreadSummary = {
@@ -18,6 +18,7 @@ type ThreadSummary = {
   phone: string | null;
   lang: string;
   replies: ThreadReply[];
+  trashedAt?: string;
 };
 type Thread = ThreadSummary & { message: string };
 type SentSummary = {
@@ -29,8 +30,18 @@ type SentSummary = {
   subject: string;
   kind: 'compose' | 'reply';
   threadId: string | null;
+  trashedAt?: string;
 };
 type SentItem = SentSummary & { body: string };
+
+type TrashItem = {
+  id: string;
+  from: string;
+  contact: string;
+  subject: string;
+  date: string;
+  source: 'inbox' | 'sent';
+};
 
 const inputClass =
   'w-full rounded-card border border-subtle bg-white px-4 py-2.5 text-[15px] text-ink placeholder:text-slate/60';
@@ -59,7 +70,7 @@ function ThreadSections({
     <table className="w-full border-collapse text-left">
       <thead>
         <tr className="border-b border-subtle text-[13px] text-slate">
-          <th scope="col" className="py-2 pr-3 font-bold">{t.colFrom}</th>
+          <th scope="col" className="py-2 pr-3 font-bold">{t.colItem}</th>
           <th scope="col" className="py-2 pr-3 font-bold">{t.colTopic}</th>
           <th scope="col" className="py-2 pr-3 font-bold">{t.colDate}</th>
           <th scope="col" className="py-2 font-bold">
@@ -150,6 +161,8 @@ function KerkraadContent() {
   const [replySending, setReplySending] = useState(false);
   const [replyError, setReplyError] = useState<SendOutcome | null>(null);
   const [deleteArmed, setDeleteArmed] = useState(false);
+  const [armedId, setArmedId] = useState<string | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
   const [deleteError, setDeleteError] = useState<SendOutcome | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [from, setFrom] = useState(FROM_ADDRESSES[0]);
@@ -159,6 +172,9 @@ function KerkraadContent() {
   const [sending, setSending] = useState(false);
   const [sent, setSent] = useState(false);
   const [error, setError] = useState<SendOutcome | null>(null);
+  const [trashItems, setTrashItems] = useState<TrashItem[]>([]);
+  const [trashLoading, setTrashLoading] = useState(false);
+  const [trashError, setTrashError] = useState(false);
 
   const topicLabel = (topic: string) =>
     topic === 'bible-study' ? t.topicBibleStudy : t.topicConnect;
@@ -186,7 +202,6 @@ function KerkraadContent() {
     else params.delete('smsg');
     window.history.replaceState(null, '', `${window.location.pathname}?${params}`);
   }, []);
-
   const loadInbox = useCallback(async () => {
     setThreadsLoading(true);
     setThreadsError(false);
@@ -216,6 +231,44 @@ function KerkraadContent() {
       setSentLoading(false);
     }
   }, []);
+
+  const loadTrash = useCallback(async () => {
+    setTrashLoading(true);
+    setTrashError(false);
+    try {
+      const [inboxRes, sentRes] = await Promise.all([
+        fetch('/api/mail/inbox?trashed=1', { headers: { Accept: 'application/json' } }),
+        fetch('/api/mail/sent?trashed=1', { headers: { Accept: 'application/json' } }),
+      ]);
+      if (!inboxRes.ok || !sentRes.ok) throw new Error('trash list');
+      const inbox = (await inboxRes.json()) as { items?: ThreadSummary[] };
+      const sent = (await sentRes.json()) as { items?: SentSummary[] };
+      const rows: TrashItem[] = [
+        ...(inbox.items ?? []).map((x) => ({
+          id: x.id,
+          from: x.name,
+          contact: x.email ?? x.phone ?? '',
+          subject: topicLabel(x.topic),
+          date: x.submittedAt,
+          source: 'inbox' as const,
+        })),
+        ...(sent.items ?? []).map((x) => ({
+          id: x.id,
+          from: x.from,
+          contact: x.to.join(', '),
+          subject: x.subject,
+          date: x.at,
+          source: 'sent' as const,
+        })),
+      ];
+      rows.sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0));
+      setTrashItems(rows);
+    } catch {
+      setTrashError(true);
+    } finally {
+      setTrashLoading(false);
+    }
+  }, [topicLabel]);
 
   const openSentMessage = useCallback(
     async (id: string) => {
@@ -296,6 +349,7 @@ function KerkraadContent() {
         const smsg = params.get('smsg');
         await loadInbox();
         await loadSent();
+        await loadTrash();
         if (msg) await openMessage(msg);
         else if (smsg) await openSentMessage(smsg);
         else if (params.get('view') === 'write') setView('write');
@@ -314,45 +368,83 @@ function KerkraadContent() {
     setPhase('signed-out');
   }
 
-  /** Admin-only: removes the open thread from R2, then back to the queue. */
+  /** Admin-only: trashes the open thread, or permanently deletes it from the trash. */
   async function deleteThread() {
-    if (!openThread) return;
+    if (!openThread && !openSent) return;
+    if (openThread && openThread.trashedAt) {
+      await permanentDelete(openThread.id, 'inbox');
+      return;
+    }
+    if (openSent && openSent.trashedAt) {
+      await permanentDelete(openSent.id, 'sent');
+      return;
+    }
     if (!deleteArmed) {
       setDeleteError(null);
+      setArmedId(openThread?.id ?? openSent?.id ?? null);
       setDeleteArmed(true);
       return;
     }
-    setDeleting(true);
+    const id = (openThread?.id ?? openSent?.id) as string;
+    const source = openThread ? 'inbox' : 'sent';
+    setDeletingId(id);
     setDeleteError(null);
     try {
-      const res = await fetch(`/api/mail/message?id=${encodeURIComponent(openThread.id)}`, {
-        method: 'DELETE',
-      });
+      const res = await fetch(`/api/mail/trash?id=${encodeURIComponent(id)}`, { method: 'PUT' });
       const data = (await res.json().catch(() => ({}))) as { outcome?: string };
       if (res.ok) {
-        const id = openThread.id;
-        setThreads((ts) => ts.filter((x) => x.id !== id));
+        const itemId = id!;
+        setThreads((ts) => ts.filter((x) => x.id !== itemId));
+        setSentItems((ts) => ts.filter((x) => x.id !== itemId));
         setOpenThread(null);
+        setOpenSent(null);
         setOpenId(null);
+        setOpenSentId(null);
         setDeleteArmed(false);
+        setArmedId(null);
         const params = new URLSearchParams(window.location.search);
         params.delete('msg');
+        params.delete('smsg');
         window.history.replaceState(null, '', `${window.location.pathname}?${params}`);
       } else if (data.outcome === 'unauthorised') {
         setDeleteError('unauthorised');
         setPhase('signed-out');
       } else if (data.outcome === 'forbidden') {
         setDeleteError('forbidden');
-        setDeleteArmed(false);
       } else if (data.outcome === 'not-configured') {
         setDeleteError('not-configured');
       } else {
-        setDeleteError('invalid');
+        setDeleteError('trash');
       }
     } catch {
       setDeleteError('network');
     } finally {
+      setDeletingId(null);
       setDeleting(false);
+    }
+  }
+
+  async function permanentDelete(id: string, source: 'inbox' | 'sent') {
+    if (!window.confirm(t.deletePermanentlyConfirm)) return;
+    setDeletingId(id);
+    setDeleteError(null);
+    try {
+      const res = await fetch(`/api/mail/message?id=${encodeURIComponent(id)}`, { method: 'DELETE' });
+      if (res.ok) {
+        setThreads((ts) => ts.filter((x) => x.id !== id));
+        setSentItems((ts) => ts.filter((x) => x.id !== id));
+        setOpenThread(null);
+        setOpenSent(null);
+        setOpenId(null);
+        setOpenSentId(null);
+      } else {
+        const data = (await res.json().catch(() => ({}))) as { outcome?: string };
+        setDeleteError(data.outcome === 'forbidden' ? 'forbidden' : 'trash');
+      }
+    } catch {
+      setDeleteError('network');
+    } finally {
+      setDeletingId(null);
     }
   }
 
@@ -435,6 +527,7 @@ function KerkraadContent() {
     'not-allowed': t.errNotAllowed,
     'not-configured': t.errNotConfigured,
     'send-error': t.errSend,
+    trash: t.errTrash,
     network: t.errNetwork,
   };
 
@@ -488,7 +581,7 @@ function KerkraadContent() {
               </div>
 
               <div role="tablist" aria-label={t.inboxTabs} className="mb-6 flex flex-wrap gap-2">
-                {(['inbox', 'sent', 'write'] as View[]).map((v) => (
+                {(['inbox', 'sent', 'trash', 'write'] as View[]).map((v) => (
                   <button
                     key={v}
                     type="button"
@@ -499,7 +592,7 @@ function KerkraadContent() {
                       view === v ? 'bg-navy text-white' : 'border-[1.5px] border-navy text-navy hover:bg-navy hover:text-white'
                     }`}
                   >
-                    {v === 'inbox' ? t.tabInbox : v === 'sent' ? t.tabSent : t.tabWrite}
+                    {v === 'inbox' ? t.tabInbox : v === 'sent' ? t.tabSent : v === 'trash' ? t.tabTrash : t.tabWrite}
                   </button>
                 ))}
               </div>
@@ -643,14 +736,25 @@ function KerkraadContent() {
                                   {errorText[deleteError]}
                                 </p>
                               )}
-                              <button
-                                type="button"
-                                onClick={deleteThread}
-                                disabled={deleting}
-                                className="rounded-pill border-[1.5px] border-slate px-5 py-2 text-[13px] font-bold text-slate transition-colors hover:border-ink hover:text-ink disabled:opacity-60"
-                              >
-                                {deleting ? t.deleting : deleteArmed ? t.deleteConfirm : t.deleteLabel}
-                              </button>
+                              {openThread?.trashedAt ? (
+                                <button
+                                  type="button"
+                                  onClick={() => permanentDelete(openThread.id, 'inbox')}
+                                  disabled={deletingId === openThread.id}
+                                  className="rounded-pill border-[1.5px] border-red px-5 py-2 text-[13px] font-bold text-red transition-colors hover:bg-red hover:text-white disabled:opacity-60"
+                                >
+                                  {deletingId === openThread.id ? t.deletingPermanently : t.deletePermanently}
+                                </button>
+                              ) : (
+                                <button
+                                  type="button"
+                                  onClick={deleteThread}
+                                  disabled={deletingId === openThread.id}
+                                  className="rounded-pill border-[1.5px] border-slate px-5 py-2 text-[13px] font-bold text-slate transition-colors hover:border-ink hover:text-ink disabled:opacity-60"
+                                >
+                                  {deletingId === openThread.id ? t.trashing : deleteArmed && armedId === openThread.id ? t.trashConfirm : t.trashLabel}
+                                </button>
+                              )}
                             </div>
                           )}
                         </article>
@@ -762,9 +866,89 @@ function KerkraadContent() {
                             </div>
                           )}
                           <p className="whitespace-pre-wrap text-[15px] leading-relaxed">{openSent.body}</p>
+                          {isAdmin && (
+                            <div className="mt-8 border-t border-subtle pt-4">
+                              {openSent.trashedAt ? (
+                                <button
+                                  type="button"
+                                  onClick={() => permanentDelete(openSent.id, 'sent')}
+                                  disabled={deletingId === openSent.id}
+                                  className="rounded-pill border-[1.5px] border-red px-5 py-2 text-[13px] font-bold text-red transition-colors hover:bg-red hover:text-white disabled:opacity-60"
+                                >
+                                  {deletingId === openSent.id ? t.deletingPermanently : t.deletePermanently}
+                                </button>
+                              ) : (
+                                <button
+                                  type="button"
+                                  onClick={deleteThread}
+                                  disabled={deletingId === openSent.id}
+                                  className="rounded-pill border-[1.5px] border-slate px-5 py-2 text-[13px] font-bold text-slate transition-colors hover:border-ink hover:text-ink disabled:opacity-60"
+                                >
+                                  {deletingId === openSent.id ? t.trashing : deleteArmed && armedId === openSent.id ? t.trashConfirm : t.trashLabel}
+                                </button>
+                              )}
+                            </div>
+                          )}
                         </article>
                       )}
                     </div>
+                  )}
+                </div>
+              )}
+
+              {view === 'trash' && (
+                <div>
+                  {trashLoading && (
+                    <div aria-hidden="true" className="grid gap-3">
+                      {[0, 1, 2].map((i) => (
+                        <div key={i} className="h-16 rounded-card border border-subtle bg-cream-card" />
+                      ))}
+                    </div>
+                  )}
+                  {trashError && (
+                    <div>
+                      <p className="mb-4 rounded-card border border-subtle bg-cream-card px-4 py-3 text-[14.5px] text-slate">
+                        {t.errNetwork}
+                      </p>
+                      <button
+                        type="button"
+                        onClick={loadTrash}
+                        className="rounded-pill border-[1.5px] border-navy px-5 py-2.5 text-[13.5px] font-bold text-navy transition-colors hover:bg-navy hover:text-white"
+                      >
+                        {t.retry}
+                      </button>
+                    </div>
+                  )}
+                  {!trashLoading && !trashError && trashItems.length === 0 && (
+                    <div className="rounded-card-lg border border-subtle bg-cream-card p-6 text-center sm:p-7">
+                      <h2 className="mb-2 font-serif text-xl text-ink">{t.tabTrash}</h2>
+                      <p className="text-[14.5px] text-slate">{t.trashEmpty}</p>
+                    </div>
+                  )}
+                  {!trashLoading && !trashError && trashItems.length > 0 && (
+                    <table className="w-full border-collapse text-left">
+                      <thead>
+                        <tr className="border-b border-subtle text-[13px] text-slate">
+                          <th scope="col" className="py-2 pr-3 font-bold">{t.colItem}</th>
+                          <th scope="col" className="py-2 pr-3 font-bold">{t.colTo}</th>
+                          <th scope="col" className="py-2 pr-3 font-bold">{t.colSubject}</th>
+                          <th scope="col" className="py-2 font-bold">{t.colDate}</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {trashItems.map((x) => (
+                          <tr key={x.id} className="border-b border-subtle">
+                            <td className="py-3 pr-3 text-[14px]">{x.from}</td>
+                            <td className="py-3 pr-3 text-[14px] text-slate">{x.contact}</td>
+                            <td className="py-3 pr-3 text-[14px]">{x.subject}</td>
+                            <td className="tabular-nums py-3 text-[14px] text-slate">{fmtDate(x.date)}</td>
+                            <td className="py-3 text-right text-[13px] text-slate uppercase">
+                              {x.source === 'inbox' ? t.trashInbox : t.trashSent}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
                   )}
                 </div>
               )}

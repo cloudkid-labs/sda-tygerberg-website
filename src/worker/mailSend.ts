@@ -26,6 +26,7 @@ export type SentItem = {
   body: string;
   kind: 'compose' | 'reply';
   threadId: string | null;
+  trashedAt?: string;
 };
 
 /**

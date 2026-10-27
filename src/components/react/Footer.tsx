@@ -23,7 +23,7 @@ export function Footer() {
       <div className="mx-auto grid max-w-content grid-cols-[repeat(auto-fit,minmax(min(220px,100%),1fr))] gap-8 px-7 py-11">
         <div>
           <div className="mb-3 flex items-center gap-2.5">
-            <Logo size={30} color="var(--color-cream)" />
+            <Logo size={30} />
             <span className="font-serif text-base text-white">Tygerberg SDA</span>
           </div>
           <p className="text-sm">{t.footerBlurb}</p>

@@ -1,9 +1,9 @@
 ---
 import Layout from '../layouts/Layout.astro';
 import { withBase } from '../lib/base';
-// Inlined at build time rather than via the React <Logo>: this page ships no
-// island on purpose, and the symbol is markup, not behaviour.
-import symbol from '../assets/sda-symbol.svg?raw';
+// A plain <img>, not the React <Logo>: this page ships no island on purpose,
+// and an image needs no hydration. Same lockup as the headers (C-25 exception,
+// Oct 2026).
 
 // No React island here: an error page shouldn't pull down the app bundle just
 // to render an apology. That also means no language toggle, so both languages
@@ -16,10 +16,12 @@ import symbol from '../assets/sda-symbol.svg?raw';
 >
   <main id="main" class="grid min-h-screen place-items-center px-7 py-16 text-center">
     <div>
-      <span
-        class="mx-auto mb-7 block h-14 w-14 text-navy"
-        aria-hidden="true"
-        set:html={symbol}
+      <img
+        src={withBase('/oauth-logo.png')}
+        width={56}
+        height={56}
+        alt="Tygerberg SDA Kerk"
+        class="mx-auto mb-7 block h-14 w-14 rounded-[22%] object-cover"
       />
       <div class="mb-4 font-serif text-[64px] leading-none text-navy">404</div>
       <h1 class="mb-3 font-serif text-[28px] font-medium text-ink">

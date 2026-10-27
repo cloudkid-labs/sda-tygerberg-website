@@ -29,9 +29,10 @@ export type BoardCopy = {
   colFrom: string;
   colTopic: string;
   colDate: string;
-  colState: string;
-  stateNew: string;
-  stateReplied: string;
+  sectionNew: string;
+  sectionReplied: string;
+  emptyReplied: string;
+  replyAction: string;
   emptyHeading: string;
   emptyBody: string;
   retry: string;
@@ -97,9 +98,10 @@ export const boardCopy: Record<Lang, BoardCopy> = {
     colFrom: 'Van',
     colTopic: 'Onderwerp',
     colDate: 'Ontvang',
-    colState: 'Stand',
-    stateNew: 'Nuut',
-    stateReplied: 'Beantwoord',
+    sectionNew: 'Nuut',
+    sectionReplied: 'Beantwoord',
+    emptyReplied: 'Nog geen beantwoorde boodskappe nie.',
+    replyAction: 'Antwoord',
     emptyHeading: 'Geen boodskappe nie',
     emptyBody: 'Boodskappe van die webwerf se vorms verskyn hier.',
     retry: 'Probeer weer',
@@ -156,9 +158,10 @@ export const boardCopy: Record<Lang, BoardCopy> = {
     colFrom: 'From',
     colTopic: 'Topic',
     colDate: 'Received',
-    colState: 'State',
-    stateNew: 'New',
-    stateReplied: 'Answered',
+    sectionNew: 'New',
+    sectionReplied: 'Replied',
+    emptyReplied: 'No replied messages yet.',
+    replyAction: 'Reply',
     emptyHeading: 'No messages',
     emptyBody: 'Messages from the website’s forms appear here.',
     retry: 'Try again',

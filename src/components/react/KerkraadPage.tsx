@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { LanguageProvider, useLanguage } from '../../context/LanguageContext';
-import { boardCopy, FROM_ADDRESSES } from '../../data/boardCopy';
+import { boardCopy, FROM_ADDRESSES, type BoardCopy } from '../../data/boardCopy';
 import { SubPageHeader } from './SubPageHeader';
 import { SubPageFooter } from './SubPageFooter';
 
@@ -23,6 +23,85 @@ type Thread = ThreadSummary & { message: string };
 
 const inputClass =
   'w-full rounded-card border border-subtle bg-white px-4 py-2.5 text-[15px] text-ink placeholder:text-slate/60';
+
+/**
+ * The inbox as two queues: unanswered threads under New, answered ones under
+ * Replied. Answering moves the thread — the reply count is the state, so no
+ * separate read/unread flag exists to drift out of step with it.
+ */
+function ThreadSections({
+  threads,
+  topicLabel,
+  fmtDate,
+  openMessage,
+  t,
+}: {
+  threads: ThreadSummary[];
+  topicLabel: (topic: string) => string;
+  fmtDate: (iso: string) => string;
+  openMessage: (id: string) => void;
+  t: BoardCopy;
+}) {
+  const fresh = threads.filter((x) => x.replies.length === 0);
+  const done = threads.filter((x) => x.replies.length > 0);
+  const table = (items: ThreadSummary[]) => (
+    <table className="w-full border-collapse text-left">
+      <thead>
+        <tr className="border-b border-subtle text-[13px] text-slate">
+          <th scope="col" className="py-2 pr-3 font-bold">{t.colFrom}</th>
+          <th scope="col" className="py-2 pr-3 font-bold">{t.colTopic}</th>
+          <th scope="col" className="py-2 pr-3 font-bold">{t.colDate}</th>
+          <th scope="col" className="py-2 font-bold">
+            <span className="sr-only">{t.replyAction}</span>
+          </th>
+        </tr>
+      </thead>
+      <tbody>
+        {items.map((x) => (
+          <tr key={x.id} className="border-b border-subtle">
+            <td className="py-3 pr-3">
+              <button
+                type="button"
+                onClick={() => openMessage(x.id)}
+                className="text-left font-bold text-navy underline"
+              >
+                {x.name}
+              </button>
+              <span className="block text-[13px] text-slate">{x.email ?? x.phone ?? ''}</span>
+            </td>
+            <td className="py-3 pr-3 text-[14px]">{topicLabel(x.topic)}</td>
+            <td className="tabular-nums py-3 pr-3 text-[14px] text-slate">{fmtDate(x.submittedAt)}</td>
+            <td className="py-3 text-right">
+              <button
+                type="button"
+                onClick={() => openMessage(x.id)}
+                className="rounded-pill border-[1.5px] border-navy px-4 py-1.5 text-[13px] font-bold text-navy transition-colors hover:bg-navy hover:text-white"
+              >
+                {t.replyAction}
+              </button>
+            </td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  );
+  return (
+    <div>
+      <h2 className="mb-2 font-serif text-xl font-medium text-ink">{t.sectionNew}</h2>
+      {fresh.length > 0 ? (
+        table(fresh)
+      ) : (
+        <p className="mb-8 text-[14.5px] text-slate">{t.emptyHeading}</p>
+      )}
+      <h2 className="mb-2 mt-10 font-serif text-xl font-medium text-ink">{t.sectionReplied}</h2>
+      {done.length > 0 ? (
+        table(done)
+      ) : (
+        <p className="text-[14.5px] text-slate">{t.emptyReplied}</p>
+      )}
+    </div>
+  );
+}
 
 /**
  * The board's inbox: visitor submissions in a queue, each thread readable and
@@ -312,37 +391,13 @@ function KerkraadContent() {
                     </div>
                   )}
                   {!threadsLoading && !threadsError && threads.length > 0 && !openId && (
-                    <table className="w-full border-collapse text-left">
-                      <thead>
-                        <tr className="border-b border-subtle text-[13px] text-slate">
-                          <th scope="col" className="py-2 pr-3 font-bold">{t.colFrom}</th>
-                          <th scope="col" className="py-2 pr-3 font-bold">{t.colTopic}</th>
-                          <th scope="col" className="py-2 pr-3 font-bold">{t.colDate}</th>
-                          <th scope="col" className="py-2 font-bold">{t.colState}</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {threads.map((x) => (
-                          <tr key={x.id} className="border-b border-subtle">
-                            <td className="py-3 pr-3">
-                              <button
-                                type="button"
-                                onClick={() => openMessage(x.id)}
-                                className="text-left font-bold text-navy underline"
-                              >
-                                {x.name}
-                              </button>
-                              <span className="block text-[13px] text-slate">{x.email ?? x.phone ?? ''}</span>
-                            </td>
-                            <td className="py-3 pr-3 text-[14px]">{topicLabel(x.topic)}</td>
-                            <td className="tabular-nums py-3 pr-3 text-[14px] text-slate">{fmtDate(x.submittedAt)}</td>
-                            <td className="py-3 text-[14px] text-slate">
-                              {x.replies.length > 0 ? t.stateReplied : t.stateNew}
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
+                    <ThreadSections
+                      threads={threads}
+                      topicLabel={topicLabel}
+                      fmtDate={fmtDate}
+                      openMessage={openMessage}
+                      t={t}
+                    />
                   )}
                   {openId && (
                     <div>

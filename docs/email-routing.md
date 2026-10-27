@@ -33,7 +33,7 @@ flowchart LR
     BREVO["Brevo API<br/>v3 smtp email"]
     HOOK["CONTACT_WEBHOOK_URL<br/>(Worker secret)"]
     KLERK["sdatygerbergklerk@gmail.com<br/>church clerk"]
-    TREASURER["a2msars@gmail.com<br/>treasurer"]
+    TREASURER["muller31jp@gmail.com<br/>treasurer"]
     R2ARCHIVE[("R2 · mail archive")]
   end
 
@@ -88,7 +88,7 @@ Solid arrows always happen. Dotted arrows are fallbacks or best-effort copies.
 | `kerk@sdatygerberg.co.za` | Board send-as address | `MAIL_SEND_FROM` |
 | `sdatygerbergklerk@gmail.com` | Receives every form email (To) and all inbound mail with no route | `CONTACT_EMAIL_TO`, `MAIL_FORWARD_TO` |
 | `tesourier@sdatygerberg.co.za` | Zapper's merchant notification address. Not a mailbox. Also a board send-as address | `MAIL_ROUTES` key, `MAIL_SEND_FROM` |
-| `a2msars@gmail.com` | Treasurer. Receives everything sent to `tesourier@` | `MAIL_ROUTES` value |
+| `muller31jp@gmail.com` | Treasurer. Receives everything sent to `tesourier@`; sends and is notified as treasurer only | `MAIL_ROUTES` value, `BOARD_SEND_AS` |
 | `archive@sdatygerberg.co.za` | Archive. BCC on form emails and a copy of all inbound mail, filed in R2 | `CONTACT_EMAIL_BCC`, `MAIL_ARCHIVE_TO` |
 
 Every form-email recipient must also be in `send_email.allowed_destination_addresses`,
@@ -105,14 +105,28 @@ under the same 7-year retention. The allow-list of board members is a plain-text
 shows the value) — readable to repo and Cloudflare collaborators, never on the
 public site (C-68).
 
+Per-sender send-as: `BOARD_SEND_AS` fences a listed address to named role
+addresses (the treasurer writes only as `tesourier@`); anyone unlisted may
+use them all. The Worker enforces it on compose and reply alike (403
+`not-allowed`), the page filters the From dropdown to match. Treasurer
+notifications stay treasurer-scoped: visitor notifications go only to the
+clerk, never to the treasurer address.
+
+Visitor submissions notify rather than deliver: the Gmail receivers get who,
+what topic and when plus the login link — never the message or contact
+details — while the full enquiry files to the archive address (then R2) and
+the inbox copy in `SUBMISSIONS`. Reading means signing in.
+
 `/kerkraad` is also an inbox: every connect and bible-study submission is
 stored as JSON in the `SUBMISSIONS` bucket (`tygerberg-submissions` in
 production, `tygerberg-submissions-devtest` on devtest) and the page lists,
 reads and replies from there. Replies go through Brevo from the topic's role
 address and are appended to the stored thread. The stored copy holds the full
-message text, kept 7 years like consent (C-69). Admin-listed members
-(`BOARD_ADMIN_EMAILS`, currently one address) can also delete a thread from
-the page; everyone else gets 403. The buckets and their
+message text, kept 7 years like consent (C-69). The Sent box next to the inbox
+lists every outbound mail — compose sends and thread replies, each filed under
+`sent/` at send time — so the page sees all mail received and sent in one
+place. Admin-listed members (`BOARD_ADMIN_EMAILS`, currently one address) can
+also delete a thread from the page; everyone else gets 403. The buckets and their
 lifecycle rules are created outside Terraform, like every Worker binding.
 
 ## Outside this repo (Cloudflare dashboard and Zapper)

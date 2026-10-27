@@ -122,7 +122,11 @@
     // the value instead of a hidden secret — the trade is that these personal
     // addresses are now readable to anyone with repo or Cloudflare access.
     // The repo is private; do not copy them onto the public site (C-20).
-    "BOARD_ALLOWED_EMAILS": "a2msars@gmail.com,sdatygerbergklerk@gmail.com,sdatygerbergkerk@gmail.com,rainiersvn1@gmail.com,johanemomberg@gmail.com",
+    "BOARD_ALLOWED_EMAILS": "muller31jp@gmail.com,sdatygerbergklerk@gmail.com,sdatygerbergkerk@gmail.com,rainiersvn1@gmail.com,johanemomberg@gmail.com",
+    // Who may send as what. `email=address[;email=address]`; anyone unlisted
+    // may use every MAIL_SEND_FROM address. The treasurer writes only as
+    // tesourier@ — enforced in the Worker, mirrored in the page's dropdown.
+    "BOARD_SEND_AS": "muller31jp@gmail.com=tesourier@sdatygerberg.co.za",
     // Who may delete inbox threads. Subset of the allow-list, one address for
     // now. Plain-text var like BOARD_ALLOWED_EMAILS so the dashboard shows it.
     "BOARD_ADMIN_EMAILS": "rainiersvn1@gmail.com",
@@ -145,7 +149,7 @@
     // must be a verified destination address. Inbound forwards are not fenced
     // by send_email below.
     "MAIL_ROUTES": {
-      "tesourier@sdatygerberg.co.za": "a2msars@gmail.com"
+      "tesourier@sdatygerberg.co.za": "muller31jp@gmail.com"
     }
   },
   // Lets /api/contact email the church directly.

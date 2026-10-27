@@ -170,7 +170,7 @@ export async function handleInboxReply(request: Request, env: InboxEnv): Promise
     from,
     [item.email],
     `Re: ${item.topic === 'bible-study' ? 'Bybelstudie-versoek' : 'Jou boodskap aan Tygerberg SDA'}`,
-    `${text}\n\n—\nGestuur deur ${session.email} namens Tygerberg SDA Kerk`,
+    text,
   );
   if (!ok) {
     console.log(`inbox: reply send-error to submission by=${session.email}`);

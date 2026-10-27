@@ -1,7 +1,7 @@
 {
   "name": "tygerberg-sda-website",
   "type": "module",
-  "version": "1.9.3",
+  "version": "1.9.4",
   "private": true,
   "engines": {
     "node": ">=24.18.0"
@@ -23,7 +23,7 @@
     "version:major": "npm version major --no-git-tag-version"
   },
   "dependencies": {
-    "@astrojs/react": "6.0.1",
+    "@astrojs/react": "7.1.1",
     "astro": "^7.4.2",
     "react": "19.3.1",
     "react-dom": "19.3.1",

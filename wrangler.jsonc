@@ -122,7 +122,7 @@
     // the value instead of a hidden secret — the trade is that these personal
     // addresses are now readable to anyone with repo or Cloudflare access.
     // The repo is private; do not copy them onto the public site (C-20).
-    "BOARD_ALLOWED_EMAILS": "a2msars@gmail.com,sdatygerbergklerk@gmail.com,sdatygerbergkerk@gmail.com,rainiersvn1@gmail.com",
+    "BOARD_ALLOWED_EMAILS": "a2msars@gmail.com,sdatygerbergklerk@gmail.com,sdatygerbergkerk@gmail.com,rainiersvn1@gmail.com,johanemomberg@gmail.com",
     // Who may delete inbox threads. Subset of the allow-list, one address for
     // now. Plain-text var like BOARD_ALLOWED_EMAILS so the dashboard shows it.
     "BOARD_ADMIN_EMAILS": "rainiersvn1@gmail.com",

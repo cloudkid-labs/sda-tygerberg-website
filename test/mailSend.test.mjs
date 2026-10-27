@@ -185,4 +185,37 @@ describe('handleMailSend delivery', () => {
     assert.equal(res.status, 401);
     assert.equal(brevoCalls.length, 0);
   });
+
+  test('a sent compose is filed for the Sent box, never blocking the send', async () => {
+    mockBrevo();
+    const puts = [];
+    const session = await signSession('boss@example.co.za', SECRET);
+    const res = await handleMailSend(
+      post(goodBody(), { cookie: session }),
+      env({ SUBMISSIONS: { async put(k, v) { puts.push({ key: k, body: JSON.parse(v) }); } } }),
+    );
+    assert.equal((await res.json()).outcome, 'sent');
+    assert.equal(puts.length, 1);
+    assert.match(puts[0].key, /^sent\/202\d\//);
+    assert.equal(puts[0].body.kind, 'compose');
+    assert.equal(puts[0].body.by, 'boss@example.co.za');
+    assert.equal(puts[0].body.subject, 'Sondag se diens');
+    assert.equal(puts[0].body.body, 'Hallo, hier is die inligting.');
+    assert.equal(puts[0].body.threadId, null);
+  });
+
+  test('a fenced sender is 403 outside their address, sent inside it', async () => {
+    mockBrevo();
+    const fenced = { BOARD_SEND_AS: 'boss@example.co.za=tesourier@sdatygerberg.co.za' };
+    const session = await signSession('boss@example.co.za', SECRET);
+    const denied = await handleMailSend(post(goodBody(), { cookie: session }), env(fenced));
+    assert.equal(denied.status, 403);
+    assert.equal((await denied.json()).outcome, 'not-allowed');
+    assert.equal(brevoCalls.length, 0);
+    const allowed = await handleMailSend(
+      post(goodBody({ from: 'tesourier@sdatygerberg.co.za' }), { cookie: session }),
+      env(fenced),
+    );
+    assert.equal((await allowed.json()).outcome, 'sent');
+  });
 });

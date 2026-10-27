@@ -200,6 +200,36 @@ describe('handleMailSession', () => {
     }
   });
 
+  test('session carries the send-as list, fenced where configured', async () => {
+    const from = 'welkom@sdatygerberg.co.za,klerk@sdatygerberg.co.za,tesourier@sdatygerberg.co.za,kerk@sdatygerberg.co.za';
+    const session = await signSession('boss@example.co.za', SECRET);
+    const open = await handleMailSession(
+      new Request('https://x/api/mail/session', {
+        headers: { cookie: `__Host-kerkraad=${session}` },
+      }),
+      env({ BOARD_ADMIN_EMAILS: 'boss@example.co.za', MAIL_SEND_FROM: from }),
+    );
+    assert.deepEqual((await open.json()).allowedFrom.sort(), [
+      'kerk@sdatygerberg.co.za',
+      'klerk@sdatygerberg.co.za',
+      'tesourier@sdatygerberg.co.za',
+      'welkom@sdatygerberg.co.za',
+    ]);
+    const fenced = await handleMailSession(
+      new Request('https://x/api/mail/session', {
+        headers: { cookie: `__Host-kerkraad=${session}` },
+      }),
+      env({
+        BOARD_ADMIN_EMAILS: 'boss@example.co.za',
+        MAIL_SEND_FROM: from,
+        BOARD_SEND_AS: 'boss@example.co.za=tesourier@sdatygerberg.co.za',
+      }),
+    );
+    const fencedJson = await fenced.json();
+    assert.equal(fencedJson.admin, true);
+    assert.deepEqual(fencedJson.allowedFrom, ['tesourier@sdatygerberg.co.za']);
+  });
+
   test('401 on expired, tampered, or delisted sessions', async () => {
     const expired = await signSession('boss@example.co.za', SECRET, Date.now() - 9 * 3600_000);
     for (const cookie of [

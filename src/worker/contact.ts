@@ -141,6 +141,7 @@ async function deliver(
   env: ContactEnv,
   clean: Record<string, string>,
   lang: Lang,
+  origin: string,
 ): Promise<{ via: ContactVia | null; consentStored?: boolean }> {
   const submittedAt = new Date().toISOString();
 
@@ -186,7 +187,7 @@ async function deliver(
     }
   }
 
-  if (await sendContactEmail(env, clean, submittedAt, storedId)) {
+  if (await sendContactEmail(env, clean, submittedAt, storedId, origin)) {
     return { via: 'email', consentStored };
   }
   // Not a silent fallback: the send error itself was already logged inside
@@ -272,7 +273,7 @@ export async function handleContact(request: Request, env: ContactEnv): Promise<
     return json({ ok: false, outcome: 'not-configured' }, 503);
   }
 
-  const { via, consentStored } = await deliver(env, clean, lang);
+  const { via, consentStored } = await deliver(env, clean, lang, new URL(request.url).origin);
 
   // Structured log lines — addresses and outcomes only, never field values
   // (the submission is personal data; C-20). Three lines per enquiry, each

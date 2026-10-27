@@ -1,7 +1,7 @@
 /// <reference types="@cloudflare/workers-types" />
 
 import { verifySession, isAdmin, type AuthEnv } from './auth';
-import { sendViaBrevo, type MailSendEnv } from './mailSend';
+import { sendViaBrevo, storeSent, type MailSendEnv, type SentItem } from './mailSend';
 import { mailHtml } from './signature';
 
 export type InboxEnv = AuthEnv &
@@ -136,6 +136,50 @@ export async function handleInboxDelete(request: Request, env: InboxEnv): Promis
 }
 
 /**
+ * GET /api/mail/sent — the Sent box. Without `id`, newest-first summaries
+ * (bodies omitted); with `?id=`, the full stored item. Session-gated like the
+ * inbox; every send is recorded by storeSent, so this is the complete
+ * outbound history next to the inbox's inbound one.
+ */
+export async function handleInboxSent(request: Request, env: InboxEnv): Promise<Response> {
+  const session = await verifySession(request, env);
+  if (!session.ok) {
+    return json(
+      { ok: false, outcome: session.outcome },
+      session.outcome === 'not-configured' ? 503 : 401,
+    );
+  }
+  if (!env.SUBMISSIONS) return json({ ok: false, outcome: 'not-configured' }, 503);
+
+  const id = str(new URL(request.url).searchParams.get('id'));
+  const listed = await env.SUBMISSIONS.list({ prefix: 'sent/', limit: 1000 });
+  const keys = listed.objects.map((o) => o.key).reverse();
+  if (id) {
+    if (id.includes('/') || id.includes('..')) {
+      return json({ ok: false, outcome: 'invalid', errors: ['id'] }, 400);
+    }
+    const key = keys.find((k) => k.endsWith(`-${id}.json`));
+    if (!key) return json({ ok: false, outcome: 'invalid', errors: ['id'] }, 404);
+    const obj = await env.SUBMISSIONS.get(key);
+    if (!obj) return json({ ok: false, outcome: 'invalid', errors: ['id'] }, 404);
+    return json({ ok: true, item: (await obj.json()) as SentItem }, 200);
+  }
+  const items: Omit<SentItem, 'body'>[] = [];
+  for (const key of keys) {
+    const obj = await env.SUBMISSIONS.get(key);
+    if (!obj) continue;
+    try {
+      const s = (await obj.json()) as SentItem;
+      const { body: _omitted, ...summary } = s;
+      items.push(summary);
+    } catch {
+      console.error(`inbox: unreadable sent object skipped key=${key}`);
+    }
+  }
+  return json({ ok: true, items }, 200);
+}
+
+/**
  * POST /api/mail/reply { id, body } — answers the visitor by email from the
  * topic's role address and appends the reply to the stored thread.
  */
@@ -203,11 +247,12 @@ export async function handleInboxReply(request: Request, env: InboxEnv): Promise
   );
   if (!senders.has(from)) return json({ ok: false, outcome: 'not-configured' }, 503);
 
+  const subject = `Re: ${item.topic === 'bible-study' ? 'Bybelstudie-versoek' : 'Jou boodskap aan Tygerberg SDA'}`;
   const ok = await sendViaBrevo(
     env,
     from,
     [item.email],
-    `Re: ${item.topic === 'bible-study' ? 'Bybelstudie-versoek' : 'Jou boodskap aan Tygerberg SDA'}`,
+    subject,
     text,
     mailHtml(text, from),
   );
@@ -218,6 +263,15 @@ export async function handleInboxReply(request: Request, env: InboxEnv): Promise
 
   item.replies = [...(item.replies ?? []), { by: session.email, at: new Date().toISOString() }];
   await env.SUBMISSIONS.put(key, JSON.stringify(item));
+  await storeSent(env, {
+    by: session.email,
+    from,
+    to: [item.email],
+    subject,
+    body: text,
+    kind: 'reply',
+    threadId: item.id,
+  });
   console.log(`inbox: reply sent by=${session.email}`);
   return json({ ok: true, outcome: 'sent' }, 200);
 }

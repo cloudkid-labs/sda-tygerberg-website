@@ -11,7 +11,47 @@ export type MailSendEnv = AuthEnv & {
    * CONTACT_EMAIL_BCC. Public role addresses, so a var, not a secret (ADR-0001).
    */
   MAIL_SEND_FROM?: string;
+  /** The /kerkraad bucket. Unset skips the Sent copy, never the send. */
+  SUBMISSIONS?: R2Bucket;
 };
+
+/** One outbound mail for the Sent box: a compose send or a thread reply. */
+export type SentItem = {
+  id: string;
+  at: string;
+  by: string;
+  from: string;
+  to: string[];
+  subject: string;
+  body: string;
+  kind: 'compose' | 'reply';
+  threadId: string | null;
+};
+
+/**
+ * Files one outbound mail under `sent/`. Best-effort like every other R2
+ * write here: a failed put is logged, never fatal — the mail already went.
+ */
+export async function storeSent(
+  env: MailSendEnv,
+  item: Omit<SentItem, 'id' | 'at'>,
+): Promise<void> {
+  if (!env.SUBMISSIONS) return;
+  const at = new Date().toISOString();
+  const [date] = at.split('T');
+  const rand = [...crypto.getRandomValues(new Uint8Array(6))]
+    .map((b) => b.toString(16).padStart(2, '0'))
+    .join('');
+  const id = `${Date.now().toString(36)}${rand}`;
+  try {
+    await env.SUBMISSIONS.put(
+      `sent/${date.replaceAll('-', '/')}/${at}-${id}.json`,
+      JSON.stringify({ ...item, id, at }),
+    );
+  } catch {
+    console.error('mailsend: sent store FAILED');
+  }
+}
 
 const ARCHIVE_BCC = 'archive@sdatygerberg.co.za';
 // shortcut: single literal instead of a third env name; if the archive ever
@@ -183,6 +223,16 @@ export async function handleMailSend(request: Request, env: MailSendEnv): Promis
     console.log(`mailsend: outcome=send-error from=${from} by=${session.email}`);
     return json({ ok: false, outcome: 'send-error' }, 502);
   }
+  // The Sent-box record. Best-effort: the mail went, so a failed put only logs.
+  await storeSent(env, {
+    by: session.email,
+    from,
+    to: cleanTo,
+    subject: cleanSubject,
+    body: text,
+    kind: 'compose',
+    threadId: null,
+  });
   console.log(`mailsend: outcome=sent from=${from} by=${session.email}`);
   return json({ ok: true, outcome: 'sent' }, 200);
 }

@@ -58,7 +58,7 @@ function headerSafe(value: string, max: number): string {
   return flattened.length > max ? `${flattened.slice(0, max - 1)}…` : flattened;
 }
 
-/** The enquiry as the church reads it. Plain text — no styling to get wrong. */
+/** The enquiry as the church archive keeps it. Plain text — no styling to get wrong. */
 function body(fields: Record<string, string>, submittedAt: string, recordId?: string): string {
   const lines = [
     'Nuwe navraag vanaf die webwerf.',
@@ -85,7 +85,33 @@ function body(fields: Record<string, string>, submittedAt: string, recordId?: st
 }
 
 /**
+ * The Gmail receivers never get the enquiry itself — only this notification
+ * naming who wrote, about what, and when, with the login link. The message
+ * lives in the /kerkraad inbox (R2) and the archive copy below; reading it
+ * means signing in. No contact details either: with the address in hand a
+ * reply could bypass the inbox entirely, which is what this withholds.
+ */
+function notificationBody(fields: Record<string, string>, submittedAt: string): string {
+  return [
+    'Nuwe boodskap op die webwerf.',
+    '',
+    `Onderwerp: ${TOPIC_LABELS[fields.topic as ContactTopic] ?? fields.topic}`,
+    `Naam: ${headerSafe(fields.name, 80)}`,
+    `Ontvang: ${submittedAt}`,
+    '',
+    'Meld aan by https://sdatygerberg.co.za/login om dit te lees.',
+  ].join('\n');
+}
+
+/**
  * Emails one validated submission to the church.
+ *
+ * Two sends, two audiences: the notification tells the Gmail receivers there
+ * is mail waiting behind the login; the archive copy carries the full enquiry
+ * to the church-controlled address that files into R2. Either may fail
+ * without failing the other — the archive is best-effort (its R2 bucket has
+ * the SUBMISSIONS copy anyway), but a failed notification fails the channel
+ * because nobody was told.
  *
  * Returns false rather than throwing: the caller decides what a failed channel
  * means, and a contact form should never surface a platform error to a visitor.
@@ -104,34 +130,17 @@ export async function sendContactEmail(
 
   console.log(
     `contact send: start to=${CONTACT_EMAIL_TO} from=${CONTACT_EMAIL_FROM}` +
-      ` bcc=${CONTACT_EMAIL_BCC ?? 'unset'} topic=${fields.topic}` +
-      ` replyTo=${fields.email ? 'set' : 'unset'}` +
+      ` archive=${CONTACT_EMAIL_BCC ?? 'unset'} topic=${fields.topic}` +
       ` record=${recordId ?? 'absent'}`,
   );
   try {
     await EMAIL.send({
       to: CONTACT_EMAIL_TO,
       from: CONTACT_EMAIL_FROM,
-      // Omitted entirely when unset — an empty string would be a malformed
-      // recipient rather than "no recipient".
-      // BCC accepts an array (Workers send binding, doc: EmailMessageBuilder).
-      // Split on commas so the var stays one readable line in wrangler.jsonc.
-      ...(CONTACT_EMAIL_BCC
-        ? { bcc: CONTACT_EMAIL_BCC.split(',').map((s) => s.trim()).filter(Boolean) }
-        : {}),
-      subject: `Webwerf — ${label}: ${headerSafe(fields.name, 60)}`,
-      // Set only when the visitor gave an address, so replying either reaches
-      // them or is visibly impossible — never silently mailing the From alias.
-      // Safe as a header: the validating regex forbids whitespace, so no CR/LF
-      // can survive into it.
-      ...(fields.email ? { replyTo: fields.email } : {}),
-      text: body(fields, submittedAt, recordId),
+      subject: `Nuwe boodskap — ${label}: ${headerSafe(fields.name, 60)} — meld aan om te lees`,
+      text: notificationBody(fields, submittedAt),
     });
-    console.log(
-      `contact send: ok in ${Date.now() - startedAt}ms to=${CONTACT_EMAIL_TO}` +
-        ` bccCount=${(CONTACT_EMAIL_BCC ?? '').split(',').filter(Boolean).length}`,
-    );
-    return true;
+    console.log(`contact send: notified in ${Date.now() - startedAt}ms to=${CONTACT_EMAIL_TO}`);
   } catch (error) {
     // Logged for the observability tail. The code and message only — the
     // submission itself is personal data and does not belong in logs (C-20).
@@ -142,4 +151,25 @@ export async function sendContactEmail(
     );
     return false;
   }
+
+  // The record copy: full enquiry to each church-controlled archive address,
+  // which files into R2. One send per address — `to` takes a single address
+  // on the Workers send binding. Best-effort: the inbox copy in SUBMISSIONS
+  // already holds the message, so a failed archive hop is logged, never fatal.
+  for (const addr of (CONTACT_EMAIL_BCC ?? '').split(',').map((s) => s.trim()).filter(Boolean)) {
+    try {
+      await EMAIL.send({
+        to: addr,
+        from: CONTACT_EMAIL_FROM,
+        subject: `Webwerf — ${label}: ${headerSafe(fields.name, 60)}`,
+        ...(fields.email ? { replyTo: fields.email } : {}),
+        text: body(fields, submittedAt, recordId),
+      });
+      console.log(`contact send: archived to=${addr}`);
+    } catch (error) {
+      const code = (error as { code?: string })?.code ?? 'unknown';
+      console.error(`contact send: archive FAILED to=${addr} code=${code}`);
+    }
+  }
+  return true;
 }

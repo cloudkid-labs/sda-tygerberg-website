@@ -12,7 +12,7 @@ import {
   type AuthEnv,
 } from './auth';
 import { handleMailSend, type MailSendEnv } from './mailSend';
-import { handleInboxList, handleInboxMessage, handleInboxReply, handleInboxDelete, type InboxEnv } from './inbox';
+import { handleInboxList, handleInboxMessage, handleInboxReply, handleInboxDelete, handleInboxSent, type InboxEnv } from './inbox';
 import { healthResponse } from './health';
 import { handleInboundEmail, type InboundEmailEnv } from './inboundEmail';
 import { requestFacts, requestLogEntry } from './requestLog';
@@ -142,6 +142,10 @@ async function route(request: Request, env: Env, ctx: ExecutionContext): Promise
 
   if (pathname === '/api/mail/reply') {
     return handleInboxReply(request, env);
+  }
+
+  if (pathname === '/api/mail/sent') {
+    return handleInboxSent(request, env);
   }
 
   if (pathname === '/api/live-status') {

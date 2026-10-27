@@ -203,15 +203,31 @@ describe('handleContact delivery — C-31, C-34', () => {
     assert.equal(json.consentStored, undefined);
   });
 
-  test('the enquiry mail quotes the stored consent id — C-34 tie-in', async () => {
+  test('the clerk gets a login notification, the archive the full enquiry', async () => {
     const store = r2();
-    const { env, sent } = emailEnv({ CONSENT: store.bucket });
+    const { env, sent } = emailEnv({ CONSENT: store.bucket, CONTACT_EMAIL_BCC: 'archive@church.test' });
     const json = await (await handleContact(post(goodBody()), env)).json();
     assert.equal(json.consentStored, true);
-    assert.equal(store.puts.length, 1);
+    assert.equal(sent.length, 2);
     const record = JSON.parse(store.puts[0].body);
-    assert.match(sent[0].text, new RegExp(`Toestemmingsrekord: ${record.id}`));
-    assert.ok(store.puts[0].key.includes(record.id));
+    // Notification: names who and what, never the message or contact details.
+    assert.equal(sent[0].to, 'to@church.test');
+    assert.match(sent[0].subject, /meld aan om te lees/);
+    assert.match(sent[0].text, /https:\/\/sdatygerberg\.co\.za\/login/);
+    assert.ok(!sent[0].text.includes('Hallo'));
+    assert.ok(!sent[0].text.includes('jan@example.co.za'));
+    // Archive: the full record, tied to the consent id as before.
+    assert.equal(sent[1].to, 'archive@church.test');
+    assert.match(sent[1].text, new RegExp(`Toestemmingsrekord: ${record.id}`));
+    assert.match(sent[1].text, /Hallo/);
+  });
+
+  test('no archive send where no archive address is set', async () => {
+    const { env, sent } = emailEnv();
+    const json = await (await handleContact(post(goodBody()), env)).json();
+    assert.equal(json.outcome, 'forwarded');
+    assert.equal(sent.length, 1);
+    assert.match(sent[0].text, /login om dit te lees/);
   });
 
   test('the inbox copy lands in SUBMISSIONS with the full message — C-69', async () => {

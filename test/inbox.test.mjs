@@ -1,6 +1,6 @@
 import { strict as assert } from 'node:assert';
 import { test, describe, beforeEach, afterEach } from 'node:test';
-import { handleInboxList, handleInboxMessage, handleInboxReply, handleInboxDelete } from '../src/worker/inbox.ts';
+import { handleInboxList, handleInboxMessage, handleInboxReply, handleInboxDelete, handleInboxSent } from '../src/worker/inbox.ts';
 import { signSession } from '../src/worker/auth.ts';
 
 /*
@@ -212,5 +212,55 @@ describe('handleInboxDelete', () => {
     const session = await signSession('boss@example.co.za', SECRET);
     assert.equal((await handleInboxDelete(del('nope', session), env(bucket))).status, 404);
     assert.equal((await handleInboxDelete(del('../x', session), env(bucket))).status, 400);
+  });
+});
+
+describe('handleInboxSent', () => {
+  const sentKey = 'sent/2026/10/27/2026-10-27T10:00:00.000Z-abc123.json';
+  const sentItem = (over = {}) => ({
+    id: 'abc123',
+    at: '2026-10-27T10:00:00.000Z',
+    by: 'boss@example.co.za',
+    from: 'welkom@sdatygerberg.co.za',
+    to: ['friend@example.co.za'],
+    subject: 'Sondag se diens',
+    body: 'Hallo daar',
+    kind: 'compose',
+    threadId: null,
+    ...over,
+  });
+
+  test('401 without a session, 503 without the bucket', async () => {
+    assert.equal((await handleInboxSent(get('/api/mail/sent'), env(undefined))).status, 401);
+    const session = await signSession('boss@example.co.za', SECRET);
+    assert.equal((await handleInboxSent(get('/api/mail/sent', session), env(undefined))).status, 503);
+  });
+
+  test('lists newest first with bodies omitted, reads one fully', async () => {
+    mockBrevo();
+    const { bucket } = r2({ [sentKey]: JSON.stringify(sentItem()) });
+    const session = await signSession('boss@example.co.za', SECRET);
+    const list = await handleInboxSent(get('/api/mail/sent', session), env(bucket));
+    assert.equal(list.status, 200);
+    const items = (await list.json()).items;
+    assert.equal(items.length, 1);
+    assert.equal(items[0].subject, 'Sondag se diens');
+    assert.ok(!('body' in items[0]));
+    const one = await handleInboxSent(get('/api/mail/sent?id=abc123', session), env(bucket));
+    assert.equal((await one.json()).item.body, 'Hallo daar');
+  });
+
+  test('a reply files a sent record for the Sent box', async () => {
+    mockBrevo();
+    const { bucket, store } = r2({ [key]: JSON.stringify(item()) });
+    const session = await signSession('boss@example.co.za', SECRET);
+    const res = await handleInboxReply(post({ id: 'abc-1', body: 'Dankie' }, session), env(bucket));
+    assert.equal(res.status, 200);
+    const sentKeys = [...store.keys()].filter((k) => k.startsWith('sent/'));
+    assert.equal(sentKeys.length, 1);
+    const recorded = JSON.parse(store.get(sentKeys[0]));
+    assert.equal(recorded.kind, 'reply');
+    assert.equal(recorded.threadId, 'abc-1');
+    assert.equal(recorded.body, 'Dankie');
   });
 });

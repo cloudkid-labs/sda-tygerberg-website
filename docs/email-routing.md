@@ -105,14 +105,21 @@ under the same 7-year retention. The allow-list of board members is a plain-text
 shows the value) — readable to repo and Cloudflare collaborators, never on the
 public site (C-68).
 
+Visitor submissions notify rather than deliver: the Gmail receivers get who,
+what topic and when plus the login link — never the message or contact
+details — while the full enquiry files to the archive address (then R2) and
+the inbox copy in `SUBMISSIONS`. Reading means signing in.
+
 `/kerkraad` is also an inbox: every connect and bible-study submission is
 stored as JSON in the `SUBMISSIONS` bucket (`tygerberg-submissions` in
 production, `tygerberg-submissions-devtest` on devtest) and the page lists,
 reads and replies from there. Replies go through Brevo from the topic's role
 address and are appended to the stored thread. The stored copy holds the full
-message text, kept 7 years like consent (C-69). Admin-listed members
-(`BOARD_ADMIN_EMAILS`, currently one address) can also delete a thread from
-the page; everyone else gets 403. The buckets and their
+message text, kept 7 years like consent (C-69). The Sent box next to the inbox
+lists every outbound mail — compose sends and thread replies, each filed under
+`sent/` at send time — so the page sees all mail received and sent in one
+place. Admin-listed members (`BOARD_ADMIN_EMAILS`, currently one address) can
+also delete a thread from the page; everyone else gets 403. The buckets and their
 lifecycle rules are created outside Terraform, like every Worker binding.
 
 ## Outside this repo (Cloudflare dashboard and Zapper)

@@ -23,7 +23,10 @@ export type BoardCopy = {
   signedInAs: string;
   inboxTabs: string;
   tabInbox: string;
+  tabSent: string;
   tabWrite: string;
+  colTo: string;
+  colSubject: string;
   topicConnect: string;
   topicBibleStudy: string;
   colFrom: string;
@@ -32,6 +35,10 @@ export type BoardCopy = {
   sectionNew: string;
   sectionReplied: string;
   emptyReplied: string;
+  sentEmpty: string;
+  sentBack: string;
+  sentFrom: string;
+  sentTo: string;
   replyAction: string;
   emptyHeading: string;
   emptyBody: string;
@@ -94,17 +101,24 @@ export const boardCopy: Record<Lang, BoardCopy> = {
     termsLabel: 'Algemene voorwaardes',
     signOut: 'Meld af',
     signedInAs: 'Aangemeld as',
-    inboxTabs: 'Kies inkassie of nuwe boodskap',
+    inboxTabs: 'Kies inkassie, gestuurde boodskappe of nuwe boodskap',
     tabInbox: 'Inkassie',
+    tabSent: 'Gestuur',
     tabWrite: 'Nuwe boodskap',
     topicConnect: 'Verbind',
     topicBibleStudy: 'Bybelstudie',
     colFrom: 'Van',
+    colTo: 'Aan',
+    colSubject: 'Onderwerp',
     colTopic: 'Onderwerp',
     colDate: 'Ontvang',
     sectionNew: 'Nuut',
     sectionReplied: 'Beantwoord',
     emptyReplied: 'Nog geen beantwoorde boodskappe nie.',
+    sentEmpty: 'Nog geen gestuurde boodskappe nie.',
+    sentBack: 'Terug na gestuur',
+    sentFrom: 'Van',
+    sentTo: 'Aan',
     replyAction: 'Antwoord',
     emptyHeading: 'Geen boodskappe nie',
     emptyBody: 'Boodskappe van die webwerf se vorms verskyn hier.',
@@ -158,17 +172,24 @@ export const boardCopy: Record<Lang, BoardCopy> = {
     termsLabel: 'Terms & conditions',
     signOut: 'Sign out',
     signedInAs: 'Signed in as',
-    inboxTabs: 'Choose inbox or new message',
+    inboxTabs: 'Choose inbox, sent mail or new message',
     tabInbox: 'Inbox',
+    tabSent: 'Sent',
     tabWrite: 'New message',
     topicConnect: 'Connect',
     topicBibleStudy: 'Bible study',
     colFrom: 'From',
+    colTo: 'To',
+    colSubject: 'Subject',
     colTopic: 'Topic',
     colDate: 'Received',
     sectionNew: 'New',
     sectionReplied: 'Replied',
     emptyReplied: 'No replied messages yet.',
+    sentEmpty: 'No sent messages yet.',
+    sentBack: 'Back to sent',
+    sentFrom: 'From',
+    sentTo: 'To',
     replyAction: 'Reply',
     emptyHeading: 'No messages',
     emptyBody: 'Messages from the website’s forms appear here.',

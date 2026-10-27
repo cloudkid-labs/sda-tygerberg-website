@@ -5,7 +5,7 @@ import { SubPageHeader } from './SubPageHeader';
 import { SubPageFooter } from './SubPageFooter';
 
 type Phase = 'loading' | 'signed-out' | 'ready';
-type View = 'inbox' | 'write';
+type View = 'inbox' | 'sent' | 'write';
 type SendOutcome = 'invalid' | 'unauthorised' | 'forbidden' | 'not-configured' | 'send-error' | 'network';
 
 type ThreadReply = { by: string; at: string };
@@ -20,6 +20,17 @@ type ThreadSummary = {
   replies: ThreadReply[];
 };
 type Thread = ThreadSummary & { message: string };
+type SentSummary = {
+  id: string;
+  at: string;
+  by: string;
+  from: string;
+  to: string[];
+  subject: string;
+  kind: 'compose' | 'reply';
+  threadId: string | null;
+};
+type SentItem = SentSummary & { body: string };
 
 const inputClass =
   'w-full rounded-card border border-subtle bg-white px-4 py-2.5 text-[15px] text-ink placeholder:text-slate/60';
@@ -122,6 +133,12 @@ function KerkraadContent() {
   const [openId, setOpenId] = useState<string | null>(null);
   const [openThread, setOpenThread] = useState<Thread | null>(null);
   const [openError, setOpenError] = useState(false);
+  const [sentItems, setSentItems] = useState<SentSummary[]>([]);
+  const [sentError, setSentError] = useState(false);
+  const [sentLoading, setSentLoading] = useState(false);
+  const [openSentId, setOpenSentId] = useState<string | null>(null);
+  const [openSent, setOpenSent] = useState<SentItem | null>(null);
+  const [openSentError, setOpenSentError] = useState(false);
   const [reply, setReply] = useState('');
   const [replySending, setReplySending] = useState(false);
   const [replyError, setReplyError] = useState<SendOutcome | null>(null);
@@ -153,10 +170,13 @@ function KerkraadContent() {
   const showView = useCallback((v: View, id: string | null = null) => {
     setView(v);
     setOpenId(v === 'inbox' ? id : null);
+    setOpenSentId(v === 'sent' ? id : null);
     const params = new URLSearchParams(window.location.search);
     params.set('view', v);
     if (v === 'inbox' && id) params.set('msg', id);
     else params.delete('msg');
+    if (v === 'sent' && id) params.set('smsg', id);
+    else params.delete('smsg');
     window.history.replaceState(null, '', `${window.location.pathname}?${params}`);
   }, []);
 
@@ -174,6 +194,40 @@ function KerkraadContent() {
       setThreadsLoading(false);
     }
   }, []);
+
+  const loadSent = useCallback(async () => {
+    setSentLoading(true);
+    setSentError(false);
+    try {
+      const res = await fetch('/api/mail/sent', { headers: { Accept: 'application/json' } });
+      if (!res.ok) throw new Error(String(res.status));
+      const data = (await res.json()) as { items?: SentSummary[] };
+      setSentItems(data.items ?? []);
+    } catch {
+      setSentError(true);
+    } finally {
+      setSentLoading(false);
+    }
+  }, []);
+
+  const openSentMessage = useCallback(
+    async (id: string) => {
+      showView('sent', id);
+      setOpenSent(null);
+      setOpenSentError(false);
+      try {
+        const res = await fetch(`/api/mail/sent?id=${encodeURIComponent(id)}`, {
+          headers: { Accept: 'application/json' },
+        });
+        if (!res.ok) throw new Error(String(res.status));
+        const data = (await res.json()) as { item?: SentItem };
+        setOpenSent(data.item ?? null);
+      } catch {
+        setOpenSentError(true);
+      }
+    },
+    [showView],
+  );
 
   const openMessage = useCallback(
     async (id: string) => {
@@ -211,14 +265,18 @@ function KerkraadContent() {
         setPhase('ready');
         const params = new URLSearchParams(window.location.search);
         const msg = params.get('msg');
+        const smsg = params.get('smsg');
         await loadInbox();
+        await loadSent();
         if (msg) await openMessage(msg);
+        else if (smsg) await openSentMessage(smsg);
         else if (params.get('view') === 'write') setView('write');
+        else if (params.get('view') === 'sent') setView('sent');
       } catch {
         setPhase('signed-out');
       }
     })();
-  }, [loadInbox, openMessage]);
+  }, [loadInbox, loadSent, openMessage, openSentMessage]);
 
   async function signOut() {
     await fetch('/auth/logout', { method: 'POST' });
@@ -395,8 +453,8 @@ function KerkraadContent() {
                 </button>
               </div>
 
-              <div role="tablist" aria-label={t.inboxTabs} className="mb-6 flex gap-2">
-                {(['inbox', 'write'] as View[]).map((v) => (
+              <div role="tablist" aria-label={t.inboxTabs} className="mb-6 flex flex-wrap gap-2">
+                {(['inbox', 'sent', 'write'] as View[]).map((v) => (
                   <button
                     key={v}
                     type="button"
@@ -407,7 +465,7 @@ function KerkraadContent() {
                       view === v ? 'bg-navy text-white' : 'border-[1.5px] border-navy text-navy hover:bg-navy hover:text-white'
                     }`}
                   >
-                    {v === 'inbox' ? t.tabInbox : t.tabWrite}
+                    {v === 'inbox' ? t.tabInbox : v === 'sent' ? t.tabSent : t.tabWrite}
                   </button>
                 ))}
               </div>
@@ -542,6 +600,107 @@ function KerkraadContent() {
                               </button>
                             </div>
                           )}
+                        </article>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {view === 'sent' && (
+                <div>
+                  {sentLoading && (
+                    <div aria-hidden="true" className="grid gap-3">
+                      {[0, 1, 2].map((i) => (
+                        <div key={i} className="h-16 rounded-card border border-subtle bg-cream-card" />
+                      ))}
+                    </div>
+                  )}
+                  {sentError && (
+                    <div>
+                      <p className="mb-4 rounded-card border border-subtle bg-cream-card px-4 py-3 text-[14.5px] text-slate">
+                        {t.errNetwork}
+                      </p>
+                      <button
+                        type="button"
+                        onClick={loadSent}
+                        className="rounded-pill border-[1.5px] border-navy px-5 py-2.5 text-[13.5px] font-bold text-navy transition-colors hover:bg-navy hover:text-white"
+                      >
+                        {t.retry}
+                      </button>
+                    </div>
+                  )}
+                  {!sentLoading && !sentError && sentItems.length === 0 && !openSentId && (
+                    <div className="rounded-card-lg border border-subtle bg-cream-card p-6 text-center sm:p-7">
+                      <h2 className="mb-2 font-serif text-xl text-ink">{t.tabSent}</h2>
+                      <p className="text-[14.5px] text-slate">{t.sentEmpty}</p>
+                    </div>
+                  )}
+                  {!sentLoading && !sentError && sentItems.length > 0 && !openSentId && (
+                    <table className="w-full border-collapse text-left">
+                      <thead>
+                        <tr className="border-b border-subtle text-[13px] text-slate">
+                          <th scope="col" className="py-2 pr-3 font-bold">{t.colTo}</th>
+                          <th scope="col" className="py-2 pr-3 font-bold">{t.colSubject}</th>
+                          <th scope="col" className="py-2 font-bold">{t.colDate}</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {sentItems.map((x) => (
+                          <tr key={x.id} className="border-b border-subtle">
+                            <td className="py-3 pr-3">
+                              <button
+                                type="button"
+                                onClick={() => openSentMessage(x.id)}
+                                className="text-left font-bold text-navy underline"
+                              >
+                                {x.to.join(', ')}
+                              </button>
+                              <span className="block text-[13px] text-slate">{x.from}</span>
+                            </td>
+                            <td className="py-3 pr-3 text-[14px]">{x.subject}</td>
+                            <td className="tabular-nums py-3 text-[14px] text-slate">{fmtDate(x.at)}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  )}
+                  {openSentId && (
+                    <div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setOpenSent(null);
+                          showView('sent');
+                          void loadSent();
+                        }}
+                        className="mb-4 font-bold text-navy underline"
+                      >
+                        {t.sentBack}
+                      </button>
+                      {openSentError && (
+                        <p className="rounded-card border border-subtle bg-cream-card px-4 py-3 text-[14.5px] text-slate">
+                          {t.errNetwork}
+                        </p>
+                      )}
+                      {!openSent && !openSentError && (
+                        <div aria-hidden="true" className="grid gap-3">
+                          <div className="h-32 rounded-card border border-subtle bg-cream-card" />
+                        </div>
+                      )}
+                      {openSent && (
+                        <article>
+                          <h2 className="mb-1 font-serif text-xl text-ink">
+                            {openSent.subject}
+                          </h2>
+                          <p className="mb-1 text-[13px] font-bold text-navy">
+                            {t.sentFrom} {openSent.from}
+                          </p>
+                          <p className="mb-1 text-[13px] font-bold text-navy">
+                            {t.sentTo} {openSent.to.join(', ')}
+                          </p>
+                          <p className="tabular-nums mb-4 text-[13px] text-slate">{fmtDate(openSent.at)}</p>
+                          <p className="whitespace-pre-wrap text-[15px] leading-relaxed">{openSent.body}</p>
                         </article>
                       )}
                     </div>

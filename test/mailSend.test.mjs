@@ -46,6 +46,9 @@ let brevoCalls;
 function mockBrevo({ ok = true, throws = false } = {}) {
   brevoCalls = [];
   globalThis.fetch = async (url, init) => {
+    if (String(url).includes('/oauth-logo.png')) {
+      return new Response(new Uint8Array([137, 80, 78, 71]), { status: 200 });
+    }
     brevoCalls.push({ url: String(url), body: JSON.parse(init.body) });
     if (throws) throw new Error('net down');
     return new Response('{}', { status: ok ? 201 : 500 });
@@ -152,6 +155,9 @@ describe('handleMailSend delivery', () => {
     assert.ok(sent.htmlContent.includes('Hallo, hier is die inligting.'));
     assert.ok(sent.htmlContent.includes('Tygerberg SDA Kerk'));
     assert.ok(sent.htmlContent.includes(`mailto:${FROM}`));
+    // Logo embedded, not hotlinked: the cid reference plus its attachment.
+    assert.ok(sent.htmlContent.includes('src="cid:tygerberg-logo"'));
+    assert.deepEqual(sent.attachment, [{ content: 'iVBORw==', name: 'oauth-logo.png' }]);
   });
 
   test('the HTML alternative escapes markup in the message', async () => {

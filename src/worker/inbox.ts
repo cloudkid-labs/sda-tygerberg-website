@@ -2,7 +2,7 @@
 
 import { verifySession, isAdmin, allowedFrom, type AuthEnv } from './auth';
 import { sendViaBrevo, storeSent, type MailSendEnv, type SentItem } from './mailSend';
-import { mailHtml } from './signature';
+import { mailHtml, loadLogoBytes, LOGO_CID, LOGO_NAME, LOGO_REMOTE_URL } from './signature';
 
 export type InboxEnv = AuthEnv &
   MailSendEnv & {
@@ -251,13 +251,15 @@ export async function handleInboxReply(request: Request, env: InboxEnv): Promise
   }
 
   const subject = `Re: ${item.topic === 'bible-study' ? 'Bybelstudie-versoek' : 'Jou boodskap aan Tygerberg SDA'}`;
+  const logo = await loadLogoBytes(new URL(request.url).origin);
   const ok = await sendViaBrevo(
     env,
     from,
     [item.email],
     subject,
     text,
-    mailHtml(text, from),
+    mailHtml(text, from, logo ? `cid:${LOGO_CID}` : LOGO_REMOTE_URL),
+    logo ? { content: logo, name: LOGO_NAME } : null,
   );
   if (!ok) {
     console.log(`inbox: reply send-error to submission by=${session.email}`);

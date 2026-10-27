@@ -1,6 +1,6 @@
 /// <reference types="@cloudflare/workers-types" />
 
-import { verifySession, type AuthEnv } from './auth';
+import { verifySession, isAdmin, type AuthEnv } from './auth';
 import { sendViaBrevo, type MailSendEnv } from './mailSend';
 import { mailHtml } from './signature';
 
@@ -38,6 +38,18 @@ function json(body: unknown, status: number): Response {
 
 function str(value: unknown): string {
   return typeof value === 'string' ? value.trim() : '';
+}
+
+/**
+ * R2 keys carry an ISO timestamp prefix, so the stable thread id is the
+ * suffix. One lookup for message, reply and delete — three copies already
+ * disagreed once.
+ */
+async function findSubmissionKey(env: InboxEnv, id: string): Promise<string | null> {
+  if (!id || id.includes('/') || id.includes('..')) return null;
+  if (!env.SUBMISSIONS) return null;
+  const listed = await env.SUBMISSIONS.list({ prefix: 'submissions/', limit: 1000 });
+  return listed.objects.map((o) => o.key).find((k) => k.endsWith(`-${id}.json`)) ?? null;
 }
 
 /**
@@ -84,17 +96,43 @@ export async function handleInboxMessage(request: Request, env: InboxEnv): Promi
   }
   if (!env.SUBMISSIONS) return json({ ok: false, outcome: 'not-configured' }, 503);
 
+  if (!env.SUBMISSIONS) return json({ ok: false, outcome: 'not-configured' }, 503);
+
+  const id = str(new URL(request.url).searchParams.get('id'));
+  const key = await findSubmissionKey(env, id);
+  if (!key) return json({ ok: false, outcome: 'invalid', errors: ['id'] }, !id || id.includes('/') || id.includes('..') ? 400 : 404);
+  const obj = await env.SUBMISSIONS!.get(key);
+  if (!obj) return json({ ok: false, outcome: 'invalid', errors: ['id'] }, 404);
+  console.log(`inbox: read by=${session.email}`);
+  return json({ ok: true, item: (await obj.json()) as Submission }, 200);
+}
+
+/**
+ * DELETE /api/mail/message?id= — removes the thread from R2. Admin list only:
+ * everyone else gets 403, signed out or not, so the endpoint leaks nothing
+ * about which ids exist.
+ */
+export async function handleInboxDelete(request: Request, env: InboxEnv): Promise<Response> {
+  const session = await verifySession(request, env);
+  if (!session.ok) {
+    return json(
+      { ok: false, outcome: session.outcome },
+      session.outcome === 'not-configured' ? 503 : 401,
+    );
+  }
+  if (!env.SUBMISSIONS) return json({ ok: false, outcome: 'not-configured' }, 503);
+  if (!isAdmin(env, session.email)) {
+    return json({ ok: false, outcome: 'forbidden' }, 403);
+  }
   const id = str(new URL(request.url).searchParams.get('id'));
   if (!id || id.includes('/') || id.includes('..')) {
     return json({ ok: false, outcome: 'invalid', errors: ['id'] }, 400);
   }
-  const listed = await env.SUBMISSIONS.list({ prefix: 'submissions/', limit: 1000 });
-  const key = listed.objects.map((o) => o.key).find((k) => k.endsWith(`-${id}.json`));
+  const key = await findSubmissionKey(env, id);
   if (!key) return json({ ok: false, outcome: 'invalid', errors: ['id'] }, 404);
-  const obj = await env.SUBMISSIONS.get(key);
-  if (!obj) return json({ ok: false, outcome: 'invalid', errors: ['id'] }, 404);
-  console.log(`inbox: read by=${session.email}`);
-  return json({ ok: true, item: (await obj.json()) as Submission }, 200);
+  await env.SUBMISSIONS.delete(key);
+  console.log(`inbox: deleted key=${key} by=${session.email}`);
+  return json({ ok: true }, 200);
 }
 
 /**
@@ -150,8 +188,7 @@ export async function handleInboxReply(request: Request, env: InboxEnv): Promise
     return json({ ok: false, outcome: 'invalid', errors: !text ? ['body'] : ['id'] }, 400);
   }
 
-  const listed = await env.SUBMISSIONS.list({ prefix: 'submissions/', limit: 1000 });
-  const key = listed.objects.map((o) => o.key).find((k) => k.endsWith(`-${id}.json`));
+  const key = await findSubmissionKey(env, id);
   if (!key) return json({ ok: false, outcome: 'invalid', errors: ['id'] }, 404);
   const obj = await env.SUBMISSIONS.get(key);
   if (!obj) return json({ ok: false, outcome: 'invalid', errors: ['id'] }, 404);

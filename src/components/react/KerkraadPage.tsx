@@ -6,7 +6,7 @@ import { SubPageFooter } from './SubPageFooter';
 
 type Phase = 'loading' | 'signed-out' | 'ready';
 type View = 'inbox' | 'write';
-type SendOutcome = 'invalid' | 'unauthorised' | 'not-configured' | 'send-error' | 'network';
+type SendOutcome = 'invalid' | 'unauthorised' | 'forbidden' | 'not-configured' | 'send-error' | 'network';
 
 type ThreadReply = { by: string; at: string };
 type ThreadSummary = {
@@ -114,6 +114,7 @@ function KerkraadContent() {
   const t = boardCopy[lang];
   const [phase, setPhase] = useState<Phase>('loading');
   const [email, setEmail] = useState('');
+  const [isAdmin, setIsAdmin] = useState(false);
   const [view, setView] = useState<View>('inbox');
   const [threads, setThreads] = useState<ThreadSummary[]>([]);
   const [threadsError, setThreadsError] = useState(false);
@@ -124,6 +125,9 @@ function KerkraadContent() {
   const [reply, setReply] = useState('');
   const [replySending, setReplySending] = useState(false);
   const [replyError, setReplyError] = useState<SendOutcome | null>(null);
+  const [deleteArmed, setDeleteArmed] = useState(false);
+  const [deleteError, setDeleteError] = useState<SendOutcome | null>(null);
+  const [deleting, setDeleting] = useState(false);
   const [from, setFrom] = useState(FROM_ADDRESSES[0]);
   const [to, setTo] = useState('');
   const [subject, setSubject] = useState('');
@@ -176,6 +180,8 @@ function KerkraadContent() {
       showView('inbox', id);
       setOpenThread(null);
       setOpenError(false);
+      setDeleteArmed(false);
+      setDeleteError(null);
       try {
         const res = await fetch(`/api/mail/message?id=${encodeURIComponent(id)}`, {
           headers: { Accept: 'application/json' },
@@ -199,8 +205,9 @@ function KerkraadContent() {
           setPhase('signed-out');
           return;
         }
-        const data = (await res.json()) as { email?: string };
+        const data = (await res.json()) as { email?: string; admin?: boolean };
         setEmail(data.email ?? '');
+        setIsAdmin(data.admin === true);
         setPhase('ready');
         const params = new URLSearchParams(window.location.search);
         const msg = params.get('msg');
@@ -216,7 +223,50 @@ function KerkraadContent() {
   async function signOut() {
     await fetch('/auth/logout', { method: 'POST' });
     setEmail('');
+    setIsAdmin(false);
     setPhase('signed-out');
+  }
+
+  /** Admin-only: removes the open thread from R2, then back to the queue. */
+  async function deleteThread() {
+    if (!openThread) return;
+    if (!deleteArmed) {
+      setDeleteError(null);
+      setDeleteArmed(true);
+      return;
+    }
+    setDeleting(true);
+    setDeleteError(null);
+    try {
+      const res = await fetch(`/api/mail/message?id=${encodeURIComponent(openThread.id)}`, {
+        method: 'DELETE',
+      });
+      const data = (await res.json().catch(() => ({}))) as { outcome?: string };
+      if (res.ok) {
+        const id = openThread.id;
+        setThreads((ts) => ts.filter((x) => x.id !== id));
+        setOpenThread(null);
+        setOpenId(null);
+        setDeleteArmed(false);
+        const params = new URLSearchParams(window.location.search);
+        params.delete('msg');
+        window.history.replaceState(null, '', `${window.location.pathname}?${params}`);
+      } else if (data.outcome === 'unauthorised') {
+        setDeleteError('unauthorised');
+        setPhase('signed-out');
+      } else if (data.outcome === 'forbidden') {
+        setDeleteError('forbidden');
+        setDeleteArmed(false);
+      } else if (data.outcome === 'not-configured') {
+        setDeleteError('not-configured');
+      } else {
+        setDeleteError('invalid');
+      }
+    } catch {
+      setDeleteError('network');
+    } finally {
+      setDeleting(false);
+    }
   }
 
   async function sendReply(e: React.FormEvent) {
@@ -290,6 +340,7 @@ function KerkraadContent() {
   const errorText: Record<SendOutcome, string> = {
     invalid: t.errValidation,
     unauthorised: t.errUnauthorised,
+    forbidden: t.errForbidden,
     'not-configured': t.errNotConfigured,
     'send-error': t.errSend,
     network: t.errNetwork,
@@ -473,6 +524,23 @@ function KerkraadContent() {
                             <p className="rounded-card border border-subtle bg-cream-card px-4 py-3 text-[14.5px] text-slate">
                               {t.noEmailBody}
                             </p>
+                          )}
+                          {isAdmin && (
+                            <div className="mt-8 border-t border-subtle pt-4">
+                              {deleteError && (
+                                <p className="mb-3 rounded-card border border-subtle bg-cream-card px-4 py-3 text-[14.5px] text-slate">
+                                  {errorText[deleteError]}
+                                </p>
+                              )}
+                              <button
+                                type="button"
+                                onClick={deleteThread}
+                                disabled={deleting}
+                                className="rounded-pill border-[1.5px] border-slate px-5 py-2 text-[13px] font-bold text-slate transition-colors hover:border-ink hover:text-ink disabled:opacity-60"
+                              >
+                                {deleting ? t.deleting : deleteArmed ? t.deleteConfirm : t.deleteLabel}
+                              </button>
+                            </div>
                           )}
                         </article>
                       )}

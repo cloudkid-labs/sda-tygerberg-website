@@ -15,6 +15,11 @@ export type AuthEnv = {
   SESSION_SECRET?: string;
   /** Comma-separated personal Google addresses allowed on /kerkraad. */
   BOARD_ALLOWED_EMAILS?: string;
+  /**
+   * Subset allowed to delete inbox threads. Plain-text var like the allow-list
+   * (dashboard shows the value); keep it to as few addresses as possible.
+   */
+  BOARD_ADMIN_EMAILS?: string;
 };
 
 export type SessionCheck = { ok: true; email: string } | { ok: false; outcome: 'unauthorised' | 'not-configured' };
@@ -87,6 +92,17 @@ function allowList(env: AuthEnv): Set<string> {
       .map((s) => s.trim().toLowerCase())
       .filter(Boolean),
   );
+}
+
+/** The admin list is a subset of the allow-list: deleting needs both. */
+export function isAdmin(env: AuthEnv, email: string): boolean {
+  const admins = new Set(
+    (env.BOARD_ADMIN_EMAILS ?? '')
+      .split(',')
+      .map((s) => s.trim().toLowerCase())
+      .filter(Boolean),
+  );
+  return admins.has(email.toLowerCase()) && allowList(env).has(email.toLowerCase());
 }
 
 function isConfigured(env: AuthEnv): boolean {
@@ -282,5 +298,5 @@ export async function handleAuthLogout(request: Request): Promise<Response> {
 export async function handleMailSession(request: Request, env: AuthEnv): Promise<Response> {
   const check = await verifySession(request, env);
   if (!check.ok) return json({ ok: false, outcome: check.outcome }, check.outcome === 'not-configured' ? 503 : 401);
-  return json({ ok: true, email: check.email }, 200);
+  return json({ ok: true, email: check.email, admin: isAdmin(env, check.email) }, 200);
 }

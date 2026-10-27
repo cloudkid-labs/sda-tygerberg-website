@@ -44,6 +44,10 @@ export type BoardCopy = {
   replySubmit: string;
   replySending: string;
   noEmailBody: string;
+  deleteLabel: string;
+  deleteConfirm: string;
+  deleting: string;
+  errForbidden: string;
   fromLabel: string;
   toLabel: string;
   toPlaceholder: string;
@@ -113,6 +117,10 @@ export const boardCopy: Record<Lang, BoardCopy> = {
     replySubmit: 'Stuur antwoord',
     replySending: 'Stuur …',
     noEmailBody: 'Geen e-posadres verskaf nie — antwoord per telefoon.',
+    deleteLabel: 'Vee uit',
+    deleteConfirm: 'Vee hierdie boodskap uit?',
+    deleting: 'Vee uit …',
+    errForbidden: 'Net admins kan boodskappe uitvee.',
     fromLabel: 'Stuur as',
     toLabel: 'Aan',
     toPlaceholder: 'ontvanger@voorbeeld.co.za',
@@ -173,6 +181,10 @@ export const boardCopy: Record<Lang, BoardCopy> = {
     replySubmit: 'Send reply',
     replySending: 'Sending …',
     noEmailBody: 'No email address given — answer by phone.',
+    deleteLabel: 'Delete',
+    deleteConfirm: 'Delete this message?',
+    deleting: 'Deleting …',
+    errForbidden: 'Only admins can delete messages.',
     fromLabel: 'Send as',
     toLabel: 'To',
     toPlaceholder: 'recipient@example.co.za',

@@ -1,6 +1,6 @@
 import { strict as assert } from 'node:assert';
 import { test, describe, beforeEach, afterEach } from 'node:test';
-import { handleInboxList, handleInboxMessage, handleInboxReply } from '../src/worker/inbox.ts';
+import { handleInboxList, handleInboxMessage, handleInboxReply, handleInboxDelete } from '../src/worker/inbox.ts';
 import { signSession } from '../src/worker/auth.ts';
 
 /*
@@ -22,6 +22,9 @@ function r2(seed = {}) {
         const value = store.get(key);
         if (value === undefined) return null;
         return { async json() { return JSON.parse(value); } };
+      },
+      async delete(key) {
+        store.delete(key);
       },
       async list({ prefix = '', limit = 1000 } = {}) {
         return {
@@ -50,7 +53,8 @@ const key = 'submissions/2026/10/25/2026-10-25T10:00:00.000Z-abc-1.json';
 
 const env = (bucket, over = {}) => ({
   SESSION_SECRET: SECRET,
-  BOARD_ALLOWED_EMAILS: 'boss@example.co.za',
+  BOARD_ALLOWED_EMAILS: 'boss@example.co.za,pa@example.co.za',
+  BOARD_ADMIN_EMAILS: 'boss@example.co.za',
   BREVO_API_KEY: 'test-brevo-key',
   MAIL_SEND_FROM: 'welkom@sdatygerberg.co.za,klerk@sdatygerberg.co.za,tesourier@sdatygerberg.co.za,kerk@sdatygerberg.co.za',
   SUBMISSIONS: bucket,
@@ -175,5 +179,38 @@ describe('handleInboxReply', () => {
     const res = await handleInboxReply(post({ id: 'abc-1', body: 'Hi' }, session), env(bucket));
     assert.equal(res.status, 400);
     assert.equal(brevoCalls.length, 0);
+  });
+});
+
+describe('handleInboxDelete', () => {
+  const del = (id, session) =>
+    new Request(`https://x/api/mail/message?id=${id}`, {
+      method: 'DELETE',
+      headers: session ? { cookie: `__Host-kerkraad=${session}` } : {},
+    });
+
+  test('admin removes the thread; 401 without a session', async () => {
+    const { bucket, store } = r2({ [key]: JSON.stringify(item()) });
+    const session = await signSession('boss@example.co.za', SECRET);
+    assert.equal((await handleInboxDelete(del('abc-1'), env(bucket))).status, 401);
+    const res = await handleInboxDelete(del('abc-1', session), env(bucket));
+    assert.equal(res.status, 200);
+    assert.equal(store.size, 0);
+  });
+
+  test('403 for a signed-in non-admin, without touching R2', async () => {
+    const { bucket, store } = r2({ [key]: JSON.stringify(item()) });
+    const session = await signSession('pa@example.co.za', SECRET);
+    const res = await handleInboxDelete(del('abc-1', session), env(bucket));
+    assert.equal(res.status, 403);
+    assert.equal((await res.json()).outcome, 'forbidden');
+    assert.equal(store.size, 1);
+  });
+
+  test('404 on unknown id, 400 on a traversal id', async () => {
+    const { bucket } = r2({ [key]: JSON.stringify(item()) });
+    const session = await signSession('boss@example.co.za', SECRET);
+    assert.equal((await handleInboxDelete(del('nope', session), env(bucket))).status, 404);
+    assert.equal((await handleInboxDelete(del('../x', session), env(bucket))).status, 400);
   });
 });

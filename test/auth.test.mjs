@@ -187,6 +187,19 @@ describe('handleMailSession', () => {
     assert.equal((await res.json()).email, 'boss@example.co.za');
   });
 
+  test('session carries the admin flag only for admin-listed addresses', async () => {
+    for (const [email, admin] of [['boss@example.co.za', true], ['pa@example.co.za', false]]) {
+      const session = await signSession(email, SECRET);
+      const res = await handleMailSession(
+        new Request('https://x/api/mail/session', {
+          headers: { cookie: `__Host-kerkraad=${session}` },
+        }),
+        env({ BOARD_ADMIN_EMAILS: 'boss@example.co.za' }),
+      );
+      assert.equal((await res.json()).admin, admin, email);
+    }
+  });
+
   test('401 on expired, tampered, or delisted sessions', async () => {
     const expired = await signSession('boss@example.co.za', SECRET, Date.now() - 9 * 3600_000);
     for (const cookie of [

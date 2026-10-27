@@ -110,7 +110,9 @@ stored as JSON in the `SUBMISSIONS` bucket (`tygerberg-submissions` in
 production, `tygerberg-submissions-devtest` on devtest) and the page lists,
 reads and replies from there. Replies go through Brevo from the topic's role
 address and are appended to the stored thread. The stored copy holds the full
-message text, kept 7 years like consent (C-69). The buckets and their
+message text, kept 7 years like consent (C-69). Admin-listed members
+(`BOARD_ADMIN_EMAILS`, currently one address) can also delete a thread from
+the page; everyone else gets 403. The buckets and their
 lifecycle rules are created outside Terraform, like every Worker binding.
 
 ## Outside this repo (Cloudflare dashboard and Zapper)

@@ -118,6 +118,14 @@
     // and devtest inherit this; devtest still answers `not-configured` until
     // its secrets are set, and it never sends without them.
     "MAIL_SEND_FROM": "welkom@sdatygerberg.co.za,klerk@sdatygerberg.co.za,tesourier@sdatygerberg.co.za,kerk@sdatygerberg.co.za",
+    // Who may sign in. A plain-text var, not a secret, so the dashboard shows
+    // the value instead of a hidden secret — the trade is that these personal
+    // addresses are now readable to anyone with repo or Cloudflare access.
+    // The repo is private; do not copy them onto the public site (C-20).
+    "BOARD_ALLOWED_EMAILS": "a2msars@gmail.com,sdatygerbergklerk@gmail.com,sdatygerbergkerk@gmail.com,rainiersvn1@gmail.com",
+    // Who may delete inbox threads. Subset of the allow-list, one address for
+    // now. Plain-text var like BOARD_ALLOWED_EMAILS so the dashboard shows it.
+    "BOARD_ADMIN_EMAILS": "rainiersvn1@gmail.com",
 
     // Inbound mail. Email Routing's catch-all for sdatygerberg.co.za hands
     // every address to this Worker; `inboundEmail.ts` forwards one copy to

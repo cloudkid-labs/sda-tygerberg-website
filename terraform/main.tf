@@ -10,13 +10,12 @@ locals {
   # workflow lists under `secrets:` (see outputs.tf: worker_secrets_block).
   # Kept apart from the values so `for_each` never sees a sensitive key set.
   worker_secret_names = sort(concat(
-    ["BREVO_API_KEY", "BOARD_ALLOWED_EMAILS", "SESSION_SECRET"],
+    ["BREVO_API_KEY", "SESSION_SECRET"],
     local.google_client_ready ? ["GOOGLE_CLIENT_ID", "GOOGLE_CLIENT_SECRET"] : [],
   ))
 
   worker_secret_values = {
     BREVO_API_KEY        = var.brevo_api_key
-    BOARD_ALLOWED_EMAILS = join(",", var.board_allowed_emails)
     SESSION_SECRET       = random_password.session.result
     GOOGLE_CLIENT_ID     = var.google_oauth_client_id != null ? var.google_oauth_client_id : ""
     GOOGLE_CLIENT_SECRET = var.google_oauth_client_secret != null ? var.google_oauth_client_secret : ""

@@ -1,6 +1,7 @@
 /// <reference types="@cloudflare/workers-types" />
 
 import { verifySession, type AuthEnv } from './auth';
+import { mailHtml } from './signature';
 
 export type MailSendEnv = AuthEnv & {
   /** Brevo v3 API key. Absent answers `not-configured`, like every secret here. */
@@ -69,6 +70,7 @@ export async function sendViaBrevo(
   to: string[],
   subject: string,
   text: string,
+  html: string,
 ): Promise<boolean> {
   const startedAt = Date.now();
   console.log(`mailsend: start from=${from} toCount=${to.length}`);
@@ -84,6 +86,7 @@ export async function sendViaBrevo(
         bcc: [{ email: ARCHIVE_BCC }],
         subject,
         textContent: text,
+        htmlContent: html,
       }),
       signal: AbortSignal.timeout(BREVO_TIMEOUT_MS),
     });
@@ -173,10 +176,10 @@ export async function handleMailSend(request: Request, env: MailSendEnv): Promis
 
   const cleanSubject = headerSafe(subject, MAX_SUBJECT);
   const cleanTo = [...new Set(to.map((a) => a.toLowerCase()))];
-  // Shared role addresses stay attributable: the footer names the sender.
-  const textContent = `${text}\n\n—\nGestuur deur ${session.email}`;
-
-  if (!(await sendViaBrevo(env, from, cleanTo, cleanSubject, textContent))) {
+  // The body goes out exactly as written — no attribution footer. Who sent
+  // what stays in the Worker logs and the R2 archive, never in the message.
+  // The HTML alternative carries the church signature (signature.ts).
+  if (!(await sendViaBrevo(env, from, cleanTo, cleanSubject, text, mailHtml(text, from)))) {
     console.log(`mailsend: outcome=send-error from=${from} by=${session.email}`);
     return json({ ok: false, outcome: 'send-error' }, 502);
   }

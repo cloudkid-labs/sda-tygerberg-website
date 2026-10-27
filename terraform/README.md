@@ -9,7 +9,7 @@ Actions. Spec: *Church Board Mail via Google Sign-in: Implementation Spec*.
 | `cloudflare_dns_record.brevo_code`, `.brevo_dkim` | Brevo domain ownership and DKIM |
 | `google_project.this` | New Google Cloud project that holds the OAuth consent screen and client (protected from destroy) |
 | `random_password.session` | `SESSION_SECRET`, signs the board session cookie |
-| `github_actions_secret.worker` | `BREVO_API_KEY`, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `SESSION_SECRET`, `BOARD_ALLOWED_EMAILS` |
+| `github_actions_secret.worker` | `BREVO_API_KEY`, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `SESSION_SECRET` |
 
 ## Not managed here
 
@@ -40,7 +40,7 @@ Actions. Spec: *Church Board Mail via Google Sign-in: Implementation Spec*.
 2. `cp terraform.tfvars.example terraform.tfvars` and fill it in, leaving the two
    Google client values out. Pass the Brevo key as `TF_VAR_brevo_api_key`.
 3. `terraform plan`, then `terraform apply`. This creates the Google project, the
-   DNS records and three secrets.
+   DNS records and two secrets.
 4. In the new project, open Google Auth Platform and create the consent screen and the
    Web client (spec, "Manual steps"). Copy its id and secret.
 5. Add `google_oauth_client_id` to `terraform.tfvars`, export

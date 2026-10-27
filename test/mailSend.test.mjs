@@ -136,7 +136,7 @@ describe('handleMailSend validation', () => {
 });
 
 describe('handleMailSend delivery', () => {
-  test('success posts the Brevo shape with replyTo, archive BCC, and footer', async () => {
+  test('success posts the Brevo shape with replyTo and archive BCC, and no footer', async () => {
     mockBrevo();
     const session = await signSession('boss@example.co.za', SECRET);
     const res = await handleMailSend(post(goodBody(), { cookie: session }), env());
@@ -147,7 +147,24 @@ describe('handleMailSend delivery', () => {
     assert.deepEqual(sent.to, [{ email: 'friend@example.co.za' }]);
     assert.equal(sent.replyTo.email, FROM);
     assert.deepEqual(sent.bcc, [{ email: 'archive@sdatygerberg.co.za' }]);
-    assert.match(sent.textContent, /Gestuur deur boss@example\.co\.za/);
+    assert.ok(!/Gestuur deur/.test(sent.textContent));
+    // HTML alternative: the message escaped, then the church signature.
+    assert.ok(sent.htmlContent.includes('Hallo, hier is die inligting.'));
+    assert.ok(sent.htmlContent.includes('Tygerberg SDA Kerk'));
+    assert.ok(sent.htmlContent.includes(`mailto:${FROM}`));
+  });
+
+  test('the HTML alternative escapes markup in the message', async () => {
+    mockBrevo();
+    const session = await signSession('boss@example.co.za', SECRET);
+    const res = await handleMailSend(
+      post(goodBody({ body: '<script>alert(1)</script>' }), { cookie: session }),
+      env(),
+    );
+    assert.equal(res.status, 200);
+    const sent = brevoCalls[0].body;
+    assert.ok(sent.htmlContent.includes('&lt;script&gt;'));
+    assert.ok(!sent.htmlContent.includes('<script>alert'));
   });
 
   test('Brevo failure and timeout become send-error', async () => {

@@ -143,26 +143,6 @@ variable "extra_redirect_origins" {
 
 # ---- Access control ---------------------------------------------------------
 
-variable "board_allowed_emails" {
-  description = "Google accounts allowed to use /kerkraad (church board members). Personal data, so it ships as a secret, not a committed var."
-  type        = list(string)
-
-  validation {
-    condition     = length(var.board_allowed_emails) > 0
-    error_message = "An empty allow-list would lock everyone out. List at least one address."
-  }
-
-  validation {
-    condition     = alltrue([for e in var.board_allowed_emails : can(regex("^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$", e))])
-    error_message = "Every entry must be an email address."
-  }
-
-  validation {
-    condition     = alltrue([for e in var.board_allowed_emails : e == lower(e)])
-    error_message = "Use lowercase; the Worker compares case-insensitively but the list stays canonical."
-  }
-}
-
 variable "session_secret_generation" {
   description = "Bump to rotate SESSION_SECRET. Rotating signs every board member out."
   type        = number

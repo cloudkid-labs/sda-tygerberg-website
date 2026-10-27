@@ -100,16 +100,19 @@ Board members sign in with Google on the private `/kerkraad` page and send as
 one of the four role addresses through the Brevo API. The Worker holds the
 Brevo key; replies go to the From role address, so they return through Email
 Routing to the church inbox. Every send is BCC'd to `archive@`, filed in R2
-under the same 7-year retention. The allow-list of board members is personal
-data, so it ships as the `BOARD_ALLOWED_EMAILS` Worker secret — never a
-committed var (C-68).
+under the same 7-year retention. The allow-list of board members is a plain-text
+`BOARD_ALLOWED_EMAILS` var in `wrangler.jsonc` (not a secret, so the dashboard
+shows the value) — readable to repo and Cloudflare collaborators, never on the
+public site (C-68).
 
 `/kerkraad` is also an inbox: every connect and bible-study submission is
 stored as JSON in the `SUBMISSIONS` bucket (`tygerberg-submissions` in
 production, `tygerberg-submissions-devtest` on devtest) and the page lists,
 reads and replies from there. Replies go through Brevo from the topic's role
 address and are appended to the stored thread. The stored copy holds the full
-message text, kept 7 years like consent (C-69). The buckets and their
+message text, kept 7 years like consent (C-69). Admin-listed members
+(`BOARD_ADMIN_EMAILS`, currently one address) can also delete a thread from
+the page; everyone else gets 403. The buckets and their
 lifecycle rules are created outside Terraform, like every Worker binding.
 
 ## Outside this repo (Cloudflare dashboard and Zapper)

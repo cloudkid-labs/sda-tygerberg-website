@@ -16,10 +16,9 @@ variables {
   }
   google_oauth_client_id     = "123456789012-abcdefghij.apps.googleusercontent.com"
   google_oauth_client_secret = "GOCSPX-0000000000000000000000000000"
-  board_allowed_emails       = ["member1@example.org", "member2@example.org"]
 }
 
-run "creates_brevo_dns_and_all_five_secrets" {
+run "creates_brevo_dns_and_all_four_secrets" {
   command = plan
 
   assert {
@@ -39,7 +38,7 @@ run "creates_brevo_dns_and_all_five_secrets" {
 
   assert {
     condition = toset(keys(github_actions_secret.worker)) == toset([
-      "BREVO_API_KEY", "BOARD_ALLOWED_EMAILS", "GOOGLE_CLIENT_ID", "GOOGLE_CLIENT_SECRET", "SESSION_SECRET",
+      "BREVO_API_KEY", "GOOGLE_CLIENT_ID", "GOOGLE_CLIENT_SECRET", "SESSION_SECRET",
     ])
     error_message = "The Worker secret names drifted from what the Worker reads."
   }
@@ -62,26 +61,6 @@ run "oauth_setup_output_is_exact" {
     condition     = !anytrue([for u in output.google_oauth_client_setup.authorized_javascript_origins : endswith(u, "/")])
     error_message = "Google origins must not carry a trailing slash."
   }
-}
-
-run "rejects_empty_allow_list" {
-  command = plan
-
-  variables {
-    board_allowed_emails = []
-  }
-
-  expect_failures = [var.board_allowed_emails]
-}
-
-run "rejects_uppercase_allow_list_entry" {
-  command = plan
-
-  variables {
-    board_allowed_emails = ["Member@Example.org"]
-  }
-
-  expect_failures = [var.board_allowed_emails]
 }
 
 run "rejects_malformed_google_client_id" {
@@ -129,8 +108,8 @@ run "first_apply_before_the_oauth_client_exists" {
   }
 
   assert {
-    condition     = toset(keys(github_actions_secret.worker)) == toset(["BREVO_API_KEY", "BOARD_ALLOWED_EMAILS", "SESSION_SECRET"])
-    error_message = "Without a client, only the three non-Google secrets are written."
+    condition     = toset(keys(github_actions_secret.worker)) == toset(["BREVO_API_KEY", "SESSION_SECRET"])
+    error_message = "Without a client, only the two non-Google secrets are written."
   }
 
   # The check block warns that Google sign-in is not configured yet.

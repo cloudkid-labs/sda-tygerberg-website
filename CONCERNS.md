@@ -1750,9 +1750,10 @@ Board members sign in with Google on the private `/kerkraad` page and send as
 `welkom@`, `klerk@`, `tesourier@` or `kerk@` through the Brevo API, replacing
 Gmail "Send mail as" before Google ends it in January 2027. The Worker runs the
 OIDC code flow with PKCE, keeps no Google tokens, and issues its own 8-hour
-HMAC session cookie; the allow-list lives in the `BOARD_ALLOWED_EMAILS` secret
-because it is personal data, while the role addresses stay public vars per
-ADR-0001. `/kerkraad`, `/auth/` and `/api/mail/` are disallowed in robots.txt
+HMAC session cookie; the allow-list lives in the plain-text `BOARD_ALLOWED_EMAILS`
+var in `wrangler.jsonc` (readable in the dashboard by design; the repo is
+private so the personal addresses stay off the public site), while the role
+addresses stay public vars per ADR-0001. `/kerkraad`, `/auth/` and `/api/mail/` are disallowed in robots.txt
 and out of the sitemap. Replies return through Email Routing and every send is
 BCC'd to `archive@` under the 7-year R2 retention, confirmed as intended for
 outgoing mail.

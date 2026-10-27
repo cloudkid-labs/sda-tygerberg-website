@@ -1,12 +1,12 @@
 import { useCallback, useEffect, useState } from 'react';
 import { LanguageProvider, useLanguage } from '../../context/LanguageContext';
-import { boardCopy, FROM_ADDRESSES } from '../../data/boardCopy';
+import { boardCopy, FROM_ADDRESSES, type BoardCopy } from '../../data/boardCopy';
 import { SubPageHeader } from './SubPageHeader';
 import { SubPageFooter } from './SubPageFooter';
 
 type Phase = 'loading' | 'signed-out' | 'ready';
 type View = 'inbox' | 'write';
-type SendOutcome = 'invalid' | 'unauthorised' | 'not-configured' | 'send-error' | 'network';
+type SendOutcome = 'invalid' | 'unauthorised' | 'forbidden' | 'not-configured' | 'send-error' | 'network';
 
 type ThreadReply = { by: string; at: string };
 type ThreadSummary = {
@@ -25,6 +25,85 @@ const inputClass =
   'w-full rounded-card border border-subtle bg-white px-4 py-2.5 text-[15px] text-ink placeholder:text-slate/60';
 
 /**
+ * The inbox as two queues: unanswered threads under New, answered ones under
+ * Replied. Answering moves the thread — the reply count is the state, so no
+ * separate read/unread flag exists to drift out of step with it.
+ */
+function ThreadSections({
+  threads,
+  topicLabel,
+  fmtDate,
+  openMessage,
+  t,
+}: {
+  threads: ThreadSummary[];
+  topicLabel: (topic: string) => string;
+  fmtDate: (iso: string) => string;
+  openMessage: (id: string) => void;
+  t: BoardCopy;
+}) {
+  const fresh = threads.filter((x) => x.replies.length === 0);
+  const done = threads.filter((x) => x.replies.length > 0);
+  const table = (items: ThreadSummary[]) => (
+    <table className="w-full border-collapse text-left">
+      <thead>
+        <tr className="border-b border-subtle text-[13px] text-slate">
+          <th scope="col" className="py-2 pr-3 font-bold">{t.colFrom}</th>
+          <th scope="col" className="py-2 pr-3 font-bold">{t.colTopic}</th>
+          <th scope="col" className="py-2 pr-3 font-bold">{t.colDate}</th>
+          <th scope="col" className="py-2 font-bold">
+            <span className="sr-only">{t.replyAction}</span>
+          </th>
+        </tr>
+      </thead>
+      <tbody>
+        {items.map((x) => (
+          <tr key={x.id} className="border-b border-subtle">
+            <td className="py-3 pr-3">
+              <button
+                type="button"
+                onClick={() => openMessage(x.id)}
+                className="text-left font-bold text-navy underline"
+              >
+                {x.name}
+              </button>
+              <span className="block text-[13px] text-slate">{x.email ?? x.phone ?? ''}</span>
+            </td>
+            <td className="py-3 pr-3 text-[14px]">{topicLabel(x.topic)}</td>
+            <td className="tabular-nums py-3 pr-3 text-[14px] text-slate">{fmtDate(x.submittedAt)}</td>
+            <td className="py-3 text-right">
+              <button
+                type="button"
+                onClick={() => openMessage(x.id)}
+                className="rounded-pill border-[1.5px] border-navy px-4 py-1.5 text-[13px] font-bold text-navy transition-colors hover:bg-navy hover:text-white"
+              >
+                {t.replyAction}
+              </button>
+            </td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  );
+  return (
+    <div>
+      <h2 className="mb-2 font-serif text-xl font-medium text-ink">{t.sectionNew}</h2>
+      {fresh.length > 0 ? (
+        table(fresh)
+      ) : (
+        <p className="mb-8 text-[14.5px] text-slate">{t.emptyHeading}</p>
+      )}
+      <h2 className="mb-2 mt-10 font-serif text-xl font-medium text-ink">{t.sectionReplied}</h2>
+      {done.length > 0 ? (
+        table(done)
+      ) : (
+        <p className="text-[14.5px] text-slate">{t.emptyReplied}</p>
+      )}
+    </div>
+  );
+}
+
+/**
  * The board's inbox: visitor submissions in a queue, each thread readable and
  * answerable from the page, plus the compose form beside it. Standard
  * list-detail; the view and the open thread live in the URL so a refresh or
@@ -35,6 +114,7 @@ function KerkraadContent() {
   const t = boardCopy[lang];
   const [phase, setPhase] = useState<Phase>('loading');
   const [email, setEmail] = useState('');
+  const [isAdmin, setIsAdmin] = useState(false);
   const [view, setView] = useState<View>('inbox');
   const [threads, setThreads] = useState<ThreadSummary[]>([]);
   const [threadsError, setThreadsError] = useState(false);
@@ -45,6 +125,9 @@ function KerkraadContent() {
   const [reply, setReply] = useState('');
   const [replySending, setReplySending] = useState(false);
   const [replyError, setReplyError] = useState<SendOutcome | null>(null);
+  const [deleteArmed, setDeleteArmed] = useState(false);
+  const [deleteError, setDeleteError] = useState<SendOutcome | null>(null);
+  const [deleting, setDeleting] = useState(false);
   const [from, setFrom] = useState(FROM_ADDRESSES[0]);
   const [to, setTo] = useState('');
   const [subject, setSubject] = useState('');
@@ -97,6 +180,8 @@ function KerkraadContent() {
       showView('inbox', id);
       setOpenThread(null);
       setOpenError(false);
+      setDeleteArmed(false);
+      setDeleteError(null);
       try {
         const res = await fetch(`/api/mail/message?id=${encodeURIComponent(id)}`, {
           headers: { Accept: 'application/json' },
@@ -120,8 +205,9 @@ function KerkraadContent() {
           setPhase('signed-out');
           return;
         }
-        const data = (await res.json()) as { email?: string };
+        const data = (await res.json()) as { email?: string; admin?: boolean };
         setEmail(data.email ?? '');
+        setIsAdmin(data.admin === true);
         setPhase('ready');
         const params = new URLSearchParams(window.location.search);
         const msg = params.get('msg');
@@ -137,7 +223,50 @@ function KerkraadContent() {
   async function signOut() {
     await fetch('/auth/logout', { method: 'POST' });
     setEmail('');
+    setIsAdmin(false);
     setPhase('signed-out');
+  }
+
+  /** Admin-only: removes the open thread from R2, then back to the queue. */
+  async function deleteThread() {
+    if (!openThread) return;
+    if (!deleteArmed) {
+      setDeleteError(null);
+      setDeleteArmed(true);
+      return;
+    }
+    setDeleting(true);
+    setDeleteError(null);
+    try {
+      const res = await fetch(`/api/mail/message?id=${encodeURIComponent(openThread.id)}`, {
+        method: 'DELETE',
+      });
+      const data = (await res.json().catch(() => ({}))) as { outcome?: string };
+      if (res.ok) {
+        const id = openThread.id;
+        setThreads((ts) => ts.filter((x) => x.id !== id));
+        setOpenThread(null);
+        setOpenId(null);
+        setDeleteArmed(false);
+        const params = new URLSearchParams(window.location.search);
+        params.delete('msg');
+        window.history.replaceState(null, '', `${window.location.pathname}?${params}`);
+      } else if (data.outcome === 'unauthorised') {
+        setDeleteError('unauthorised');
+        setPhase('signed-out');
+      } else if (data.outcome === 'forbidden') {
+        setDeleteError('forbidden');
+        setDeleteArmed(false);
+      } else if (data.outcome === 'not-configured') {
+        setDeleteError('not-configured');
+      } else {
+        setDeleteError('invalid');
+      }
+    } catch {
+      setDeleteError('network');
+    } finally {
+      setDeleting(false);
+    }
   }
 
   async function sendReply(e: React.FormEvent) {
@@ -211,6 +340,7 @@ function KerkraadContent() {
   const errorText: Record<SendOutcome, string> = {
     invalid: t.errValidation,
     unauthorised: t.errUnauthorised,
+    forbidden: t.errForbidden,
     'not-configured': t.errNotConfigured,
     'send-error': t.errSend,
     network: t.errNetwork,
@@ -312,37 +442,13 @@ function KerkraadContent() {
                     </div>
                   )}
                   {!threadsLoading && !threadsError && threads.length > 0 && !openId && (
-                    <table className="w-full border-collapse text-left">
-                      <thead>
-                        <tr className="border-b border-subtle text-[13px] text-slate">
-                          <th scope="col" className="py-2 pr-3 font-bold">{t.colFrom}</th>
-                          <th scope="col" className="py-2 pr-3 font-bold">{t.colTopic}</th>
-                          <th scope="col" className="py-2 pr-3 font-bold">{t.colDate}</th>
-                          <th scope="col" className="py-2 font-bold">{t.colState}</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {threads.map((x) => (
-                          <tr key={x.id} className="border-b border-subtle">
-                            <td className="py-3 pr-3">
-                              <button
-                                type="button"
-                                onClick={() => openMessage(x.id)}
-                                className="text-left font-bold text-navy underline"
-                              >
-                                {x.name}
-                              </button>
-                              <span className="block text-[13px] text-slate">{x.email ?? x.phone ?? ''}</span>
-                            </td>
-                            <td className="py-3 pr-3 text-[14px]">{topicLabel(x.topic)}</td>
-                            <td className="tabular-nums py-3 pr-3 text-[14px] text-slate">{fmtDate(x.submittedAt)}</td>
-                            <td className="py-3 text-[14px] text-slate">
-                              {x.replies.length > 0 ? t.stateReplied : t.stateNew}
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
+                    <ThreadSections
+                      threads={threads}
+                      topicLabel={topicLabel}
+                      fmtDate={fmtDate}
+                      openMessage={openMessage}
+                      t={t}
+                    />
                   )}
                   {openId && (
                     <div>
@@ -418,6 +524,23 @@ function KerkraadContent() {
                             <p className="rounded-card border border-subtle bg-cream-card px-4 py-3 text-[14.5px] text-slate">
                               {t.noEmailBody}
                             </p>
+                          )}
+                          {isAdmin && (
+                            <div className="mt-8 border-t border-subtle pt-4">
+                              {deleteError && (
+                                <p className="mb-3 rounded-card border border-subtle bg-cream-card px-4 py-3 text-[14.5px] text-slate">
+                                  {errorText[deleteError]}
+                                </p>
+                              )}
+                              <button
+                                type="button"
+                                onClick={deleteThread}
+                                disabled={deleting}
+                                className="rounded-pill border-[1.5px] border-slate px-5 py-2 text-[13px] font-bold text-slate transition-colors hover:border-ink hover:text-ink disabled:opacity-60"
+                              >
+                                {deleting ? t.deleting : deleteArmed ? t.deleteConfirm : t.deleteLabel}
+                              </button>
+                            </div>
                           )}
                         </article>
                       )}

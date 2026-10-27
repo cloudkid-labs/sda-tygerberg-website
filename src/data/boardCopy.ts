@@ -39,6 +39,7 @@ export type BoardCopy = {
   sentBack: string;
   sentFrom: string;
   sentTo: string;
+  sentOriginal: string;
   replyAction: string;
   emptyHeading: string;
   emptyBody: string;
@@ -91,13 +92,13 @@ export const boardCopy: Record<Lang, BoardCopy> = {
     backHome: 'Tuis',
     heading: 'Kerkraadpos',
     sub: 'Boodskappe van besoekers, en skryf as die kerk se amptelike adresse. Net kerkraadslede het toegang.',
-    signIn: 'Meld aan met Google',
+    signIn: 'Teken in met Google',
     signInHint: 'Jou Google-rekening moet op die kerkraadlys wees.',
-    loginHeading: 'Meld aan',
+    loginHeading: 'Teken in',
     loginSub:
-      'Die kerkraadpos is vir lede met ’n leierspos (’n ampsdraer) in die kerk. Meld aan met jou Google-rekening om voort te gaan.',
-    loginPageTitle: 'Meld aan · Tygerberg SDA Kerk',
-    loginPageDescription: 'Meld aan met jou Google-rekening vir kerkraadpos.',
+      'Die kerkraadpos is vir lede met ’n leierspos (’n ampsdraer) in die kerk. Teken in met jou Google-rekening om voort te gaan.',
+    loginPageTitle: 'Teken in · Tygerberg SDA Kerk',
+    loginPageDescription: 'Teken in met jou Google-rekening vir kerkraadpos.',
     privacyLabel: 'Privaatheidsbeleid',
     termsLabel: 'Algemene voorwaardes',
     signOut: 'Meld af',
@@ -120,6 +121,7 @@ export const boardCopy: Record<Lang, BoardCopy> = {
     sentBack: 'Terug na gestuur',
     sentFrom: 'Van',
     sentTo: 'Aan',
+    sentOriginal: 'Oorspronklike boodskap',
     replyAction: 'Antwoord',
     emptyHeading: 'Geen boodskappe nie',
     emptyBody: 'Boodskappe van die webwerf se vorms verskyn hier.',
@@ -151,7 +153,7 @@ export const boardCopy: Record<Lang, BoardCopy> = {
     successBody: 'Die boodskap is namens die kerk gestuur.',
     sendAnother: 'Skryf nog een',
     errValidation: 'Kontroleer die gemerkte velde en probeer weer.',
-    errUnauthorised: 'Jy is nie op die kerkraadlys nie. Meld aan met ’n ander rekening.',
+    errUnauthorised: 'Jy is nie op die kerkraadlys nie. Teken in met ’n ander rekening.',
     errNotConfigured: 'Die posdiens is nie opgestel nie. Probeer later weer.',
     errSend: 'Die e-pos kon nie gestuur word nie. Probeer weer.',
     errNetwork: 'Iets het met die verbinding verkeerd gegaan. Probeer weer.',
@@ -192,6 +194,7 @@ export const boardCopy: Record<Lang, BoardCopy> = {
     sentBack: 'Back to sent',
     sentFrom: 'From',
     sentTo: 'To',
+    sentOriginal: 'Original message',
     replyAction: 'Reply',
     emptyHeading: 'No messages',
     emptyBody: 'Messages from the website’s forms appear here.',

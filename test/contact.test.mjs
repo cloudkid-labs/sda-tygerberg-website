@@ -227,8 +227,9 @@ describe('handleContact delivery — C-31, C-34', () => {
     assert.match(sent[0].subject, /meld aan om te lees/);
     assert.match(sent[0].text, /https:\/\/sdatygerberg\.co\.za\/login/);
     assert.equal(sent[0].attachment.length, 3);
-    assert.ok(!sent[0].text.includes('Hallo'));
-    assert.ok(!sent[0].text.includes('jan@example.co.za'));
+    assert.ok(sent[0].text.includes('Hallo'));
+    assert.ok(sent[0].text.includes('jan@example.co.za'));
+    assert.ok(sent[0].text.includes('Tygerberg SDA Kerk'));
     // Archive: the full record, tied to the consent id as before.
     assert.equal(sent[1].to, 'archive@church.test');
     assert.match(sent[1].text, new RegExp(`Toestemmingsrekord: ${record.id}`));
@@ -240,7 +241,7 @@ describe('handleContact delivery — C-31, C-34', () => {
     const json = await (await handleContact(post(goodBody()), env)).json();
     assert.equal(json.outcome, 'forwarded');
     assert.equal(sent.length, 1);
-    assert.match(sent[0].text, /login om dit te lees/);
+    assert.match(sent[0].text, /login om dit in die inkassie te lees/);
   });
 
   test('the inbox copy lands in SUBMISSIONS with the full message — C-69', async () => {

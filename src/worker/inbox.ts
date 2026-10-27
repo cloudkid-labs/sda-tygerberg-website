@@ -9,7 +9,7 @@ export type InboxEnv = AuthEnv &
     SUBMISSIONS?: R2Bucket;
   };
 
-export type SubmissionReply = { by: string; at: string };
+export type SubmissionReply = { by: string; at: string; body?: string };
 export type Submission = {
   id: string;
   submittedAt: string;
@@ -266,7 +266,7 @@ export async function handleInboxReply(request: Request, env: InboxEnv): Promise
     return json({ ok: false, outcome: 'send-error' }, 502);
   }
 
-  item.replies = [...(item.replies ?? []), { by: session.email, at: new Date().toISOString() }];
+  item.replies = [...(item.replies ?? []), { by: session.email, at: new Date().toISOString(), body: text }];
   await env.SUBMISSIONS.put(key, JSON.stringify(item));
   await storeSent(env, {
     by: session.email,

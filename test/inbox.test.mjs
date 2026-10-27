@@ -280,5 +280,6 @@ describe('handleInboxSent', () => {
     assert.equal(recorded.kind, 'reply');
     assert.equal(recorded.threadId, 'abc-1');
     assert.equal(recorded.body, 'Dankie');
+    assert.equal(JSON.parse(store.get(key)).replies[0].body, 'Dankie');
   });
 });

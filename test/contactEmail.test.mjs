@@ -3,10 +3,10 @@ import { test, describe, beforeEach, afterEach } from 'node:test';
 import { sendContactEmail } from '../src/worker/contactEmail.ts';
 
 /*
- * Two sends, two audiences: the Gmail receiver gets a login notification only
- * (no message, no contact details — reading means signing in), and each
- * archive address gets the full enquiry for the R2 record. The archive send
- * is best-effort; a failed notification fails the channel.
+ * Two sends: the Gmail receivers get the full enquiry plus the login link
+ * (with the login screenshots attached), and each archive address gets the
+ * same full enquiry for the R2 record. The archive send is best-effort; a
+ * failed notification fails the channel.
  */
 
 const AT = '2026-09-20T10:00:00.000Z';
@@ -73,7 +73,7 @@ describe('sendContactEmail configuration', () => {
     assert.equal(f.sent.length, 0);
   });
 
-  test('the notification names who and what, never the message', async () => {
+  test('the notification carries the full message, the login link and the footer', async () => {
     const f = fakeEmail();
     assert.equal(await sendContactEmail({ ...baseEnv(), ...f }, fields(), AT), true);
     assert.equal(f.sent.length, 1);
@@ -83,11 +83,11 @@ describe('sendContactEmail configuration', () => {
     assert.match(msg.subject, /Verbind/);
     assert.match(msg.subject, /Jan van Wyk/);
     assert.match(msg.subject, /meld aan om te lees/);
-    assert.match(msg.text, /Nuwe boodskap op die webwerf\./);
+    assert.match(msg.text, /Hallo, ek wil graag meer weet\./);
+    assert.match(msg.text, /jan@example.co.za/);
     assert.match(msg.text, /https:\/\/sdatygerberg\.co\.za\/login/);
+    assert.match(msg.text, /Tygerberg SDA Kerk/);
     assert.match(msg.text, new RegExp(AT.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
-    assert.ok(!msg.text.includes('Hallo, ek wil graag meer weet.'));
-    assert.ok(!msg.text.includes('jan@example.co.za'));
     assert.ok(!('replyTo' in msg));
   });
 
@@ -173,7 +173,7 @@ describe('sendContactEmail archive copy', () => {
       'rec-123',
     );
     assert.match(f.sent[1].text, /Toestemmingsrekord: rec-123/);
-    assert.doesNotMatch(f.sent[0].text, /Toestemmingsrekord/);
+    assert.match(f.sent[0].text, /Toestemmingsrekord: rec-123/);
   });
 
   test('an empty message prints the placeholder in the archive copy', async () => {

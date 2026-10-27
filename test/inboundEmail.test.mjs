@@ -4,6 +4,8 @@ import { handleInboundEmail } from '../src/worker/inboundEmail.ts';
 
 const CHURCH = 'sdatygerbergklerk@gmail.com';
 const ARCHIVE = 'archive@sdatygerberg.co.za';
+const TREASURER = 'treasurer@example.test';
+const ROUTES = { 'tesourier@sdatygerberg.co.za': TREASURER };
 
 /** A `ForwardableEmailMessage` stand-in that records what was attempted. */
 function fakeMessage(to, { failFor = [] } = {}) {
@@ -87,5 +89,42 @@ describe('handleInboundEmail', () => {
     await handleInboundEmail(m.message, { MAIL_FORWARD_TO: CHURCH, MAIL_ARCHIVE_TO: ARCHIVE });
     assert.deepEqual(m.attempted, [CHURCH]);
     assert.deepEqual(m.rejections, []);
+  });
+
+  test('a routed address goes to its own destination, then the archive', async () => {
+    const m = fakeMessage('tesourier@sdatygerberg.co.za');
+    await handleInboundEmail(m.message, {
+      MAIL_FORWARD_TO: CHURCH,
+      MAIL_ARCHIVE_TO: ARCHIVE,
+      MAIL_ROUTES: ROUTES,
+    });
+    assert.deepEqual(m.attempted, [TREASURER, ARCHIVE]);
+    assert.deepEqual(m.rejections, []);
+  });
+
+  test('routes match regardless of case and surrounding space', async () => {
+    const m = fakeMessage(' Tesourier@SDATygerberg.co.za ');
+    await handleInboundEmail(m.message, { MAIL_FORWARD_TO: CHURCH, MAIL_ROUTES: ROUTES });
+    assert.deepEqual(m.attempted, [TREASURER]);
+  });
+
+  test('an address with no route still goes to the church', async () => {
+    const m = fakeMessage('welkom@sdatygerberg.co.za');
+    await handleInboundEmail(m.message, { MAIL_FORWARD_TO: CHURCH, MAIL_ROUTES: ROUTES });
+    assert.deepEqual(m.attempted, [CHURCH]);
+  });
+
+  test('rejects when the routed copy fails, and falls back to neither church nor archive', async () => {
+    const m = fakeMessage('tesourier@sdatygerberg.co.za', { failFor: [TREASURER] });
+    const logged = await capturingErrors(() =>
+      handleInboundEmail(m.message, {
+        MAIL_FORWARD_TO: CHURCH,
+        MAIL_ARCHIVE_TO: ARCHIVE,
+        MAIL_ROUTES: ROUTES,
+      }),
+    );
+    assert.deepEqual(m.attempted, [TREASURER]);
+    assert.equal(m.rejections.length, 1);
+    assert.match(logged.join('\n'), /forward to treasurer@example\.test failed/);
   });
 });

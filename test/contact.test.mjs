@@ -67,7 +67,14 @@ beforeEach(() => {
   webhookCalls = [];
   console.log = (...args) => logged.push(args.join(' '));
   console.error = (...args) => errored.push(args.join(' '));
-  globalThis.fetch = realFetch;
+  // Fixture bytes for the login screenshots the notification attaches —
+  // never the network in unit tests.
+  globalThis.fetch = async (url, init) => {
+    if (String(url).includes('/images/login/')) {
+      return new Response(new Uint8Array([137, 80, 78, 71]), { status: 200 });
+    }
+    return realFetch(url, init);
+  };
 });
 
 afterEach(() => {
@@ -82,6 +89,11 @@ function mockNet({ webhookOk = true, webhookThrows = false } = {}) {
     const u = String(url);
     if (u.includes('challenges.cloudflare.com')) {
       return Response.json({ success: true, action: 'contact' });
+    }
+    // Login screenshots the notification attaches — fixture bytes, never a
+    // webhook call and never the network.
+    if (u.includes('/images/login/')) {
+      return new Response(new Uint8Array([137, 80, 78, 71]), { status: 200 });
     }
     webhookCalls.push({ url: u, body: init?.body });
     if (webhookThrows) throw new Error('net down');
@@ -203,19 +215,62 @@ describe('handleContact delivery — C-31, C-34', () => {
     assert.equal(json.consentStored, undefined);
   });
 
-  test('the enquiry mail quotes the stored consent id — C-34 tie-in', async () => {
+  test('the clerk gets a login notification, the archive the full enquiry', async () => {
     const store = r2();
-    const { env, sent } = emailEnv({ CONSENT: store.bucket });
+    const { env, sent } = emailEnv({ CONSENT: store.bucket, CONTACT_EMAIL_BCC: 'archive@church.test' });
     const json = await (await handleContact(post(goodBody()), env)).json();
     assert.equal(json.consentStored, true);
-    assert.equal(store.puts.length, 1);
+    assert.equal(sent.length, 2);
     const record = JSON.parse(store.puts[0].body);
-    assert.match(sent[0].text, new RegExp(`Toestemmingsrekord: ${record.id}`));
-    assert.ok(store.puts[0].key.includes(record.id));
+    // Notification: names who and what, never the message or contact details.
+    assert.equal(sent[0].to, 'to@church.test');
+    assert.match(sent[0].subject, /meld aan om te lees/);
+    assert.match(sent[0].text, /https:\/\/sdatygerberg\.co\.za\/login/);
+    assert.equal(sent[0].attachment.length, 3);
+    assert.ok(sent[0].text.includes('Hallo'));
+    assert.ok(sent[0].text.includes('jan@example.co.za'));
+    assert.ok(sent[0].text.includes('Tygerberg SDA Kerk'));
+    // Archive: the full record, tied to the consent id as before.
+    assert.equal(sent[1].to, 'archive@church.test');
+    assert.match(sent[1].text, new RegExp(`Toestemmingsrekord: ${record.id}`));
+    assert.match(sent[1].text, /Hallo/);
   });
 
-  test('a failed consent put still delivers — storage never blocks — C-34', async () => {
+  test('no archive send where no archive address is set', async () => {
+    const { env, sent } = emailEnv();
+    const json = await (await handleContact(post(goodBody()), env)).json();
+    assert.equal(json.outcome, 'forwarded');
+    assert.equal(sent.length, 1);
+    assert.match(sent[0].text, /login om dit in die inkassie te lees/);
+  });
+
+  test('the inbox copy lands in SUBMISSIONS with the full message — C-69', async () => {
+    const store = r2();
+    const { env } = emailEnv({ SUBMISSIONS: store.bucket });
+    const json = await (await handleContact(post(goodBody()), env)).json();
+    assert.equal(json.outcome, 'forwarded');
+    assert.equal(store.puts.length, 1);
+    assert.match(store.puts[0].key, /^submissions\/202\d\//);
+    const submission = JSON.parse(store.puts[0].body);
+    assert.equal(submission.message, 'Hallo');
+    assert.deepEqual(submission.replies, []);
+    assert.equal(submission.topic, 'connect');
+  });
+
+  test('a failed inbox put still delivers — storage never blocks — C-69', async () => {
     const { env, sent } = emailEnv({
+      SUBMISSIONS: {
+        async put() {
+          throw new Error('r2 down');
+        },
+      },
+    });
+    const json = await (await handleContact(post(goodBody()), env)).json();
+    assert.equal(json.outcome, 'forwarded');
+    assert.equal(sent.length, 1);
+  });
+
+  test('a failed consent put still delivers — storage never blocks — C-34', async () => {    const { env, sent } = emailEnv({
       CONSENT: {
         async put() {
           throw new Error('r2 down');

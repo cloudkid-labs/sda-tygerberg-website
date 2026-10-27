@@ -15,6 +15,11 @@ export type ContactEnv = ContactEmailEnv &
     // The fallback channel now: email is tried first when it is configured — see
     // `deliver()` below and C-31.
     CONTACT_WEBHOOK_URL?: string;
+    /**
+     * The /kerkraad inbox bucket. Unset skips the inbox copy (devtest used to
+     * have none; production and devtest each bind their own now — C-69).
+     */
+    SUBMISSIONS?: R2Bucket;
   };
 
 /** Which page the request came from — decides who the church routes it to. */
@@ -127,8 +132,8 @@ async function forward(url: string, payload: unknown): Promise<boolean> {
  * it, or `null` if every configured channel failed.
  *
  * Email first because it needs no third-party service and lands in an inbox a
- * person already reads; the webhook stays as the fallback so an account without
- * Email Service onboarding still works. Both configured means the webhook is
+ * person already reads; the webhook stays as the fallback so a deploy without
+ * the `send_email` binding still works. Both configured means the webhook is
  * only reached when email fails — deliberately not both at once, which would
  * double every enquiry. CONCERNS.md C-31.
  */
@@ -136,6 +141,7 @@ async function deliver(
   env: ContactEnv,
   clean: Record<string, string>,
   lang: Lang,
+  origin: string,
 ): Promise<{ via: ContactVia | null; consentStored?: boolean }> {
   const submittedAt = new Date().toISOString();
 
@@ -156,7 +162,32 @@ async function deliver(
   // reason; `contactEmail.ts` already omits the line when it is absent.
   const storedId = consentStored ? record.id : undefined;
 
-  if (await sendContactEmail(env, clean, submittedAt, storedId)) {
+  // The /kerkraad inbox copy: the full submission as JSON, keyed by the same
+  // id. Best-effort like consent — a failed put is logged, never fatal, and
+  // the email below still carries the enquiry to a human. C-69.
+  if (env.SUBMISSIONS) {
+    try {
+      const [date] = submittedAt.split('T');
+      await env.SUBMISSIONS.put(
+        `submissions/${date.replaceAll('-', '/')}/${submittedAt}-${record.id}.json`,
+        JSON.stringify({
+          id: record.id,
+          submittedAt,
+          topic: clean.topic,
+          name: clean.name,
+          email: clean.email || null,
+          phone: clean.phone || null,
+          lang,
+          message: clean.message,
+          replies: [],
+        }),
+      );
+    } catch {
+      console.error('contact: submission store FAILED');
+    }
+  }
+
+  if (await sendContactEmail(env, clean, submittedAt, storedId, origin)) {
     return { via: 'email', consentStored };
   }
   // Not a silent fallback: the send error itself was already logged inside
@@ -242,7 +273,7 @@ export async function handleContact(request: Request, env: ContactEnv): Promise<
     return json({ ok: false, outcome: 'not-configured' }, 503);
   }
 
-  const { via, consentStored } = await deliver(env, clean, lang);
+  const { via, consentStored } = await deliver(env, clean, lang, new URL(request.url).origin);
 
   // Structured log lines — addresses and outcomes only, never field values
   // (the submission is personal data; C-20). Three lines per enquiry, each

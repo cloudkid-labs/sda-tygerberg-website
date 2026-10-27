@@ -9,7 +9,7 @@ export function SubPageFooter({ backHome }: { backHome: string }) {
       <div className="pointer-events-none absolute inset-0 bg-gradient-to-r from-orange/15 via-transparent to-orange/10" />
       <div className="relative z-10 mx-auto flex max-w-content-narrow items-center justify-between gap-2 sm:gap-4 px-3 sm:px-7 py-6 sm:py-8">
         <a href={withBase('/')} className="flex items-center gap-2 sm:gap-2.5 shrink min-w-0">
-          <Logo size={28} color="var(--color-cream)" />
+          <Logo size={28} />
           <span className="font-serif text-sm sm:text-base text-white truncate">Tygerberg SDA</span>
         </a>
         <a

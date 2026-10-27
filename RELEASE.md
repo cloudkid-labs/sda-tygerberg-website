@@ -1,6 +1,6 @@
 # Release process
 
-Three steps. In order. The narrative version is README → Versioning.
+Four steps. In order. The narrative version is README → Versioning.
 
 ## 1. Feature work → `dev`
 
@@ -14,29 +14,54 @@ git checkout -B <branch> origin/dev
 
 CI must be green — every **step** conclusion, not "job finished".
 
-## 2. Promote `dev` → `main`
+## 2. Bump on `dev`
 
 ```sh
-git checkout -B promote/vX.Y.Z origin/dev
-npm run version:patch        # or :minor / :major — here, nowhere else
+npm run version:patch        # or :minor / :major
 npm run version:check        # what version-guard.yml asserts
-git push -u origin promote/vX.Y.Z
-gh pr create --base main --head promote/vX.Y.Z
 ```
 
+A `Release vX.Y.Z` PR, squash-merged into `dev` like any other. The bump lives on
+`dev` so that `main` can become `dev` exactly. A bump that exists only on a
+promote branch is what leaves the two permanently disagreeing by a number, and
+what makes the next `version:patch` collide with a tag.
+
 `version-guard.yml` fails a version that is already tagged, behind the latest
-tag, or not semver. Skip the bump and production still deploys — it just doesn't
-tag. That is for a re-run only.
+tag, or not semver.
 
-## 3. Merge, then check the steps
+## 3. Promote `dev` → `main` — as a merge commit
 
-Merging runs `deploy-production-cloudflare.yml`: build → Cloudflare deploy →
-prod smoke → **tag + GitHub release**. The tag is cut last, so a failed deploy
-leaves no tag.
+```sh
+gh pr create --base main --head dev --title "Promote to production: … — vX.Y.Z"
+gh pr merge --merge          # NEVER --squash
+```
+
+GitHub always writes a merge commit here — it does **not** fast-forward, even
+though `dev` is strictly ahead. So `main` ends one commit in front of `dev`, with
+identical trees. Squash instead and `dev`'s commits are rewritten into a new one
+on `main`; the histories diverge, and every later compare page reads "N behind,
+M ahead" of commits that exist on neither branch.
+
+## 4. Bring `dev` back level
+
+```sh
+git push origin origin/main:dev
+```
+
+`dev` is an ancestor of `main` at this point, so this is a fast-forward and both
+branches end on the same commit — the parity step 5 asserts. The next feature PR
+moves `dev` ahead again, and the next promotion carries it.
+
+## 5. Check it
+
+Merging deploys: build → Cloudflare deploy → prod smoke → **tag + GitHub
+release**. The tag is cut last, so a failed deploy leaves no tag.
 
 ```sh
 gh run view <run-id> --json jobs --jq '.jobs[0].steps[]|"\(.name): \(.conclusion)"'
 curl -s https://sdatygerberg.co.za/health
+git diff origin/dev origin/main --stat            # must be empty
+git rev-list --count origin/dev..origin/main      # must be 0
 ```
 
 Prod smoke sends `SMOKE_TOKEN`; a 403 on every page means the zone's WAF skip
@@ -47,14 +72,12 @@ or just-merged PR.
 
 ## Rules that have bitten
 
-- **Carry the released number back onto `dev` after each promote.** The bump
-  lives on the promote branch, so `dev` keeps the previous number — and the next
-  promote's `version:patch` then lands on an already-tagged version and fails the
-  guard. Same for content: if a promote branch ever carried code `dev` had not
-  seen, realign `dev` before promoting again.
-- **Cut the promote branch from `dev`.** A `main`-based promote carries work
-  `dev` has never seen; the next promote conflicts, or reverts it silently.
-- **Bump the version in the promote PR.** A bump on a feature branch squashes
-  into `dev` and the next promote finds the number already tagged.
+- **Parity both ways.** `git diff origin/dev origin/main` empty, and
+  `git rev-list --count` zero in *both* directions. The promote leaves `main` one
+  commit ahead by construction, so step 4 is not optional. If `main` ever gets
+  further ahead, back-merge it into `dev` before the next promote.
+- **Never squash a promotion.** Squash is for feature PRs into `dev`. The
+  promote is a merge commit precisely so the branches share history.
+- **The version bump lives on `dev`**, not on a promote branch.
 - **Check step conclusions, not job status** — a failed step still reports
   "Complete job".

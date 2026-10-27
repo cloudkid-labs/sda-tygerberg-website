@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useLanguage } from '../../context/LanguageContext';
 import { homeCopy } from '../../data/homeCopy';
-import { SITE } from '../../data/site';
 import { Logo } from './Logo';
 import { LanguageToggle } from './LanguageToggle';
 import { withBase } from '../../lib/base';
@@ -17,30 +16,16 @@ const navLinks: { key: NavKey; href: string }[] = [
   { key: 'navResources', href: '#hulpbronne' },
 ];
 
-function DirectionsLink({ onClick, className = '' }: { onClick?: () => void; className?: string }) {
+function LoginLink({ onClick, className = '' }: { onClick?: () => void; className?: string }) {
   const { lang } = useLanguage();
   const t = homeCopy[lang];
   return (
     <a
-      href={SITE.directionsUrl}
-      target="_blank"
-      rel="noopener"
+      href={withBase('/login')}
       onClick={onClick}
       className={`h-8 inline-flex shrink-0 items-center justify-center gap-1.5 rounded-pill border border-orange bg-orange/5 px-2.5 sm:px-3.5 text-[11px] sm:text-xs font-bold text-navy hover:bg-orange hover:text-white transition-colors ${className}`}
     >
-      {/* A navigation arrow, not the teardrop that used to sit here — that
-          shape echoed the placeholder logo the site no longer uses, and a
-          pin next to "Directions" said "location" where the link means "take
-          me there". */}
-      <svg
-        aria-hidden="true"
-        viewBox="0 0 16 16"
-        className="h-3 w-3 flex-none"
-        fill="currentColor"
-      >
-        <path d="M14.6 1.4 1.9 6.6c-.7.3-.7 1.3.1 1.5l5 1.5 1.5 5c.2.8 1.2.8 1.5.1l5.2-12.7c.2-.5-.2-1-.6-.6Z" />
-      </svg>
-      {t.navDirections}
+      {t.navLogin}
     </a>
   );
 }
@@ -53,9 +38,34 @@ export function Header() {
 
   useEffect(() => {
     if (!menuOpen) return;
-    const handleScroll = () => setMenuOpen(false);
+    // The panel is in-flow, so mounting it grows the document by its own
+    // height (352px measured: header 71px closed, 423px open) and the
+    // browser's scroll anchoring shifts scrollY to compensate — that fires a
+    // scroll event that is an artefact of opening, not a user scroll. Arm
+    // the baseline only after that settles, so the guard does not depend on
+    // effect-versus-layout timing: anything before the baseline exists is
+    // ignored, and dismissal is then a fixed 10px deadband around the
+    // position at open for genuine scrolling after opening. The baseline is
+    // captured once and never re-based inside the handler — re-basing would
+    // let a slow scroll walk the deadband along and never dismiss. Closing
+    // flips menuOpen false, which runs this cleanup, clears the timer, and
+    // drops both listeners — nothing lingers for the next open.
+    let baseline: number | null = null;
+    const arm = window.setTimeout(() => { baseline = window.scrollY; }, 250);
+    const handleScroll = () => {
+      if (baseline !== null && Math.abs(window.scrollY - baseline) > 10) setMenuOpen(false);
+    };
+    // Keyboard users get no scroll to dismiss with, so Escape closes too.
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setMenuOpen(false);
+    };
     window.addEventListener('scroll', handleScroll, { passive: true });
-    return () => window.removeEventListener('scroll', handleScroll);
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      window.clearTimeout(arm);
+      window.removeEventListener('scroll', handleScroll);
+      window.removeEventListener('keydown', handleKeyDown);
+    };
   }, [menuOpen]);
 
   return (
@@ -80,7 +90,7 @@ export function Header() {
         </nav>
 
         <div className="hidden items-center gap-3 lg:flex">
-          <DirectionsLink />
+          <LoginLink />
           <LanguageToggle />
           {/* Straight to /giving, not the #betrokke section. The section is
               three cards of which giving is one; someone pressing this has
@@ -135,7 +145,7 @@ export function Header() {
             ))}
           </nav>
           <div className="mt-3 flex flex-wrap items-center gap-2.5 border-t border-subtle pt-3.5">
-            <DirectionsLink onClick={closeMenu} />
+            <LoginLink onClick={closeMenu} />
             <LanguageToggle />
             <a
               href={withBase('/giving/')}

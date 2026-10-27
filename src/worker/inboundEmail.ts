@@ -8,7 +8,9 @@
  *
  *   1. `MAIL_FORWARD_TO` — the church's mailbox, a verified destination address
  *      on the account. This one is the delivery: when it fails the message is
- *      rejected, so the sender learns instead of nothing happening.
+ *      rejected, so the sender learns instead of nothing happening. An address
+ *      listed in `MAIL_ROUTES` is delivered to its own destination instead —
+ *      `tesourier@` to the treasurer — under the same rules.
  *   2. `MAIL_ARCHIVE_TO` — a second, best-effort copy. A literal routing rule
  *      in the same zone hands that address to the `cloudkid-link-r2-explorer`
  *      Worker, which files the message in R2 and does nothing else. A Worker
@@ -24,6 +26,11 @@
 export type InboundEmailEnv = {
   /** Where the church reads its mail. */
   MAIL_FORWARD_TO?: string;
+  /**
+   * Per-address exceptions to `MAIL_FORWARD_TO`: local address → destination.
+   * Matched case-insensitively. Each destination must be verified too.
+   */
+  MAIL_ROUTES?: Record<string, string>;
   /** The archive hop. Unset skips archiving entirely. */
   MAIL_ARCHIVE_TO?: string;
 };
@@ -38,6 +45,13 @@ export type InboundEmailMessage = Pick<ForwardableEmailMessage, 'to' | 'forward'
 
 const sameAddress = (a: string, b: string): boolean =>
   a.trim().toLowerCase() === b.trim().toLowerCase();
+
+/** The routed destination for `rcptTo`, or undefined when it has none. */
+function routeFor(routes: Record<string, string> | undefined, rcptTo: string): string | undefined {
+  if (!routes) return undefined;
+  const key = Object.keys(routes).find((local) => sameAddress(local, rcptTo));
+  return key === undefined ? undefined : routes[key];
+}
 
 /**
  * One forward attempt. Never throws — the two hops mean different things to
@@ -64,7 +78,7 @@ export async function handleInboundEmail(
   message: InboundEmailMessage,
   env: InboundEmailEnv,
 ): Promise<void> {
-  const forwardTo = env.MAIL_FORWARD_TO;
+  const forwardTo = routeFor(env.MAIL_ROUTES, message.to) ?? env.MAIL_FORWARD_TO;
 
   if (!forwardTo) {
     // The devtest Worker carries no mail vars on purpose (C-61), and nothing

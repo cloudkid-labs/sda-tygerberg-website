@@ -40,7 +40,7 @@ export type HomeCopy = {
   navVisit: string;
   navConnect: string;
   navResources: string;
-  navDirections: string;
+  navLogin: string;
   give: string;
   heroEyebrow: string;
   heroTitle: string;
@@ -120,7 +120,7 @@ export const homeCopy: Record<Lang, HomeCopy> = {
     navVisit: 'Besoek',
     navConnect: 'Verbind',
     navResources: 'Hulpbronne',
-    navDirections: 'Aanwysings',
+    navLogin: 'Teken in',
     give: 'Skenk',
     heroEyebrow: 'Sewendedag Adventiste Kerk · Tygerberg',
     heroTitle: 'Vind rus, hoop en genesing in Jesus',
@@ -220,7 +220,7 @@ export const homeCopy: Record<Lang, HomeCopy> = {
     footerBlurb: '’n Gemeente wat hoop, genesing en die liefde van Jesus met die Tygerberg-omgewing deel.',
     footerVisit: 'Besoek ons',
     footerTimesLabel: 'Dienstye',
-    footerCreditBuilder: 'Geskep deur Cloudkid Technologist ™ · cloudkid.link',
+    footerCreditBuilder: 'Geskep deur CK Labs ™',
     footerCreditChurch: 'Deel van die wêreldwye Adventistekerk · adventist.org',
   },
   en: {
@@ -230,7 +230,7 @@ export const homeCopy: Record<Lang, HomeCopy> = {
     navVisit: 'Visit',
     navConnect: 'Connect',
     navResources: 'Resources',
-    navDirections: 'Directions',
+    navLogin: 'Sign in',
     give: 'Give',
     heroEyebrow: 'Seventh-day Adventist Church · Tygerberg',
     heroTitle: 'Find rest, hope and healing in Jesus',
@@ -326,7 +326,7 @@ export const homeCopy: Record<Lang, HomeCopy> = {
     footerBlurb: 'A congregation sharing hope, healing and the love of Jesus with the Tygerberg community.',
     footerVisit: 'Visit us',
     footerTimesLabel: 'Service times',
-    footerCreditBuilder: 'Created by Cloudkid Technologist ™ · cloudkid.link',
+    footerCreditBuilder: 'Created & Maintained by CK Labs ™',
     footerCreditChurch: 'Part of the worldwide Adventist Church · adventist.org',
   },
 };

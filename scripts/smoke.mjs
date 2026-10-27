@@ -470,14 +470,30 @@ console.log('\ncrawler files');
 try {
   // robots.txt polarity: the preview disallows everything and names no
   // sitemap; production allows and advertises it.
+  //
+  // Read by group, not by line: a `Disallow: /` only blanket-blocks crawling
+  // when it sits under `User-agent: *`. Cloudflare injects a managed block with
+  // a `Disallow: /` under each named AI crawler (GPTBot, ClaudeBot, …), so
+  // matching the line anywhere falsely reports production as "disallows
+  // crawling".
   const robotsTxt = await (await get('/robots.txt')).text();
+  const blanketDisallow = robotsTxt.split(/\r?\n\s*\r?\n/).some((block) => {
+    const lines = block
+      .split(/\r?\n/)
+      .map((l) => l.trim())
+      .filter((l) => l && !l.startsWith('#'));
+    const agents = lines
+      .filter((l) => /^user-agent\s*:/i.test(l))
+      .map((l) => l.slice(l.indexOf(':') + 1).trim());
+    return agents.includes('*') && lines.some((l) => /^disallow\s*:\s*\/$/i.test(l));
+  });
   if (expectNoindex) {
-    if (!/^Disallow: \/$/m.test(robotsTxt)) fail('robots.txt', 'preview does not Disallow: /');
+    if (!blanketDisallow) fail('robots.txt', 'preview does not Disallow: /');
     else if (/Sitemap:/i.test(robotsTxt)) fail('robots.txt', 'preview advertises a sitemap');
     else pass('robots.txt', 'Disallow: /, no sitemap');
   } else {
-    if (/^Disallow: \/$/m.test(robotsTxt)) fail('robots.txt', 'production disallows crawling');
-    else if (!/^Sitemap: https:\/\/sdatygerberg\.co\.za\/sitemap\.xml$/m.test(robotsTxt)) fail('robots.txt', 'production names no sitemap');
+    if (blanketDisallow) fail('robots.txt', 'production disallows crawling');
+    else if (!/^Sitemap: https:\/\/sdatygerberg\.co\.za\/sitemap\.xml\r?$/m.test(robotsTxt)) fail('robots.txt', 'production names no sitemap');
     else pass('robots.txt', 'allows crawling, advertises the sitemap');
   }
 

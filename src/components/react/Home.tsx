@@ -12,8 +12,7 @@ import { FirstVisit } from './FirstVisit';
 import { VisitMap } from './VisitMap';
 import { Footer } from './Footer';
 
-export function Home({ latestVideo = null }: { latestVideo?: LatestVideo | null }) {
-  return (
+export function Home({ latestVideo = null }: { latestVideo?: LatestVideo | null }) {  return (
     <LanguageProvider>
       <div className="flex min-h-screen flex-col font-sans text-ink">
         <Header />

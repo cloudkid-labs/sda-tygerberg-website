@@ -4,6 +4,15 @@ import { type LiveStatusEnv } from './liveStatus';
 import { getLiveStatusCached } from './liveStatusCache';
 import { getLatestVideoCached, LATEST_VIDEO_CACHE_SECONDS, type LatestVideoEnv } from './latestVideo';
 import { handleContact, type ContactEnv } from './contact';
+import {
+  handleAuthCallback,
+  handleAuthLogin,
+  handleAuthLogout,
+  handleMailSession,
+  type AuthEnv,
+} from './auth';
+import { handleMailSend, type MailSendEnv } from './mailSend';
+import { handleInboxList, handleInboxMessage, handleInboxReply, handleInboxDelete, handleInboxTrash, handleInboxSent, type InboxEnv } from './inbox';
 import { healthResponse } from './health';
 import { handleInboundEmail, type InboundEmailEnv } from './inboundEmail';
 import { requestFacts, requestLogEntry } from './requestLog';
@@ -11,7 +20,10 @@ import { requestFacts, requestLogEntry } from './requestLog';
 export type Env = LiveStatusEnv &
   LatestVideoEnv &
   ContactEnv &
-  InboundEmailEnv & {
+  InboundEmailEnv &
+  AuthEnv &
+  MailSendEnv &
+  InboxEnv & {
     ASSETS: Fetcher;
   };
 
@@ -97,6 +109,47 @@ async function route(request: Request, env: Env, ctx: ExecutionContext): Promise
 
   if (pathname === '/api/contact') {
     return handleContact(request, env);
+  }
+
+  if (pathname === '/auth/login') {
+    return handleAuthLogin(request, env);
+  }
+
+  if (pathname === '/auth/callback') {
+    return handleAuthCallback(request, env);
+  }
+
+  if (pathname === '/auth/logout') {
+    return handleAuthLogout(request);
+  }
+
+  if (pathname === '/api/mail/session') {
+    return handleMailSession(request, env);
+  }
+
+  if (pathname === '/api/mail/send') {
+    return handleMailSend(request, env);
+  }
+
+  if (pathname === '/api/mail/inbox') {
+    return handleInboxList(request, env);
+  }
+
+  if (pathname === '/api/mail/message') {
+    if (request.method === 'DELETE') return handleInboxDelete(request, env);
+    return handleInboxMessage(request, env);
+  }
+
+  if (pathname === '/api/mail/trash') {
+    return handleInboxTrash(request, env);
+  }
+
+  if (pathname === '/api/mail/reply') {
+    return handleInboxReply(request, env);
+  }
+
+  if (pathname === '/api/mail/sent') {
+    return handleInboxSent(request, env);
   }
 
   if (pathname === '/api/live-status') {

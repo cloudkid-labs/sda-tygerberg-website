@@ -35,9 +35,11 @@ OSMF guidelines allow the credit *adjacent to* the map rather than on it), or
 move to a tile provider whose terms do not require visible attribution.
 
 **Update:** the credit is restored — `attributionControl: true` with an
-`© OpenStreetMap contributors` tile attribution on `/map/`, plus the same link
-adjacent to the embedded map on the homepage. The breach paragraph above is kept
-as the history of why the lines exist; do not re-disable the control.
+`© OpenStreetMap contributors` tile attribution on `/map/`. The duplicate link
+that sat under the embedded map on the homepage was removed at the repo owner's
+request; the credit still shows inside that map, which the tile policy accepts.
+The breach paragraph above is kept as the history of why the line exists; do not
+re-disable the control.
 
 ---
 
@@ -345,21 +347,30 @@ Three things about what is stored:
   retention rule, that `wrangler.jsonc`'s own comment says nobody reads.
   `ConsentRecord` having no `message` field is true and beside the point.
 
-  **That BCC is removed from `wrangler.jsonc`.** With no BCC set, the message
-  goes only to the church inbox and the consent bucket holds only the record —
-  which is what makes the paragraph above a design decision again rather than a
-  POPIA claim the deployment contradicts. `contactEmail.ts` still honours a BCC
-  set as a Worker secret, so re-adding one re-opens this; re-add the fence entry
-  with it (C-31) and re-read this bullet first.
+  **`CONTACT_EMAIL_BCC` is now exactly one church-controlled archive address.**
+  `CONTACT_EMAIL_BCC=archive@sdatygerberg.co.za` routes via a literal rule to
+  the `cloudkid-link-r2-explorer` Worker, which files it in R2
+  (`email-notifications`). The personal monitoring inbox `rainiersvn1@gmail.com`
+  that was added alongside it was removed in 2026-10: a private mailbox outside
+  the church's control, with no retention rule, was the worst retention location
+  of the two. Because the archive now holds the full message body at rest,
+  `email-notifications` carries a lifecycle rule just like the consent bucket —
+  both expire after 7 years (SETUP-INSTRUCTIONS §3.6). The consent bucket still holds only
+  the record (no `message`), which is what makes the paragraph above a design
+  decision rather than a POPIA claim the deployment contradicts.
+  `contactEmail.ts` still honours a BCC set as a Worker secret, so re-adding one
+  re-opens this; re-add the fence entry with it (C-31) and re-read this bullet
+  first.
 
-  That was the reason to drop it: the difference between the paragraph above
-  being a design decision and being a POPIA claim the deployment contradicts.
   Read this bullet as "the *consent record* does not hold the message" — the
-  message itself lives in the church inbox, which is where replies happen.
+  message itself lives in the church inbox (replies) and in the one
+  church-controlled archive (retention).
 
-Retention is a dashboard-only R2 lifecycle rule and **is not configured by this
-repo** — SETUP-INSTRUCTIONS.md §3.6. Personal data with no expiry is the failure
-mode to watch here.
+Retention lives on the buckets, not in this repo: a `wrangler r2 bucket
+lifecycle` rule, not `wrangler.jsonc`. Both buckets expire after 7 years (set
+2026-10-04 — SETUP-INSTRUCTIONS.md §3.6), but because it is not config, a
+deletion or edit is invisible to typecheck, tests and deploy. Personal data with
+no expiry is the failure mode to watch here.
 
 **Update (2026-09-08):** a minimization of the record to `id` + `email` +
 `submittedAt` shipped in v1.6.2 and was reverted the same day on the church's
@@ -370,7 +381,9 @@ this entry change with it.
 Footnote: v1.6.3 shipped the minimized shape anyway — the promotion merge
 silently favored main where dev matched the old merge-base (`-X ours` only
 arbitrates conflicting hunks, and chaining push+merge past a red check is how
-it shipped). Merging main into dev did not advance the merge-base (squash
+it shipped). That failure mode is closed: promotions are merge commits now, so
+`main` and `dev` share ancestry and a promotion cannot quietly revert a file
+(RELEASE.md). Merging main into dev did not advance the merge-base (squash
 merges discard ancestry), so this file was resolved by hand on the promotion;
 once main carries the full format, both sides agree and it stays quiet. Any
 minimal-shape records in the bucket date from the v1.6.3 window.
@@ -436,7 +449,7 @@ verification active; `502`/`503` means the check was skipped.
 ### C-31 — Email is tried first, and the webhook is the fallback
 
 `/api/contact` has two delivery channels and uses exactly one per submission:
-Cloudflare Email Sending if it is configured, otherwise `CONTACT_WEBHOOK_URL`.
+the `send_email` binding if it is configured, otherwise `CONTACT_WEBHOOK_URL`.
 The webhook is only reached when email is unconfigured *or* fails. That order is
 deliberate — email needs no third-party automation account and lands in an inbox
 someone already reads — and so is the exclusivity: running both on every
@@ -454,9 +467,10 @@ Three things bound the email path, and none of them are obvious from the code:
   binding to send confirmations back to the person who filled in the form — it
   will fail with `E_SENDER_NOT_VERIFIED` or eat quota, depending on setup.
 
-  Note the plural. `CONTACT_EMAIL_BCC` adds a second recipient, and *every*
-  recipient is checked, so an unverified BCC fails the whole send rather than
-  dropping just the blind copy. Adding an archive address can therefore stop the
+  `CONTACT_EMAIL_BCC` adds one archive recipient, and *every* recipient is
+  checked, so a BCC that is not a verified destination address — or that is not
+  listed in `allowed_destination_addresses` — fails the whole send rather than
+  dropping just the blind copy. A bad archive address can therefore stop the
   church receiving enquiries at all. Put one real submission through the form
   after setting it — `via` in the response tells you which channel survived.
 
@@ -465,42 +479,56 @@ Three things bound the email path, and none of them are obvious from the code:
   a *custom address*; the destination is the external inbox behind it. On the free
   path the binding wants the latter.
 
-  **Both configured recipients are custom addresses, not destination addresses.**
-  `hello@` and `notifications@` are routing-rule patterns on `cloudkid.link`. Each
-  has to be added and verified under **Email Routing → Destination Addresses**
+  **A custom address on your own routed domain is not automatically a permitted destination.**
+  The configured recipients are `sdatygerbergklerk@gmail.com` — a genuine
+  verified destination address — and `archive@sdatygerberg.co.za` — a custom
+  address on the zone that must itself be added and verified under **Email Routing → Destination Addresses**
   before the free path will send to it; being a working routing rule is not the
-  same permission and does not substitute for it. On the Workers Paid plan the
-  question is moot — any recipient is allowed — so which of the two applies
+  same permission and does not substitute for it. Both must also be listed in
+  `allowed_destination_addresses`, or the whole send is rejected rather than
+  dropping just the bad recipient. On the Workers Paid plan the question is
+  moot — any recipient is allowed — so which of the two applies
   depends on the account's plan, not on anything in this repo.
-- **The sending domain is already onboarded.** This was an open blocker and is
-  not one: `cloudkid.link` carries all four Email Sending records — `cf-bounce`
-  MX and SPF, `cf-bounce._domainkey` DKIM, and `_dmarc` — alongside the separate
-  Email Routing records on the apex. `CONTACT_EMAIL_FROM` is therefore a valid
-  sender and needs no further setup. Re-check with:
+- **The sending domain needs no onboarding for the current channel.** The
+  current From `welkom@sdatygerberg.co.za` is a valid sender because the zone's
+  already-present `cf-bounce` DKIM records align it — without Email Sending
+  being enabled. (History: `cloudkid.link` carried all four Email Sending
+  records — `cf-bounce` MX and SPF, `cf-bounce._domainkey` DKIM, and `_dmarc` —
+  alongside the separate Email Routing records on the apex; that is why
+  `CONTACT_EMAIL_FROM` needed no further setup then.) Re-check alignment with:
 
   ```sh
-  dig +short TXT cf-bounce._domainkey.cloudkid.link   # Email Sending DKIM
-  dig +short TXT cf2024-1._domainkey.cloudkid.link    # Email Routing DKIM
+  dig +short TXT cf-bounce._domainkey.sdatygerberg.co.za   # Email Sending DKIM on the church zone
   ```
+
+  (The `cloudkid.link` records of the same names are history — see above — not
+  the current check.)
 
   Different selectors, deliberately: onboarding one product does not onboard the
   other, and a domain can have routing without sending.
-- **`CONTACT_EMAIL_BCC` used to archive into a script, not an inbox.**
-  `notifications@cloudkid.link` is routed by Email Routing to the
-  `cloudkid-link-r2-explorer` Worker, which has nothing to do with contact
-  enquiries. So the blind copy was at best discarded, and at worst — on the free
-  path, where it cannot be a verified destination address — it failed the *whole*
-  send and pushed every enquiry onto the webhook fallback. **It is removed from
-  `wrangler.jsonc` and from the send fence.** `contactEmail.ts` still honours one
-  set as a Worker secret, but re-add the address to
+- **`CONTACT_EMAIL_BCC` archives to one church-controlled address, not an unread
+  inbox.** `archive@sdatygerberg.co.za` is routed by Email Routing literal rule
+  to the `cloudkid-link-r2-explorer` Worker, which files mail in R2 and does
+  nothing else; that Worker has nothing to do with contact enquiries, which is
+  exactly what keeps a second pass through Email Routing from being a loop
+  (C-65). The old `notifications@cloudkid.link` blind copy was at best discarded,
+  and at worst — on the free path, where it could not be a verified destination
+  address — it failed the *whole* send and pushed every enquiry onto the webhook
+  fallback. The personal monitoring inbox `rainiersvn1@gmail.com` that was
+  briefly added alongside `archive@` was removed in 2026-10: a private mailbox
+  outside the church's control, with no retention rule, is not a lawful retention
+  location. Retention is configured: the R2 lifecycle rule on
+  `email-notifications` expires the archive after 7 years (set 2026-10-04; SETUP-INSTRUCTIONS §3.6). `contactEmail.ts` still honours
+  a BCC set as a Worker secret, but re-add the address to
   `allowed_destination_addresses` at the same time or the send is rejected.
 - **The three addresses are committed to `wrangler.jsonc`, not Worker secrets.**
   This reverses the original decision and is deliberate, temporary, and written
   up in [ADR-0001](./docs/adr/0001-hardcode-contact-addresses.md) — read that
   before changing it, and revert it when any of its three triggers fires. The
-  short version: they are role addresses on the operator's own domain rather
-  than personal or church-member data, so publishing them costs spam to three
-  controlled mailboxes, and it buys a self-contained deploy plus the fence below.
+  short version: two are role addresses on the church's domain and
+  CONTACT_EMAIL_TO is the church's shared Gmail mailbox — all controlled
+  mailboxes rather than personal or church-member data, so publishing them
+  costs spam to these mailboxes, and it buys a self-contained deploy plus the fence below.
 - **The binding is fenced by `allowed_destination_addresses` and
   `allowed_sender_addresses`.** This was impossible while the addresses were
   secret — naming them in the fence would have published them, which was the
@@ -514,8 +542,19 @@ Three things bound the email path, and none of them are obvious from the code:
   address `welkom@sdatygerberg.co.za` — one address in three places (the two
   vars and both fence lists). The sending domain must be onboarded (§6.2 of
   SETUP-INSTRUCTIONS) and `welkom@` added and verified as a destination address
-  before production relies on email; the "already onboarded" statements above
-  describe cloudkid.link's history, not the current state.
+  before production relies on email. (Any "already onboarded" wording elsewhere
+  in this file describes `cloudkid.link`'s history, not this zone's state on
+  this date.)
+
+  **Amendment (2026-10-06):** the addresses have moved again — TO is now the
+  church's Gmail mailbox `sdatygerbergklerk@gmail.com` and BCC the archive
+  address `archive@sdatygerberg.co.za`, with the From
+  `welkom@sdatygerberg.co.za` unchanged (the 2026-09-22 move recorded in
+  ADR-0001). Each address sits in exactly two places: its var and the matching
+  fence list — recipients in `allowed_destination_addresses`, the From in
+  `allowed_sender_addresses`. Both recipients must be verified destination
+  addresses before production relies on email; Email Sending is still not
+  required for this channel.
 
 A missing binding or a missing value is not an error: `sendContactEmail` returns
 false and delivery moves on. That is what keeps a partial configuration working
@@ -630,6 +669,9 @@ derivations. Their path data is byte-identical to the source.
 inherits `currentColor` — navy on cream headers, cream on navy footers, from one
 file.
 
+Exception, Oct 2026, board-approved: the header/footer/404 identity is now the
+`oauth-logo.png` lockup (mark in a navy disc with a TYGERBERG SDA wordmark),
+not the bare symbol. The symbol file itself stays untouched.
 ### C-26 — An SVG needs a default `xmlns` to render as a standalone file
 
 `favicon.svg` once declared `xmlns:svg` but no default `xmlns`, inherited from
@@ -1194,6 +1236,11 @@ So the fix is one entry: `["/api/*", "/images/hod/*", "!/images/hod/fallback/*"]
 **Adding a route to `src/worker/index.ts` now means adding its path here too.**
 Nothing in the type system or the build connects the two.
 
+The list is `["/*", "!/images/hod/fallback/*"]` today: C-66 widened it so the
+request log sees every path, including the ones the asset store answers before
+the Worker would otherwise run. The rule above is what this entry is about — the
+array is the whole set, so the negative pattern is doing real work.
+
 The second failure was the Content-Security-Policy from C-48, and the fix for it
 was wrong. The console said `Framing 'https://www.google.com/' violates ...`, so
 `google.com` and `youtube.com` were added to `frame-src`. That did let the frame
@@ -1572,7 +1619,7 @@ CI `worker` job and the devtest smoke can never exercise this channel.
 Operating rules:
 
 - After any change to `CONTACT_EMAIL_TO`, the `send_email` binding, or the
-  account's Email Service onboarding / destination addresses: verify one real
+  account's verified destination addresses: verify one real
   delivery. Submit the form for real — once Turnstile's secret is bound the
   captcha check runs *before* delivery, so no script can reach the channel
   (C-21) — and confirm the mail lands, with `via: email` in the form's
@@ -1612,6 +1659,10 @@ tygerberg-sda-website`, where a bad hop reads `inbound mail: forward to
 Devtest refuses by construction: no `MAIL_*` vars (C-61's rule that a preview
 never mails the church), so the handler rejects rather than guessing.
 
+`MAIL_ROUTES` overrides `MAIL_FORWARD_TO` for listed addresses — `tesourier@`
+goes to the treasurer — with the same reject and archive rules. Each route
+destination is one more address that must be verified.
+
 `test/inboundEmail.test.mjs` holds the wiring's invariants: a failed church
 copy rejects, a failed archive does not, and mail addressed to the archive is
 never re-posted to itself. Reproducing the routing: SETUP-INSTRUCTIONS §6.6.
@@ -1648,3 +1699,78 @@ it can carry a token. And the user agent is newline-stripped and clipped to 100
 characters, so a crafted header cannot forge a second line in the tail — the
 fixture for that shape lives in `test/requestLog.test.mjs`, which is the one
 input the edge would never actually deliver.
+
+### C-67 — The mobile menu dismisses on distance scrolled, not on any scroll
+
+`Header.tsx` closes the mobile panel when the visitor really scrolls, and the
+rule is a 10px displacement from the position at open — not any `scroll` event
+at all. An unconditional listener reads correctly on desktop and breaks the
+menu on a phone: tapping the burger mid-page opened and closed the menu before
+it ever painted, and the report was "the hamburger never expands when opened
+mid-page".
+
+The cause is the panel being in-flow, not tap jitter. Mounting it grows the
+document by its own height — 352px measured at 390x844 (header 71px closed,
+423px open) — and the browser's scroll anchoring shifts `scrollY` by that
+amount to compensate. That adjustment fires a scroll event which the old
+unconditional listener treated as a dismiss: at `scrollY` 2000, opening jumped
+to 2352, the handler closed the menu, the panel unmounted, and the page
+snapped back to 2000. With `overflow-anchor: none` there is no shift and no
+event and the menu stays open, which proves anchoring of the in-flow panel is
+the entire cause. Those figures were measured in headless Chromium at 390x844;
+the behaviour on the reported platform (iOS Safari) has not yet been checked on
+a device, and the residual-momentum path there is untested.
+
+The fix survives because the baseline is captured after the anchoring
+adjustment has applied, so the displacement caused by opening is already baked
+into the baseline and never compared against itself. The 10px threshold is a
+deliberate deadband for genuine user
+scrolling after opening — not a guard against the opening shift, which at
+352px it could never absorb. Dismissal is measured as absolute distance from
+the position at open, giving a fixed deadband around it: excursions do not
+accumulate. The baseline is captured once and never re-based on later events —
+re-basing inside the handler would let a slow continuous scroll walk the
+baseline along and never dismiss. As a second guarantee the baseline is only
+armed after a 250ms settling delay, so scroll events that are artefacts of
+opening are ignored even if some engine applies the anchoring shift after the
+effect runs; survival does not depend on effect-versus-layout ordering.
+Closing flips `menuOpen` false, which clears the arming timer and runs the
+effect cleanup to drop both listeners, so a continued scroll cannot reopen or
+double-fire anything and nothing lingers for the next open. Escape closes too,
+inside the same effect, because keyboard users get no scroll to dismiss with
+and `aria-expanded` already follows `menuOpen`.
+
+What not to add: body-scroll locking, outside-click handling, or animation
+workarounds. Each changes behaviour beyond the reported bug — locking the page
+under an open panel is its own argument — and none of them addresses the
+cause, which was scroll anchoring of the in-flow panel shifting `scrollY` by
+the panel's full height, not the listener firing on jitter rather than on
+travel.
+
+### C-68 — Board mail sends as the church via Brevo, behind Google sign-in
+
+Board members sign in with Google on the private `/kerkraad` page and send as
+`welkom@`, `klerk@`, `tesourier@` or `kerk@` through the Brevo API, replacing
+Gmail "Send mail as" before Google ends it in January 2027. The Worker runs the
+OIDC code flow with PKCE, keeps no Google tokens, and issues its own 8-hour
+HMAC session cookie; the allow-list lives in the plain-text `BOARD_ALLOWED_EMAILS`
+var in `wrangler.jsonc` (readable in the dashboard by design; the repo is
+private so the personal addresses stay off the public site), while the role
+addresses stay public vars per ADR-0001. `/kerkraad`, `/auth/` and `/api/mail/` are disallowed in robots.txt
+and out of the sitemap. Replies return through Email Routing and every send is
+BCC'd to `archive@` under the 7-year R2 retention, confirmed as intended for
+outgoing mail.
+
+### C-69 — The inbox reads visitor submissions from R2 and replies via Brevo
+
+`/kerkraad` is an inbox now, not just a compose page: every contact-form
+submission is stored as JSON in a `SUBMISSIONS` R2 bucket (production and
+devtest each bind their own, so trialling the queue never touches the live
+one) and board members read and reply from the page. Replies go through Brevo
+from the topic's role address (`welkom@` for both form topics), so they return
+through Email Routing like everything else. The stored copy holds the full
+message text — the minimum the inbox needs to do its job, kept 7 years like
+consent, gated by the same session and allow-list as sending, and never in
+logs. Creating the buckets (`tygerberg-submissions`,
+`tygerberg-submissions-devtest`) and their lifecycle rules is a dashboard step,
+outside Terraform like every other Worker binding.

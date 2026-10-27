@@ -39,6 +39,14 @@ function fakeEmail({ failWith = null } = {}) {
   };
 }
 
+/** Fixture bytes standing in for the login screenshots. */
+function fakeImages(bytes = new Uint8Array([137, 80, 78, 71])) {
+  return async (url) => {
+    assert.match(String(url), /\/images\/login\//);
+    return new Response(bytes, { status: 200 });
+  };
+}
+
 let logged;
 let errored;
 const realLog = console.log;
@@ -89,6 +97,28 @@ describe('sendContactEmail configuration', () => {
     assert.match(f.sent[0].subject, /Bybelstudie/);
     await sendContactEmail({ ...baseEnv(), ...f }, fields({ topic: 'other' }), AT);
     assert.match(f.sent[1].subject, /Navraag/);
+  });
+
+  test('the notification carries the login screenshots as attachments', async () => {
+    const f = fakeEmail();
+    await sendContactEmail({ ...baseEnv(), ...f }, fields(), AT, undefined, 'https://x', fakeImages());
+    assert.equal(f.sent[0].attachment.length, 3);
+    assert.deepEqual(
+      f.sent[0].attachment.map((a) => a.name),
+      ['meld-aan-desktop.png', 'meld-aan-mobile-1.png', 'meld-aan-mobile-2.png'],
+    );
+    assert.ok(f.sent[0].attachment.every((a) => typeof a.content === 'string' && a.content.length > 0));
+    assert.match(f.sent[0].text, /aangehegte media/);
+  });
+
+  test('a failed image load sends the notification without attachments', async () => {
+    const f = fakeEmail();
+    const fail = async () => new Response('no', { status: 500 });
+    assert.equal(
+      await sendContactEmail({ ...baseEnv(), ...f }, fields(), AT, undefined, 'https://x', fail),
+      true,
+    );
+    assert.ok(!('attachment' in f.sent[0]));
   });
 });
 

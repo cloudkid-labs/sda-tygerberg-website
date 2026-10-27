@@ -67,7 +67,14 @@ beforeEach(() => {
   webhookCalls = [];
   console.log = (...args) => logged.push(args.join(' '));
   console.error = (...args) => errored.push(args.join(' '));
-  globalThis.fetch = realFetch;
+  // Fixture bytes for the login screenshots the notification attaches —
+  // never the network in unit tests.
+  globalThis.fetch = async (url, init) => {
+    if (String(url).includes('/images/login/')) {
+      return new Response(new Uint8Array([137, 80, 78, 71]), { status: 200 });
+    }
+    return realFetch(url, init);
+  };
 });
 
 afterEach(() => {
@@ -82,6 +89,11 @@ function mockNet({ webhookOk = true, webhookThrows = false } = {}) {
     const u = String(url);
     if (u.includes('challenges.cloudflare.com')) {
       return Response.json({ success: true, action: 'contact' });
+    }
+    // Login screenshots the notification attaches — fixture bytes, never a
+    // webhook call and never the network.
+    if (u.includes('/images/login/')) {
+      return new Response(new Uint8Array([137, 80, 78, 71]), { status: 200 });
     }
     webhookCalls.push({ url: u, body: init?.body });
     if (webhookThrows) throw new Error('net down');
@@ -214,6 +226,7 @@ describe('handleContact delivery — C-31, C-34', () => {
     assert.equal(sent[0].to, 'to@church.test');
     assert.match(sent[0].subject, /meld aan om te lees/);
     assert.match(sent[0].text, /https:\/\/sdatygerberg\.co\.za\/login/);
+    assert.equal(sent[0].attachment.length, 3);
     assert.ok(!sent[0].text.includes('Hallo'));
     assert.ok(!sent[0].text.includes('jan@example.co.za'));
     // Archive: the full record, tied to the consent id as before.

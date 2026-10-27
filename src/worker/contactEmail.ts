@@ -100,7 +100,45 @@ function notificationBody(fields: Record<string, string>, submittedAt: string): 
     `Ontvang: ${submittedAt}`,
     '',
     'Meld aan by https://sdatygerberg.co.za/login om dit te lees.',
+    'Die aangehegte media wys hoe om aan te meld.',
   ].join('\n');
+}
+
+/**
+ * Login screenshots attached to the notification so the receiver sees how
+ * to sign in. Public static assets, fetched from the site's own origin at
+ * send time — best-effort: a failed load sends the notification without them
+ * rather than failing the channel. The loader is a parameter so tests can
+ * stub the bytes instead of hitting the network.
+ */
+const ATTACHMENT_PATHS = [
+  '/images/login/meld-aan-desktop.png',
+  '/images/login/meld-aan-mobile-1.png',
+  '/images/login/meld-aan-mobile-2.png',
+];
+
+type Attachment = { name: string; content: string };
+
+async function loadAttachments(
+  origin: string,
+  load: typeof fetch = fetch,
+): Promise<Attachment[]> {
+  const out: Attachment[] = [];
+  for (const path of ATTACHMENT_PATHS) {
+    try {
+      const res = await load(`${origin}${path}`, { signal: AbortSignal.timeout(10_000) });
+      if (!res.ok) throw new Error(String(res.status));
+      const buf = new Uint8Array(await res.arrayBuffer());
+      if (buf.length === 0 || buf.length > 5 * 1024 * 1024) throw new Error('size');
+      let s = '';
+      for (const b of buf) s += String.fromCharCode(b);
+      const name = path.split('/').pop();
+      if (name) out.push({ name, content: btoa(s) });
+    } catch {
+      console.error(`contact send: attachment skipped path=${path}`);
+    }
+  }
+  return out;
 }
 
 /**
@@ -121,6 +159,8 @@ export async function sendContactEmail(
   fields: Record<string, string>,
   submittedAt: string,
   recordId?: string,
+  origin?: string,
+  load: typeof fetch = fetch,
 ): Promise<boolean> {
   const { EMAIL, CONTACT_EMAIL_TO, CONTACT_EMAIL_FROM, CONTACT_EMAIL_BCC } = env;
   if (!EMAIL || !CONTACT_EMAIL_TO || !CONTACT_EMAIL_FROM) return false;
@@ -134,11 +174,13 @@ export async function sendContactEmail(
       ` record=${recordId ?? 'absent'}`,
   );
   try {
+    const attachment = origin ? await loadAttachments(origin, load) : [];
     await EMAIL.send({
       to: CONTACT_EMAIL_TO,
       from: CONTACT_EMAIL_FROM,
       subject: `Nuwe boodskap — ${label}: ${headerSafe(fields.name, 60)} — meld aan om te lees`,
       text: notificationBody(fields, submittedAt),
+      ...(attachment.length > 0 ? { attachment } : {}),
     });
     console.log(`contact send: notified in ${Date.now() - startedAt}ms to=${CONTACT_EMAIL_TO}`);
   } catch (error) {

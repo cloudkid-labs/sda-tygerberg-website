@@ -85,6 +85,9 @@ let brevoCalls;
 function mockBrevo({ ok = true } = {}) {
   brevoCalls = [];
   globalThis.fetch = async (url, init) => {
+    if (String(url).includes('/oauth-logo.png')) {
+      return new Response(new Uint8Array([137, 80, 78, 71]), { status: 200 });
+    }
     brevoCalls.push({ url: String(url), body: JSON.parse(init.body) });
     return new Response('{}', { status: ok ? 201 : 500 });
   };
@@ -158,6 +161,8 @@ describe('handleInboxReply', () => {
     assert.deepEqual(brevoCalls[0].body.to, [{ email: 'jan@example.co.za' }]);
     assert.ok(brevoCalls[0].body.htmlContent.includes('Dankie vir jou boodskap.'));
     assert.ok(brevoCalls[0].body.htmlContent.includes('mailto:welkom@sdatygerberg.co.za'));
+    assert.ok(brevoCalls[0].body.htmlContent.includes('src="cid:tygerberg-logo"'));
+    assert.deepEqual(brevoCalls[0].body.attachment, [{ content: 'iVBORw==', name: 'oauth-logo.png' }]);
     const updated = JSON.parse(store.get(key));
     assert.equal(updated.replies.length, 1);
     assert.equal(updated.replies[0].by, 'boss@example.co.za');

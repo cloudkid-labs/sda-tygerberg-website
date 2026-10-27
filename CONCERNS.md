@@ -669,6 +669,9 @@ derivations. Their path data is byte-identical to the source.
 inherits `currentColor` — navy on cream headers, cream on navy footers, from one
 file.
 
+Exception, Oct 2026, board-approved: the header/footer/404 identity is now the
+`oauth-logo.png` lockup (mark in a navy disc with a TYGERBERG SDA wordmark),
+not the bare symbol. The symbol file itself stays untouched.
 ### C-26 — An SVG needs a default `xmlns` to render as a standalone file
 
 `favicon.svg` once declared `xmlns:svg` but no default `xmlns`, inherited from

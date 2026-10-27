@@ -141,7 +141,11 @@ describe('handleAuthCallback', () => {
     const res = await callbackWith(goodClaims());
     assert.equal(res.status, 303);
     assert.equal(res.headers.get('location'), '/kerkraad/');
-    assert.match(res.headers.get('set-cookie') ?? '', /__Host-kerkraad=/);
+    // Two separate headers: a folded Set-Cookie line costs the session in
+    // every browser, while get('set-cookie') would still match.
+    const cookies = res.headers.getSetCookie();
+    assert.equal(cookies.length, 2);
+    assert.match(cookies.find((c) => c.startsWith('__Host-kerkraad=')) ?? '', /Max-Age=28800/);
   });
 
   for (const [name, claims] of [

@@ -250,17 +250,19 @@ export async function handleAuthCallback(request: Request, env: AuthEnv): Promis
   }
 
   const session = await signSession(email, env.SESSION_SECRET!);
-  return new Response(null, {
-    status: 303,
-    headers: {
-      Location: '/kerkraad/',
-      'Set-Cookie': [
-        clearFlow,
-        `${SESSION_COOKIE}=${session}; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=${SESSION_HOURS * 3600}`,
-      ].join(', '),
-      'Cache-Control': 'no-store',
-    },
+  // Two Set-Cookie headers, never one folded line: RFC 6265 forbids folding
+  // and browsers keep only the first cookie in a folded header — which used
+  // to cost exactly the session this response exists to set.
+  const headers = new Headers({
+    Location: '/kerkraad/',
+    'Cache-Control': 'no-store',
   });
+  headers.append('Set-Cookie', clearFlow);
+  headers.append(
+    'Set-Cookie',
+    `${SESSION_COOKIE}=${session}; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=${SESSION_HOURS * 3600}`,
+  );
+  return new Response(null, { status: 303, headers });
 }
 
 /** POST /auth/logout — clears the session cookie. */

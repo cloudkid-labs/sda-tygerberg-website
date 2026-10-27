@@ -2,6 +2,7 @@
 
 import { verifySession, type AuthEnv } from './auth';
 import { sendViaBrevo, type MailSendEnv } from './mailSend';
+import { mailHtml } from './signature';
 
 export type InboxEnv = AuthEnv &
   MailSendEnv & {
@@ -171,6 +172,7 @@ export async function handleInboxReply(request: Request, env: InboxEnv): Promise
     [item.email],
     `Re: ${item.topic === 'bible-study' ? 'Bybelstudie-versoek' : 'Jou boodskap aan Tygerberg SDA'}`,
     text,
+    mailHtml(text, from),
   );
   if (!ok) {
     console.log(`inbox: reply send-error to submission by=${session.email}`);

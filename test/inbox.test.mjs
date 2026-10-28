@@ -84,9 +84,6 @@ let brevoCalls;
 function mockBrevo({ ok = true } = {}) {
   brevoCalls = [];
   globalThis.fetch = async (url, init) => {
-    if (String(url).includes('/oauth-logo.png')) {
-      return new Response(new Uint8Array([137, 80, 78, 71]), { status: 200 });
-    }
     brevoCalls.push({ url: String(url), body: JSON.parse(init.body) });
     return new Response('{}', { status: ok ? 201 : 500 });
   };

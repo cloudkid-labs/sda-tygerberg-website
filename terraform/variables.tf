@@ -51,24 +51,24 @@ variable "brevo_dkim_records" {
   }
 }
 
-# Brevo rewrites every https link in board mail to this host for click
-# tracking (the signature's logo and site links). Without its CNAME every
-# rewritten link dies with NXDOMAIN. Copy name and target from Brevo ->
-# Senders, domains & dedicated IPs -> Domains -> sdatygerberg.co.za ->
-# tracking. Null (the default) skips the record: use that only if tracking
-# is switched off in Brevo instead.
+# Brevo rewrites every https link AND every <img src> in board mail to
+# these hosts for click/open tracking (the signature's logo and site
+# links). Without their CNAMEs every rewritten URL dies with NXDOMAIN.
+# Copy all three from Brevo -> Senders, domains & dedicated IPs -> Domains
+# -> sdatygerberg.co.za -> branding records. Empty (the default) creates
+# nothing: use that only if tracking is switched off in Brevo instead.
 
-variable "brevo_tracking_cname" {
-  description = "CNAME Brevo click/open tracking rewrites links to. Null where tracking is off in Brevo."
-  type = object({
+variable "brevo_branding_cnames" {
+  description = "CNAMEs Brevo click/open/image tracking rewrites mail URLs to. Empty where tracking is off in Brevo."
+  type = map(object({
     name   = string
     target = string
-  })
-  default = null
+  }))
+  default = {}
 
   validation {
-    condition     = var.brevo_tracking_cname == null || (length(trimspace(var.brevo_tracking_cname.name)) > 0 && length(trimspace(var.brevo_tracking_cname.target)) > 0)
-    error_message = "brevo_tracking_cname needs both name and target, exactly as Brevo shows them, or null."
+    condition     = alltrue([for r in values(var.brevo_branding_cnames) : length(trimspace(r.name)) > 0 && length(trimspace(r.target)) > 0])
+    error_message = "Each brevo_branding_cnames entry needs both name and target, exactly as Brevo shows them."
   }
 }
 

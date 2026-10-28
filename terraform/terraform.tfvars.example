@@ -9,10 +9,14 @@ brevo_dkim_records = {
 }
 
 # Brevo -> Senders, domains & dedicated IPs -> Domains -> sdatygerberg.co.za
-# -> tracking. Without this CNAME every link Brevo rewrites (including the
-# signature logo's) dies with NXDOMAIN. Leave commented out only if tracking
-# is switched off in Brevo instead.
-# brevo_tracking_cname = { name = "<subdomain from Brevo, e.g. r.mail>", target = "<target from Brevo>" }
+# -> branding records. Without these CNAMEs every link and image Brevo
+# rewrites (including the signature logo's) dies with NXDOMAIN. Leave empty
+# only if tracking is switched off in Brevo instead.
+brevo_branding_cnames = {
+  branded = { name = "mail", target = "mail-sdatygerberg-co-za.brand.brevosend.com" }
+  redirect = { name = "r.mail", target = "mail-sdatygerberg-co-za.r.brand.brevosend.com" }
+  img = { name = "img.mail", target = "mail-sdatygerberg-co-za.img.brand.brevosend.com" }
+}
 
 # New Google Cloud project, created by this configuration.
 google_project_id = "<globally-unique-id>"

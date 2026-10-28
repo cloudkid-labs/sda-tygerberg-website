@@ -44,21 +44,25 @@ run "creates_brevo_dns_and_all_four_secrets" {
   }
 }
 
-run "creates_brevo_tracking_cname_unproxied" {
+run "creates_brevo_branding_cnames_unproxied" {
   command = plan
 
   variables {
-    brevo_tracking_cname = { name = "r.mail", target = "track.brevo.com" }
+    brevo_branding_cnames = {
+      branded  = { name = "mail", target = "mail-sdatygerberg-co-za.brand.brevosend.com" }
+      redirect = { name = "r.mail", target = "mail-sdatygerberg-co-za.r.brand.brevosend.com" }
+      img      = { name = "img.mail", target = "mail-sdatygerberg-co-za.img.brand.brevosend.com" }
+    }
   }
 
   assert {
-    condition     = length(cloudflare_dns_record.brevo_tracking) == 1
-    error_message = "Expected one tracking CNAME."
+    condition     = length(cloudflare_dns_record.brevo_branding) == 3
+    error_message = "Expected one DNS record per branding entry."
   }
 
   assert {
-    condition     = cloudflare_dns_record.brevo_tracking[0].type == "CNAME" && cloudflare_dns_record.brevo_tracking[0].proxied == false
-    error_message = "The tracking CNAME must be unproxied so it resolves to Brevo."
+    condition     = alltrue([for r in cloudflare_dns_record.brevo_branding : r.type == "CNAME" && r.proxied == false])
+    error_message = "Branding CNAMEs must be unproxied so they resolve to Brevo."
   }
 }
 

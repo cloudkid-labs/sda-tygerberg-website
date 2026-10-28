@@ -17,6 +17,13 @@ check "dkim_targets_are_brevo" {
   }
 }
 
+check "branding_targets_are_brevo" {
+  assert {
+    condition     = alltrue([for r in values(var.brevo_branding_cnames) : can(regex("brevo", lower(r.target)))])
+    error_message = "A branding CNAME does not point at a brevo host. Re-copy it from the Brevo domain page."
+  }
+}
+
 check "google_client_present" {
   assert {
     condition     = local.google_client_ready

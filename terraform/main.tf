@@ -59,19 +59,19 @@ resource "cloudflare_dns_record" "brevo_dkim" {
   comment = "Brevo DKIM (${each.key}). Managed by terraform/ in sda-tygerberg-website."
 }
 
-# The host Brevo rewrites https links to for click tracking. Absent, every
-# rewritten signature link dies with NXDOMAIN — including the logo's. Null
-# (tracking off in Brevo) creates nothing.
-resource "cloudflare_dns_record" "brevo_tracking" {
-  count = var.brevo_tracking_cname == null ? 0 : 1
+# The hosts Brevo rewrites mail links and images to for click/open
+# tracking. Absent, every rewritten signature URL dies with NXDOMAIN —
+# including the logo's. Empty (tracking off in Brevo) creates nothing.
+resource "cloudflare_dns_record" "brevo_branding" {
+  for_each = var.brevo_branding_cnames
 
   zone_id = data.cloudflare_zone.this.zone_id
-  name    = var.brevo_tracking_cname.name
+  name    = each.value.name
   type    = "CNAME"
-  content = var.brevo_tracking_cname.target
+  content = each.value.target
   ttl     = 1
-  proxied = false # Tracking CNAMEs must resolve to Brevo, never to Cloudflare's proxy
-  comment = "Brevo click/open tracking. Managed by terraform/ in sda-tygerberg-website."
+  proxied = false # Branding CNAMEs must resolve to Brevo, never to Cloudflare's proxy
+  comment = "Brevo branding/tracking (${each.key}). Managed by terraform/ in sda-tygerberg-website."
 }
 
 # ---- Secrets: GitHub Actions -> wrangler-action -> Worker -------------------

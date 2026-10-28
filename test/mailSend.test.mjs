@@ -155,9 +155,10 @@ describe('handleMailSend delivery', () => {
     assert.ok(sent.htmlContent.includes('Hallo, hier is die inligting.'));
     assert.ok(sent.htmlContent.includes('Tygerberg SDA Kerk'));
     assert.ok(sent.htmlContent.includes(`mailto:${FROM}`));
-    // Logo embedded, not hotlinked: the cid reference plus its attachment.
-    assert.ok(sent.htmlContent.includes('src="cid:tygerberg-logo"'));
-    assert.deepEqual(sent.attachment, [{ content: 'iVBORw==', name: 'oauth-logo.png' }]);
+    // Logo hotlinked, not CID-attached: Brevo's attachment schema has no
+    // contentId, so a cid: reference can never resolve.
+    assert.ok(sent.htmlContent.includes('src="https://sdatygerberg.co.za/oauth-logo.png"'));
+    assert.ok(!('attachment' in sent));
   });
 
   test('the HTML alternative escapes markup in the message', async () => {

@@ -59,6 +59,21 @@ resource "cloudflare_dns_record" "brevo_dkim" {
   comment = "Brevo DKIM (${each.key}). Managed by terraform/ in sda-tygerberg-website."
 }
 
+# The host Brevo rewrites https links to for click tracking. Absent, every
+# rewritten signature link dies with NXDOMAIN — including the logo's. Null
+# (tracking off in Brevo) creates nothing.
+resource "cloudflare_dns_record" "brevo_tracking" {
+  count = var.brevo_tracking_cname == null ? 0 : 1
+
+  zone_id = data.cloudflare_zone.this.zone_id
+  name    = var.brevo_tracking_cname.name
+  type    = "CNAME"
+  content = var.brevo_tracking_cname.target
+  ttl     = 1
+  proxied = false # Tracking CNAMEs must resolve to Brevo, never to Cloudflare's proxy
+  comment = "Brevo click/open tracking. Managed by terraform/ in sda-tygerberg-website."
+}
+
 # ---- Secrets: GitHub Actions -> wrangler-action -> Worker -------------------
 # An Actions secret is visible to the workflow, not to the Worker. The deploy
 # workflow's `secrets:` block is what uploads each one; outputs.tf prints it.

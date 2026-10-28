@@ -51,6 +51,27 @@ variable "brevo_dkim_records" {
   }
 }
 
+# Brevo rewrites every https link in board mail to this host for click
+# tracking (the signature's logo and site links). Without its CNAME every
+# rewritten link dies with NXDOMAIN. Copy name and target from Brevo ->
+# Senders, domains & dedicated IPs -> Domains -> sdatygerberg.co.za ->
+# tracking. Null (the default) skips the record: use that only if tracking
+# is switched off in Brevo instead.
+
+variable "brevo_tracking_cname" {
+  description = "CNAME Brevo click/open tracking rewrites links to. Null where tracking is off in Brevo."
+  type = object({
+    name   = string
+    target = string
+  })
+  default = null
+
+  validation {
+    condition     = var.brevo_tracking_cname == null || (length(trimspace(var.brevo_tracking_cname.name)) > 0 && length(trimspace(var.brevo_tracking_cname.target)) > 0)
+    error_message = "brevo_tracking_cname needs both name and target, exactly as Brevo shows them, or null."
+  }
+}
+
 variable "brevo_api_key" {
   description = "Brevo API key (v3). Sent to the Worker as the BREVO_API_KEY secret."
   type        = string

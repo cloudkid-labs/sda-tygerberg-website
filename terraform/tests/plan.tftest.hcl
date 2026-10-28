@@ -44,6 +44,24 @@ run "creates_brevo_dns_and_all_four_secrets" {
   }
 }
 
+run "creates_brevo_tracking_cname_unproxied" {
+  command = plan
+
+  variables {
+    brevo_tracking_cname = { name = "r.mail", target = "track.brevo.com" }
+  }
+
+  assert {
+    condition     = length(cloudflare_dns_record.brevo_tracking) == 1
+    error_message = "Expected one tracking CNAME."
+  }
+
+  assert {
+    condition     = cloudflare_dns_record.brevo_tracking[0].type == "CNAME" && cloudflare_dns_record.brevo_tracking[0].proxied == false
+    error_message = "The tracking CNAME must be unproxied so it resolves to Brevo."
+  }
+}
+
 run "oauth_setup_output_is_exact" {
   command = plan
 

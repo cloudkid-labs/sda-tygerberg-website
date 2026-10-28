@@ -8,6 +8,12 @@ brevo_dkim_records = {
   dkim2 = { type = "CNAME", name = "<name from Brevo>", content = "<target from Brevo>" }
 }
 
+# Brevo -> Senders, domains & dedicated IPs -> Domains -> sdatygerberg.co.za
+# -> tracking. Without this CNAME every link Brevo rewrites (including the
+# signature logo's) dies with NXDOMAIN. Leave commented out only if tracking
+# is switched off in Brevo instead.
+# brevo_tracking_cname = { name = "<subdomain from Brevo, e.g. r.mail>", target = "<target from Brevo>" }
+
 # New Google Cloud project, created by this configuration.
 google_project_id = "<globally-unique-id>"
 # google_org_id   = "<numeric org id>"   # only if you have a Cloud organisation

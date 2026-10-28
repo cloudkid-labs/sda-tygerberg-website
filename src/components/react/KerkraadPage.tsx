@@ -767,7 +767,7 @@ function KerkraadContent() {
                                     type="button"
                                     onClick={() => restoreThread(openThread.id, 'inbox')}
                                     disabled={deletingId === openThread.id}
-                                    className="rounded-pill border-[1.5px] border-blue-muted px-5 py-2 text-[13px] font-bold text-blue-muted transition-colors hover:bg-blue-muted hover:text-navy disabled:opacity-60"
+                                    className="rounded-pill border-[1.5px] border-navy px-5 py-2 text-[13px] font-bold text-navy transition-colors hover:bg-navy hover:text-white disabled:opacity-60"
                                   >
                                     {deletingId === openThread.id ? t.restoring : t.restoreLabel}
                                   </button>
@@ -775,7 +775,7 @@ function KerkraadContent() {
                                     type="button"
                                     onClick={() => permanentDelete(openThread.id, 'inbox')}
                                     disabled={deletingId === openThread.id}
-                                    className="rounded-pill border-[1.5px] border-red px-5 py-2 text-[13px] font-bold text-red transition-colors hover:bg-red hover:text-white disabled:opacity-60"
+                                    className="rounded-pill border-[1.5px] border-orange px-5 py-2 text-[13px] font-bold text-orange transition-colors hover:bg-orange hover:text-white disabled:opacity-60"
                                   >
                                     {deletingId === openThread.id ? t.deletingPermanently : t.deletePermanently}
                                   </button>
@@ -909,7 +909,7 @@ function KerkraadContent() {
                                     type="button"
                                     onClick={() => restoreThread(openSent.id, 'sent')}
                                     disabled={deletingId === openSent.id}
-                                    className="rounded-pill border-[1.5px] border-blue-muted px-5 py-2 text-[13px] font-bold text-blue-muted transition-colors hover:bg-blue-muted hover:text-navy disabled:opacity-60"
+                                    className="rounded-pill border-[1.5px] border-navy px-5 py-2 text-[13px] font-bold text-navy transition-colors hover:bg-navy hover:text-white disabled:opacity-60"
                                   >
                                     {deletingId === openSent.id ? t.restoring : t.restoreLabel}
                                   </button>
@@ -917,7 +917,7 @@ function KerkraadContent() {
                                     type="button"
                                     onClick={() => permanentDelete(openSent.id, 'sent')}
                                     disabled={deletingId === openSent.id}
-                                    className="rounded-pill border-[1.5px] border-red px-5 py-2 text-[13px] font-bold text-red transition-colors hover:bg-red hover:text-white disabled:opacity-60"
+                                    className="rounded-pill border-[1.5px] border-orange px-5 py-2 text-[13px] font-bold text-orange transition-colors hover:bg-orange hover:text-white disabled:opacity-60"
                                   >
                                     {deletingId === openSent.id ? t.deletingPermanently : t.deletePermanently}
                                   </button>
@@ -997,7 +997,7 @@ function KerkraadContent() {
                                 type="button"
                                 onClick={() => restoreThread(x.id, x.source)}
                                 disabled={deletingId === x.id}
-                                className="rounded-pill border-[1.5px] border-blue-muted px-5 py-2 text-[13px] font-bold text-blue-muted transition-colors hover:bg-blue-muted hover:text-navy disabled:opacity-60"
+                                className="rounded-pill border-[1.5px] border-navy px-5 py-2 text-[13px] font-bold text-navy transition-colors hover:bg-navy hover:text-white disabled:opacity-60"
                               >
                                 {deletingId === x.id ? t.restoring : t.restoreLabel}
                               </button>
@@ -1005,7 +1005,7 @@ function KerkraadContent() {
                                 type="button"
                                 onClick={() => permanentDelete(x.id, x.source)}
                                 disabled={deletingId === x.id}
-                                className="ml-2 rounded-pill border-[1.5px] border-red px-5 py-2 text-[13px] font-bold text-red transition-colors hover:bg-red hover:text-white disabled:opacity-60"
+                                className="ml-2 rounded-pill border-[1.5px] border-orange px-5 py-2 text-[13px] font-bold text-orange transition-colors hover:bg-orange hover:text-white disabled:opacity-60"
                               >
                                 {t.deletePermanently}
                               </button>

@@ -18,33 +18,7 @@ export function htmlBody(text: string): string {
   );
 }
 
-export const LOGO_NAME = 'oauth-logo.png';
-export const LOGO_CID = 'tygerberg-logo';
 export const LOGO_REMOTE_URL = 'https://sdatygerberg.co.za/oauth-logo.png';
-
-/**
- * The signature logo as base64, fetched from the site's own origin at send
- * time. Remote-URL images get stripped or proxy-blocked by several inbox
- * providers, so the logo rides along as a CID attachment instead
- * (`<img src="cid:…">`). Best-effort: null means send without it rather than
- * failing the mail. The loader is a parameter so tests can stub the bytes.
- */
-export async function loadLogoBytes(
-  origin: string,
-  load: typeof fetch = fetch,
-): Promise<string | null> {
-  try {
-    const res = await load(`${origin}/oauth-logo.png`, { signal: AbortSignal.timeout(5000) });
-    if (!res.ok) throw new Error(String(res.status));
-    const buf = new Uint8Array(await res.arrayBuffer());
-    if (buf.length === 0 || buf.length > 1 * 1024 * 1024) throw new Error('size');
-    let s = '';
-    for (const b of buf) s += String.fromCharCode(b);
-    return btoa(s);
-  } catch {
-    return null;
-  }
-}
 
 export function signatureHtml(from: string, logoSrc: string): string {
   return (

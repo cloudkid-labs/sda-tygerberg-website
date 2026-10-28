@@ -1,7 +1,7 @@
 /// <reference types="@cloudflare/workers-types" />
 
 import { verifySession, allowedFrom, senders, type AuthEnv } from './auth';
-import { mailHtml, loadLogoBytes, LOGO_CID, LOGO_NAME, LOGO_REMOTE_URL } from './signature';
+import { mailHtml, LOGO_REMOTE_URL } from './signature';
 
 export type MailSendEnv = AuthEnv & {
   /** Brevo v3 API key. Absent answers `not-configured`, like every secret here. */
@@ -96,8 +96,6 @@ function isConfigured(env: MailSendEnv): boolean {
   return Boolean(env.BREVO_API_KEY && env.MAIL_SEND_FROM && env.SESSION_SECRET);
 }
 
-export type BrevoAttachment = { content: string; name: string };
-
 export async function sendViaBrevo(
   env: MailSendEnv,
   from: string,
@@ -105,7 +103,6 @@ export async function sendViaBrevo(
   subject: string,
   text: string,
   html: string,
-  attachment: BrevoAttachment | null = null,
 ): Promise<boolean> {
   const startedAt = Date.now();
   console.log(`mailsend: start from=${from} toCount=${to.length}`);
@@ -122,7 +119,6 @@ export async function sendViaBrevo(
         subject,
         textContent: text,
         htmlContent: html,
-        ...(attachment ? { attachment: [attachment] } : {}),
       }),
       signal: AbortSignal.timeout(BREVO_TIMEOUT_MS),
     });
@@ -220,13 +216,10 @@ export async function handleMailSend(request: Request, env: MailSendEnv): Promis
   const cleanTo = [...new Set(to.map((a) => a.toLowerCase()))];
   // The body goes out exactly as written — no attribution footer. Who sent
   // what stays in the Worker logs and the R2 archive, never in the message.
-  // The HTML alternative carries the church signature (signature.ts).
-  // The logo rides along as a CID attachment (remote images get stripped by
-  // several inboxes); without it the signature falls back to the remote URL.
-  const logo = await loadLogoBytes(new URL(request.url).origin);
-  const logoSrc = logo ? `cid:${LOGO_CID}` : LOGO_REMOTE_URL;
-  const logoAttachment = logo ? { content: logo, name: LOGO_NAME } : null;
-  if (!(await sendViaBrevo(env, from, cleanTo, cleanSubject, text, mailHtml(text, from, logoSrc), logoAttachment))) {
+  // The HTML alternative carries the church signature with the hosted logo:
+  // Brevo's attachment schema has no contentId, so a cid: reference can never
+  // resolve — the remote URL renders through every major inbox's image proxy.
+  if (!(await sendViaBrevo(env, from, cleanTo, cleanSubject, text, mailHtml(text, from, LOGO_REMOTE_URL)))) {
     console.log(`mailsend: outcome=send-error from=${from} by=${session.email}`);
     return json({ ok: false, outcome: 'send-error' }, 502);
   }

@@ -102,12 +102,13 @@ describe('sendContactEmail configuration', () => {
   test('the notification carries the login screenshots as attachments', async () => {
     const f = fakeEmail();
     await sendContactEmail({ ...baseEnv(), ...f }, fields(), AT, undefined, 'https://x', fakeImages());
-    assert.equal(f.sent[0].attachment.length, 3);
+    assert.equal(f.sent[0].attachments.length, 3);
     assert.deepEqual(
-      f.sent[0].attachment.map((a) => a.name),
+      f.sent[0].attachments.map((a) => a.filename),
       ['meld-aan-desktop.png', 'meld-aan-mobile-1.png', 'meld-aan-mobile-2.png'],
     );
-    assert.ok(f.sent[0].attachment.every((a) => typeof a.content === 'string' && a.content.length > 0));
+    assert.ok(f.sent[0].attachments.every((a) => typeof a.content === 'string' && a.content.length > 0));
+    assert.ok(f.sent[0].attachments.every((a) => a.disposition === 'attachment' && a.type === 'image/png'));
     assert.match(f.sent[0].text, /aangehegte media/);
   });
 
@@ -118,7 +119,7 @@ describe('sendContactEmail configuration', () => {
       await sendContactEmail({ ...baseEnv(), ...f }, fields(), AT, undefined, 'https://x', fail),
       true,
     );
-    assert.ok(!('attachment' in f.sent[0]));
+    assert.ok(!('attachments' in f.sent[0]));
   });
 });
 

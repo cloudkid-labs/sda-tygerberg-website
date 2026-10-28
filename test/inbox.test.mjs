@@ -1,7 +1,6 @@
 import { strict as assert } from 'node:assert';
 import { test, describe, beforeEach, afterEach } from 'node:test';
-import { handleInboxList, handleInboxMessage, handleInboxReply, handleInboxDelete, handleInboxTrash, handleInboxSent } from '../src/worker/inbox.ts';
-import { signSession } from '../src/worker/auth.ts';
+import { handleInboxList, handleInboxMessage, handleInboxReply, handleInboxDelete, handleInboxTrash, handleInboxSent } from '../src/worker/inbox.ts';import { signSession } from '../src/worker/auth.ts';
 
 /*
  * /api/mail/inbox, /message and /reply: session-gated reads and replies over
@@ -299,6 +298,16 @@ describe('handleInboxTrash', () => {
     const session = await signSession('boss@example.co.za', SECRET);
     assert.equal((await handleInboxDelete(del('abc123', session), env(bucket))).status, 200);
     assert.equal(store.size, 0);
+  });
+
+  test('restore clears trashedAt and the thread leaves the trash list', async () => {
+    const { bucket, store } = r2({ [key]: JSON.stringify(item({ trashedAt: '2026-10-26T10:00:00.000Z' })) });
+    const session = await signSession('boss@example.co.za', SECRET);
+    const res = await handleInboxTrash(new Request(`https://x/api/mail/trash?id=abc-1&restore=1`, { method: 'PUT', headers: { cookie: `__Host-kerkraad=${session}` } }), env(bucket));
+    assert.equal(res.status, 200);
+    assert.equal(JSON.parse(store.get(key)).trashedAt, undefined);
+    const onlyTrashed = await handleInboxList(get('/api/mail/inbox?trashed=1', session), env(bucket));
+    assert.equal((await onlyTrashed.json()).items.length, 0);
   });
 });
 

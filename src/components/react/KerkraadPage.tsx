@@ -6,7 +6,7 @@ import { SubPageFooter } from './SubPageFooter';
 
 type Phase = 'loading' | 'signed-out' | 'ready';
 type View = 'inbox' | 'sent' | 'trash' | 'write';
-type SendOutcome = 'invalid' | 'unauthorised' | 'forbidden' | 'not-allowed' | 'not-configured' | 'send-error' | 'trash' | 'network';
+type SendOutcome = 'invalid' | 'unauthorised' | 'forbidden' | 'not-allowed' | 'not-configured' | 'send-error' | 'trash' | 'network' | 'restore';
 
 type ThreadReply = { by: string; at: string; body?: string };
 type ThreadSummary = {
@@ -424,6 +424,30 @@ function KerkraadContent() {
     }
   }
 
+  async function restoreThread(id: string, source: 'inbox' | 'sent') {
+    setDeletingId(id);
+    setDeleteError(null);
+    try {
+      const res = await fetch(`/api/mail/trash?id=${encodeURIComponent(id)}&restore=1`, { method: 'PUT' });
+      if (res.ok) {
+        setThreads((ts) => ts.map((x) => x.id === id ? { ...x, trashedAt: undefined } : x));
+        setSentItems((ts) => ts.map((x) => x.id === id ? { ...x, trashedAt: undefined } : x));
+        setOpenThread(openThread?.id === id ? null : openThread);
+        setOpenSent(openSent?.id === id ? null : openSent);
+        setOpenId(null);
+        setOpenSentId(null);
+        void loadTrash();
+      } else {
+        const data = (await res.json().catch(() => ({}))) as { outcome?: string };
+        setDeleteError(data.outcome === 'forbidden' ? 'forbidden' : 'trash');
+      }
+    } catch {
+      setDeleteError('network');
+    } finally {
+      setDeletingId(null);
+    }
+  }
+
   async function permanentDelete(id: string, source: 'inbox' | 'sent') {
     if (!window.confirm(t.deletePermanentlyConfirm)) return;
     setDeletingId(id);
@@ -528,6 +552,7 @@ function KerkraadContent() {
     'not-configured': t.errNotConfigured,
     'send-error': t.errSend,
     trash: t.errTrash,
+    restore: t.errTrash,
     network: t.errNetwork,
   };
 
@@ -737,14 +762,24 @@ function KerkraadContent() {
                                 </p>
                               )}
                               {openThread?.trashedAt ? (
-                                <button
-                                  type="button"
-                                  onClick={() => permanentDelete(openThread.id, 'inbox')}
-                                  disabled={deletingId === openThread.id}
-                                  className="rounded-pill border-[1.5px] border-red px-5 py-2 text-[13px] font-bold text-red transition-colors hover:bg-red hover:text-white disabled:opacity-60"
-                                >
-                                  {deletingId === openThread.id ? t.deletingPermanently : t.deletePermanently}
-                                </button>
+                                <div className="flex gap-2">
+                                  <button
+                                    type="button"
+                                    onClick={() => restoreThread(openThread.id, 'inbox')}
+                                    disabled={deletingId === openThread.id}
+                                    className="rounded-pill border-[1.5px] border-blue-muted px-5 py-2 text-[13px] font-bold text-blue-muted transition-colors hover:bg-blue-muted hover:text-navy disabled:opacity-60"
+                                  >
+                                    {deletingId === openThread.id ? t.restoring : t.restoreLabel}
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => permanentDelete(openThread.id, 'inbox')}
+                                    disabled={deletingId === openThread.id}
+                                    className="rounded-pill border-[1.5px] border-red px-5 py-2 text-[13px] font-bold text-red transition-colors hover:bg-red hover:text-white disabled:opacity-60"
+                                  >
+                                    {deletingId === openThread.id ? t.deletingPermanently : t.deletePermanently}
+                                  </button>
+                                </div>
                               ) : (
                                 <button
                                   type="button"
@@ -869,14 +904,24 @@ function KerkraadContent() {
                           {isAdmin && (
                             <div className="mt-8 border-t border-subtle pt-4">
                               {openSent.trashedAt ? (
-                                <button
-                                  type="button"
-                                  onClick={() => permanentDelete(openSent.id, 'sent')}
-                                  disabled={deletingId === openSent.id}
-                                  className="rounded-pill border-[1.5px] border-red px-5 py-2 text-[13px] font-bold text-red transition-colors hover:bg-red hover:text-white disabled:opacity-60"
-                                >
-                                  {deletingId === openSent.id ? t.deletingPermanently : t.deletePermanently}
-                                </button>
+                                <div className="flex gap-2">
+                                  <button
+                                    type="button"
+                                    onClick={() => restoreThread(openSent.id, 'sent')}
+                                    disabled={deletingId === openSent.id}
+                                    className="rounded-pill border-[1.5px] border-blue-muted px-5 py-2 text-[13px] font-bold text-blue-muted transition-colors hover:bg-blue-muted hover:text-navy disabled:opacity-60"
+                                  >
+                                    {deletingId === openSent.id ? t.restoring : t.restoreLabel}
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => permanentDelete(openSent.id, 'sent')}
+                                    disabled={deletingId === openSent.id}
+                                    className="rounded-pill border-[1.5px] border-red px-5 py-2 text-[13px] font-bold text-red transition-colors hover:bg-red hover:text-white disabled:opacity-60"
+                                  >
+                                    {deletingId === openSent.id ? t.deletingPermanently : t.deletePermanently}
+                                  </button>
+                                </div>
                               ) : (
                                 <button
                                   type="button"
@@ -933,6 +978,8 @@ function KerkraadContent() {
                           <th scope="col" className="py-2 pr-3 font-bold">{t.colTo}</th>
                           <th scope="col" className="py-2 pr-3 font-bold">{t.colSubject}</th>
                           <th scope="col" className="py-2 font-bold">{t.colDate}</th>
+                          <th scope="col" className="py-2 font-bold" />
+                          <th scope="col" className="py-2 font-bold" />
                         </tr>
                       </thead>
                       <tbody>
@@ -944,6 +991,24 @@ function KerkraadContent() {
                             <td className="tabular-nums py-3 text-[14px] text-slate">{fmtDate(x.date)}</td>
                             <td className="py-3 text-right text-[13px] text-slate uppercase">
                               {x.source === 'inbox' ? t.trashInbox : t.trashSent}
+                            </td>
+                            <td className="py-3 pr-3 text-right">
+                              <button
+                                type="button"
+                                onClick={() => restoreThread(x.id, x.source)}
+                                disabled={deletingId === x.id}
+                                className="rounded-pill border-[1.5px] border-blue-muted px-5 py-2 text-[13px] font-bold text-blue-muted transition-colors hover:bg-blue-muted hover:text-navy disabled:opacity-60"
+                              >
+                                {deletingId === x.id ? t.restoring : t.restoreLabel}
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => permanentDelete(x.id, x.source)}
+                                disabled={deletingId === x.id}
+                                className="ml-2 rounded-pill border-[1.5px] border-red px-5 py-2 text-[13px] font-bold text-red transition-colors hover:bg-red hover:text-white disabled:opacity-60"
+                              >
+                                {t.deletePermanently}
+                              </button>
                             </td>
                           </tr>
                         ))}

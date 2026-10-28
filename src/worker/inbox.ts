@@ -104,9 +104,9 @@ export async function handleInboxList(request: Request, env: InboxEnv): Promise<
 }
 
 /**
- * PUT /api/mail/trash?id= — soft-deletes the thread by stamping trashedAt.
- * Admin only, like permanent delete. The copy stays in R2 until permanent
- * delete removes it.
+ * PUT /api/mail/trash?id= — soft-deletes the thread by stamping trashedAt;
+ * with `&restore=1`, clears the stamp instead. Admin only, like permanent
+ * delete. The copy stays in R2 until permanent delete removes it.
  */
 export async function handleInboxTrash(request: Request, env: InboxEnv): Promise<Response> {
   const session = await verifySession(request, env);
@@ -124,6 +124,7 @@ export async function handleInboxTrash(request: Request, env: InboxEnv): Promise
     return json({ ok: false, outcome: 'invalid', errors: ['method'] }, 405);
   }
   const id = str(new URL(request.url).searchParams.get('id'));
+  const restore = new URL(request.url).searchParams.get('restore') === '1';
   if (!id || id.includes('/') || id.includes('..')) {
     return json({ ok: false, outcome: 'invalid', errors: ['id'] }, 400);
   }
@@ -132,9 +133,9 @@ export async function handleInboxTrash(request: Request, env: InboxEnv): Promise
   const obj = await env.SUBMISSIONS.get(key);
   if (!obj) return json({ ok: false, outcome: 'invalid', errors: ['id'] }, 404);
   const item = (await obj.json()) as Submission;
-  item.trashedAt = new Date().toISOString();
+  item.trashedAt = restore ? undefined : new Date().toISOString();
   await env.SUBMISSIONS.put(key, JSON.stringify(item));
-  console.log(`inbox: trashed key=${key} by=${session.email}`);
+  console.log(`inbox: ${restore ? 'restored' : 'trashed'} key=${key} by=${session.email}`);
   return json({ ok: true }, 200);
 }
 

@@ -60,6 +60,8 @@ export type BoardCopy = {
   trashLabel: string;
   trashConfirm: string;
   trashing: string;
+  restoreLabel: string;
+  restoring: string;
   deletePermanently: string;
   deletePermanentlyConfirm: string;
   deletingPermanently: string;
@@ -67,6 +69,7 @@ export type BoardCopy = {
   trashInbox: string;
   trashSent: string;
   errTrash: string;
+  errRestore: string;
   errForbidden: string;
   errNotAllowed: string;
   fromLabel: string;
@@ -157,11 +160,14 @@ export const boardCopy: Record<Lang, BoardCopy> = {
     trashLabel: 'Gooi weg',
     trashConfirm: 'Gooi hierdie boodskap weg?',
     trashing: 'Gooi weg …',
+    restoreLabel: 'Herstel',
+    restoring: 'Herstel …',
     deletePermanently: 'Verwyder uit die vuilbak',
     deletePermanentlyConfirm: 'Hierdie boordskap word permanent verwyder — dit kan nie ongedaan gemaak word nie. Weet u seker?',
     deletingPermanently: 'Verwyder …',
     errForbidden: 'Net admins kan boodskappe uitvee.',
     errTrash: 'Die boodskap kon nie in die vuilbak beland nie. Probeer weer.',
+    errRestore: 'Die boodskap kon nie herstel word nie. Probeer weer.',
     errNotAllowed: 'Jy mag nie as hierdie adres skryf nie.',
     fromLabel: 'Stuur as',
     toLabel: 'Aan',
@@ -242,11 +248,14 @@ export const boardCopy: Record<Lang, BoardCopy> = {
     trashLabel: 'Trash',
     trashConfirm: 'Trash this message?',
     trashing: 'Trashing …',
+    restoreLabel: 'Restore',
+    restoring: 'Restoring …',
     deletePermanently: 'Delete from trash',
     deletePermanentlyConfirm: 'This will be permanently deleted — it cannot be undone. Are you sure?',
     deletingPermanently: 'Deleting …',
     errForbidden: 'Only admins can delete messages.',
     errTrash: 'The message could not be trashed. Try again.',
+    errRestore: 'The message could not be restored. Try again.',
     errNotAllowed: 'You may not send as this address.',
     fromLabel: 'Send as',
     toLabel: 'To',

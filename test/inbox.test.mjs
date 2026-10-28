@@ -161,8 +161,8 @@ describe('handleInboxReply', () => {
     assert.deepEqual(brevoCalls[0].body.to, [{ email: 'jan@example.co.za' }]);
     assert.ok(brevoCalls[0].body.htmlContent.includes('Dankie vir jou boodskap.'));
     assert.ok(brevoCalls[0].body.htmlContent.includes('mailto:welkom@sdatygerberg.co.za'));
-    assert.ok(brevoCalls[0].body.htmlContent.includes('src="cid:tygerberg-logo"'));
-    assert.deepEqual(brevoCalls[0].body.attachment, [{ content: 'iVBORw==', name: 'oauth-logo.png' }]);
+    assert.ok(brevoCalls[0].body.htmlContent.includes('src="https://sdatygerberg.co.za/oauth-logo.png"'));
+    assert.ok(!('attachment' in brevoCalls[0].body));
     const updated = JSON.parse(store.get(key));
     assert.equal(updated.replies.length, 1);
     assert.equal(updated.replies[0].by, 'boss@example.co.za');

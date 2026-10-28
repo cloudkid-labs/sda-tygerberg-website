@@ -226,7 +226,7 @@ describe('handleContact delivery — C-31, C-34', () => {
     assert.equal(sent[0].to, 'to@church.test');
     assert.match(sent[0].subject, /meld aan om te lees/);
     assert.match(sent[0].text, /https:\/\/sdatygerberg\.co\.za\/login/);
-    assert.equal(sent[0].attachment.length, 3);
+    assert.equal(sent[0].attachments.length, 3);
     assert.ok(sent[0].text.includes('Hallo'));
     assert.ok(sent[0].text.includes('jan@example.co.za'));
     assert.ok(sent[0].text.includes('Tygerberg SDA Kerk'));

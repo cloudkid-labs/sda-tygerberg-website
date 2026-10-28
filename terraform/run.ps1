@@ -120,15 +120,20 @@ function Show-InputStatus {
 }
 Show-InputStatus
 
-# Re-init on every run: cheap when nothing changed, and required whenever the
-# backend config changes (a stale .terraform dir means "backend initialization
-# required" at plan/apply time). -reconfigure never migrates or loses state.
-# Flag forms matter here, verified against both binaries: -backend-config takes
-# its path space-separated (-backend-config=path is read as a positional and
-# init dies), while booleans use -flag=value (a bare value after -input=false
-# would itself be the positional). -reconfigure never migrates or loses state.
+# Init only when needed: -reconfigure reinstalls every provider binary on each
+# run, and the rewrite races the plan step that follows — the provider exe ends
+# up locked and the run dies. Plain init is idempotent and cheap when nothing
+# changed; -reconfigure is reserved for a missing .terraform dir or an edited
+# backend.hcl (a stale dir otherwise means "backend initialization required").
 Write-Host 'Initialising ...'
-& terraform init -backend-config backend.hcl -input=false -reconfigure
+$terraformDir = Join-Path $PSScriptRoot '.terraform'
+$backendFile = Join-Path $PSScriptRoot 'backend.hcl'
+$needReconfigure = (-not (Test-Path $terraformDir)) -or ((Get-Item $backendFile).LastWriteTime -gt (Get-Item $terraformDir).LastWriteTime)
+if ($needReconfigure) {
+  & terraform init -backend-config backend.hcl -input=false -reconfigure
+} else {
+  & terraform init -backend-config backend.hcl -input=false
+}
 if ($LASTEXITCODE -ne 0) { throw 'terraform init failed.' }
 
 switch ($Action) {

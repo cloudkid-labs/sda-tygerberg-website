@@ -561,14 +561,14 @@ function KerkraadContent() {
       <SubPageHeader backHome={t.backHome} />
 
       <main id="main" className="flex-1">
-        <section className="mx-auto max-w-[720px] px-5 pb-8 pt-14 sm:px-7 sm:pt-16">
+        <section className="mx-auto max-w-[900px] px-5 pb-8 pt-14 sm:px-7 sm:pt-16">
           <h1 className="mb-3 font-serif text-[clamp(28px,5vw,42px)] font-medium leading-[1.1] tracking-[-.015em] text-ink">
             {t.heading}
           </h1>
           <p className="max-w-[560px] text-[16.5px] leading-relaxed text-slate">{t.sub}</p>
         </section>
 
-        <section className="mx-auto max-w-[720px] px-5 pb-16 sm:px-7">
+        <section className="mx-auto max-w-[900px] px-5 pb-16 sm:px-7">
           {phase === 'loading' && (
             <div aria-hidden="true" className="grid gap-3">
               {[0, 1, 2].map((i) => (

@@ -16,8 +16,7 @@ export type AuthEnv = {
   /** Comma-separated personal Google addresses allowed on /kerkraad. */
   BOARD_ALLOWED_EMAILS?: string;
   /**
-   * Subset allowed to delete inbox threads. Plain-text var like the allow-list
-   * (dashboard shows the value); keep it to as few addresses as possible.
+   * Administrators can sign in and use all Board Mail actions and sender identities.
    */
   BOARD_ADMIN_EMAILS?: string;
   /**
@@ -93,14 +92,14 @@ function getCookie(request: Request, name: string): string | null {
 
 function allowList(env: AuthEnv): Set<string> {
   return new Set(
-    (env.BOARD_ALLOWED_EMAILS ?? '')
+    `${env.BOARD_ALLOWED_EMAILS ?? ''},${env.BOARD_ADMIN_EMAILS ?? ''}`
       .split(',')
       .map((s) => s.trim().toLowerCase())
       .filter(Boolean),
   );
 }
 
-/** The admin list is a subset of the allow-list: deleting needs both. */
+/** Admins may sign in and use every Board Mail function. */
 export function isAdmin(env: AuthEnv, email: string): boolean {
   const admins = new Set(
     (env.BOARD_ADMIN_EMAILS ?? '')
@@ -108,10 +107,10 @@ export function isAdmin(env: AuthEnv, email: string): boolean {
       .map((s) => s.trim().toLowerCase())
       .filter(Boolean),
   );
-  return admins.has(email.toLowerCase()) && allowList(env).has(email.toLowerCase());
+  return admins.has(email.trim().toLowerCase());
 }
 
-type SendersEnv = Pick<AuthEnv, 'BOARD_SEND_AS'> & { MAIL_SEND_FROM?: string };
+type SendersEnv = Pick<AuthEnv, 'BOARD_SEND_AS' | 'BOARD_ADMIN_EMAILS'> & { MAIL_SEND_FROM?: string };
 
 export function senders(env: SendersEnv): Set<string> {
   return new Set(
@@ -131,6 +130,7 @@ export function senders(env: SendersEnv): Set<string> {
  */
 export function allowedFrom(env: SendersEnv, email: string): string[] {
   const all = senders(env);
+  if (isAdmin(env, email)) return [...all];
   const entry = (env.BOARD_SEND_AS ?? '')
     .split(';')
     .map((s) => s.trim().toLowerCase())

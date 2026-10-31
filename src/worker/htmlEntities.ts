@@ -2247,6 +2247,8 @@ const C1_ENTITY_REPLACEMENTS = new Map<number, number>([
   [0x9e, 0x017e], [0x9f, 0x0178],
 ]);
 
+const MAX_HTML_ENTITY_LENGTH = Math.max(...Object.keys(htmlEntities).map((entity) => entity.length));
+
 export function decodeHtmlEntities(value: string): string {
   return value.replace(/&(#\d+|#x[a-f0-9]+|[a-z][a-z0-9]*);?/gi, (match: string, entity: string) => {
     if (typeof htmlEntities[match] === 'string') {
@@ -2256,7 +2258,7 @@ export function decodeHtmlEntities(value: string): string {
     if (entity.charAt(0) !== '#') {
       // HTML consumes the longest known semicolonless named-reference prefix,
       // leaving any following text intact.
-      for (let end = match.length - 1; end > 1; end--) {
+      for (let end = Math.min(match.length - 1, MAX_HTML_ENTITY_LENGTH); end > 1; end--) {
         const prefix = match.slice(0, end);
         if (typeof htmlEntities[prefix] === 'string') {
           return htmlEntities[prefix] + match.slice(end);

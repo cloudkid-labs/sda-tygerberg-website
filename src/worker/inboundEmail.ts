@@ -409,7 +409,7 @@ async function emailHtmlToText(html: string): Promise<string> {
         continue;
       }
       visibilityOverrides.splice(index);
-      return;
+      continue;
     }
   };
 
@@ -429,7 +429,7 @@ async function emailHtmlToText(html: string): Promise<string> {
         continue;
       }
       visibilityOverrides.splice(index);
-      return;
+      continue;
     }
   };
 

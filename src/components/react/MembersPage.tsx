@@ -8,6 +8,7 @@ import { BoardMail } from './BoardMail';
 import { CmsEvents } from './cms/CmsEvents';
 import { CmsHeads } from './cms/CmsHeads';
 import { CmsPages } from './cms/CmsPages';
+import { RecentChanges } from './cms/RecentChanges';
 
 type Tab = 'mail' | 'content';
 type Section = 'events' | 'heads' | 'pages';
@@ -217,6 +218,7 @@ function MembersContent() {
                 {section === 'events' && <CmsEvents onOpenPage={openPageFromEvents} />}
                 {section === 'heads' && <CmsHeads />}
                 {section === 'pages' && <CmsPages initialSlug={openPage} />}
+                <RecentChanges refreshKey={section} />
               </div>
             )}
           </>

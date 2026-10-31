@@ -77,44 +77,93 @@ const P_AUTO_CLOSE_TAGS = new Set([
   'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'header', 'hgroup', 'hr', 'main',
   'menu', 'nav', 'ol', 'p', 'pre', 'search', 'section', 'table', 'ul',
 ]);
-const IMPLIED_CLOSES_ON_START: Record<string, ReadonlySet<string>> = {
-  dd: new Set(['dd', 'dt']),
-  dt: new Set(['dd', 'dt']),
-  li: new Set(['li']),
-  optgroup: new Set(['optgroup']),
-  option: new Set(['option', 'optgroup']),
-  p: P_AUTO_CLOSE_TAGS,
-  rp: new Set(['rp', 'rt']),
-  rt: new Set(['rp', 'rt']),
-  colgroup: new Set(['colgroup']),
-  td: new Set(['td', 'th', 'tr', 'thead', 'tbody', 'tfoot', 'table']),
-  th: new Set(['td', 'th', 'tr', 'thead', 'tbody', 'tfoot', 'table']),
-  tr: new Set(['tr', 'thead', 'tbody', 'tfoot', 'table']),
-  thead: new Set(['tbody', 'tfoot']),
-  tbody: new Set(['tbody', 'thead', 'tfoot']),
-  tfoot: new Set(['tbody', 'thead']),
+
+type EmailScopeKind = 'list' | 'table' | 'definition-list' | 'select' | 'ruby';
+type EmailClosureRule = { tags: ReadonlySet<string>; scope?: EmailScopeKind };
+const SCOPE_CONTAINER_KIND: Record<string, EmailScopeKind> = {
+  ul: 'list',
+  ol: 'list',
+  menu: 'list',
+  table: 'table',
+  dl: 'definition-list',
+  select: 'select',
+  datalist: 'select',
+  ruby: 'ruby',
 };
-const IMPLIED_CLOSES_ON_END: Record<string, ReadonlySet<string>> = {
-  dd: new Set(['dl']),
-  dt: new Set(['dl']),
-  head: new Set(['body']),
-  li: new Set(['ol', 'ul', 'menu']),
-  optgroup: new Set(['select', 'datalist']),
-  option: new Set(['optgroup', 'select', 'datalist']),
-  p: new Set([...P_AUTO_CLOSE_TAGS, 'body']),
-  rp: new Set(['ruby']),
-  rt: new Set(['ruby']),
-  colgroup: new Set(['table']),
-  td: new Set(['tr', 'thead', 'tbody', 'tfoot', 'table']),
-  th: new Set(['tr', 'thead', 'tbody', 'tfoot', 'table']),
-  tr: new Set(['thead', 'tbody', 'tfoot', 'table']),
-  thead: new Set(['table']),
-  tbody: new Set(['table']),
-  tfoot: new Set(['table']),
+const OPTIONAL_CONTENT_SCOPE_KIND: Record<string, EmailScopeKind> = {
+  li: 'list',
+  dt: 'definition-list',
+  dd: 'definition-list',
+  td: 'table',
+  th: 'table',
+  tr: 'table',
+  thead: 'table',
+  tbody: 'table',
+  tfoot: 'table',
+  colgroup: 'table',
+  option: 'select',
+  optgroup: 'select',
+  rt: 'ruby',
+  rp: 'ruby',
+};
+const END_TAG_SCOPE_KIND: Record<string, EmailScopeKind> = {
+  ul: 'list',
+  ol: 'list',
+  menu: 'list',
+  table: 'table',
+  dl: 'definition-list',
+  select: 'select',
+  datalist: 'select',
+  ruby: 'ruby',
+  option: 'select',
+  optgroup: 'select',
+  td: 'table',
+  th: 'table',
+  tr: 'table',
+  thead: 'table',
+  tbody: 'table',
+  tfoot: 'table',
+  colgroup: 'table',
+};
+const IMPLIED_CLOSES_ON_START: Record<string, EmailClosureRule> = {
+  dd: { tags: new Set(['dd', 'dt']), scope: 'definition-list' },
+  dt: { tags: new Set(['dd', 'dt']), scope: 'definition-list' },
+  li: { tags: new Set(['li']), scope: 'list' },
+  optgroup: { tags: new Set(['optgroup']), scope: 'select' },
+  option: { tags: new Set(['option', 'optgroup']), scope: 'select' },
+  p: { tags: P_AUTO_CLOSE_TAGS },
+  rp: { tags: new Set(['rp', 'rt']), scope: 'ruby' },
+  rt: { tags: new Set(['rp', 'rt']), scope: 'ruby' },
+  colgroup: { tags: new Set(['colgroup']), scope: 'table' },
+  td: { tags: new Set(['td', 'th', 'tr', 'thead', 'tbody', 'tfoot']), scope: 'table' },
+  th: { tags: new Set(['td', 'th', 'tr', 'thead', 'tbody', 'tfoot']), scope: 'table' },
+  tr: { tags: new Set(['tr', 'thead', 'tbody', 'tfoot']), scope: 'table' },
+  thead: { tags: new Set(['tbody', 'tfoot']), scope: 'table' },
+  tbody: { tags: new Set(['tbody', 'thead', 'tfoot']), scope: 'table' },
+  tfoot: { tags: new Set(['tbody', 'thead']), scope: 'table' },
+};
+const IMPLIED_CLOSES_ON_END: Record<string, EmailClosureRule> = {
+  dd: { tags: new Set(['dl']), scope: 'definition-list' },
+  dt: { tags: new Set(['dl']), scope: 'definition-list' },
+  head: { tags: new Set(['body']) },
+  li: { tags: new Set(['ol', 'ul', 'menu']), scope: 'list' },
+  optgroup: { tags: new Set(['select', 'datalist']), scope: 'select' },
+  option: { tags: new Set(['optgroup', 'select', 'datalist']), scope: 'select' },
+  p: { tags: new Set([...P_AUTO_CLOSE_TAGS, 'body', 'li', 'dd', 'dt', 'option', 'td', 'th', 'tr']) },
+  rp: { tags: new Set(['ruby']), scope: 'ruby' },
+  rt: { tags: new Set(['ruby']), scope: 'ruby' },
+  colgroup: { tags: new Set(['table']), scope: 'table' },
+  td: { tags: new Set(['tr', 'thead', 'tbody', 'tfoot', 'table']), scope: 'table' },
+  th: { tags: new Set(['tr', 'thead', 'tbody', 'tfoot', 'table']), scope: 'table' },
+  tr: { tags: new Set(['thead', 'tbody', 'tfoot', 'table']), scope: 'table' },
+  thead: { tags: new Set(['table']), scope: 'table' },
+  tbody: { tags: new Set(['table']), scope: 'table' },
+  tfoot: { tags: new Set(['table']), scope: 'table' },
 };
 const OPTIONAL_CLOSURE_END_TAGS = new Set([
   ...P_AUTO_CLOSE_TAGS, 'body', 'ol', 'ul', 'menu', 'dl', 'ruby', 'optgroup',
-  'select', 'datalist', 'table', 'thead', 'tbody', 'tfoot', 'tr',
+  'select', 'datalist', 'table', 'thead', 'tbody', 'tfoot', 'tr', 'td', 'th',
+  'li', 'dd', 'dt', 'option',
 ]);
 
 function hasHiddenEmailPresentation(element: Element): boolean {
@@ -156,13 +205,35 @@ async function emailHtmlToText(html: string): Promise<string> {
   if (typeof HTMLRewriter === 'undefined') return '';
 
   const chunks: string[] = [];
-  const hiddenElements: Array<{ id: number; tag: string }> = [];
+  const hiddenElements: Array<{
+    id: number;
+    tag: string;
+    scopeKind?: EmailScopeKind;
+    scopeId: number | null;
+  }> = [];
+  const scopeStacks: Record<EmailScopeKind, number[]> = {
+    list: [],
+    table: [],
+    'definition-list': [],
+    select: [],
+    ruby: [],
+  };
   let hiddenElementId = 0;
+  let scopeId = 0;
+
+  const currentScope = (kind?: EmailScopeKind): number | null =>
+    kind ? scopeStacks[kind][scopeStacks[kind].length - 1] ?? null : null;
+
+  const closeScope = (kind: EmailScopeKind, id: number): void => {
+    const index = scopeStacks[kind].lastIndexOf(id);
+    if (index >= 0) scopeStacks[kind].splice(index);
+  };
 
   const closeHiddenElement = (id: number): void => {
     const index = hiddenElements.findIndex((hidden) => hidden.id === id);
     if (index >= 0) hiddenElements.splice(index);
   };
+
   const closeImplicitlyOnStart = (nextTag: string): void => {
     const headIndex = hiddenElements.findIndex((hidden) => hidden.tag === 'head');
     if (
@@ -174,19 +245,39 @@ async function emailHtmlToText(html: string): Promise<string> {
       hiddenElements.splice(headIndex);
       return;
     }
+
     for (let index = hiddenElements.length - 1; index >= 0; index -= 1) {
-      if (IMPLIED_CLOSES_ON_START[hiddenElements[index].tag]?.has(nextTag)) {
-        hiddenElements.splice(index);
-        return;
+      const hidden = hiddenElements[index];
+      const rule = IMPLIED_CLOSES_ON_START[hidden.tag];
+      if (!rule?.tags.has(nextTag)) continue;
+      if (
+        rule.scope &&
+        (hidden.scopeKind !== rule.scope || hidden.scopeId !== currentScope(rule.scope))
+      ) {
+        continue;
       }
+      hiddenElements.splice(index);
+      return;
     }
   };
-  const closeImplicitlyOnEnd = (endTag: string): void => {
+
+  const closeImplicitlyOnEnd = (
+    endTag: string,
+    scopeKind?: EmailScopeKind,
+    scopeId: number | null = null,
+  ): void => {
     for (let index = hiddenElements.length - 1; index >= 0; index -= 1) {
-      if (IMPLIED_CLOSES_ON_END[hiddenElements[index].tag]?.has(endTag)) {
-        hiddenElements.splice(index);
-        return;
+      const hidden = hiddenElements[index];
+      const rule = IMPLIED_CLOSES_ON_END[hidden.tag];
+      if (!rule?.tags.has(endTag)) continue;
+      if (
+        rule.scope &&
+        (hidden.scopeKind !== rule.scope || hidden.scopeId !== scopeId || scopeKind !== rule.scope)
+      ) {
+        continue;
       }
+      hiddenElements.splice(index);
+      return;
     }
   };
 
@@ -195,9 +286,21 @@ async function emailHtmlToText(html: string): Promise<string> {
       element(element) {
         const tag = element.tagName.toLowerCase();
         closeImplicitlyOnStart(tag);
+
+        const openedScopeKind = SCOPE_CONTAINER_KIND[tag];
+        const openedScopeId = openedScopeKind ? ++scopeId : null;
+        if (openedScopeKind && openedScopeId !== null) {
+          scopeStacks[openedScopeKind].push(openedScopeId);
+        }
+        const endScopeKind = openedScopeKind ?? END_TAG_SCOPE_KIND[tag];
+        const endScopeId = openedScopeKind ? openedScopeId : currentScope(endScopeKind);
+
         if (OPTIONAL_CLOSURE_END_TAGS.has(tag) && !VOID_EMAIL_ELEMENTS.has(tag)) {
           element.onEndTag(() => {
-            closeImplicitlyOnEnd(tag);
+            closeImplicitlyOnEnd(tag, endScopeKind, endScopeId);
+            if (openedScopeKind && openedScopeId !== null) {
+              closeScope(openedScopeKind, openedScopeId);
+            }
           });
         }
         if (hiddenElements.length > 0) return;
@@ -210,7 +313,13 @@ async function emailHtmlToText(html: string): Promise<string> {
             element.remove();
             return;
           }
-          const hidden = { id: ++hiddenElementId, tag };
+          const hiddenScopeKind = OPTIONAL_CONTENT_SCOPE_KIND[tag];
+          const hidden = {
+            id: ++hiddenElementId,
+            tag,
+            scopeKind: hiddenScopeKind,
+            scopeId: currentScope(hiddenScopeKind),
+          };
           hiddenElements.push(hidden);
           element.onEndTag(() => {
             closeHiddenElement(hidden.id);

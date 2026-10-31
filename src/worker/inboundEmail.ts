@@ -600,6 +600,8 @@ async function emailHtmlToText(html: string): Promise<string> {
         }
         registerEndTagCallbacks();
       },
+    })
+    .onDocument({
       text(chunk) {
         if (
           hiddenElements.length === 0 &&

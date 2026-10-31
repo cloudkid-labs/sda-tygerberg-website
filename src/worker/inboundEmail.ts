@@ -150,7 +150,7 @@ export async function handleInboundEmail(
         JSON.stringify({
           id, submittedAt: at, topic, name: parsed.from?.name?.trim() || sender,
           email: sender, phone: null, lang: 'en', message: text,
-          subject: (parsed.subject?.replace(/[\\r\\n\\t]/g, ' ').trim().slice(0, 150)) || '(no subject)', replyFrom: message.to.trim().toLowerCase(),
+          subject: (parsed.subject?.replace(/[\r\n\t]/g, ' ').trim().slice(0, 150)) || '(no subject)', replyFrom: message.to.trim().toLowerCase(),
           replies: [],
         }),
       );

@@ -19,10 +19,12 @@ export type AuthEnv = {
    * Administrators can sign in and use all Board Mail actions and sender identities.
    */
   BOARD_ADMIN_EMAILS?: string;
+  /** Board Mail addresses reserved for admin use in From and recipient fields. */
+  BOARD_ADMIN_ONLY_EMAILS?: string;
   /**
-   * Per-sender send-as limits, `email=address[;email=address]`. Anyone unlisted
-   * may use every MAIL_SEND_FROM address; a listed sender is fenced to theirs.
-   * The treasurer writes only as tesourier@.
+   * Per-sender send-as limits, `email=address[;email=address]`. Non-admins
+   * may use regular MAIL_SEND_FROM addresses; a listed sender is fenced to theirs.
+   * Admin-only addresses stay reserved for admins.
    */
   BOARD_SEND_AS?: string;
 };
@@ -110,11 +112,25 @@ export function isAdmin(env: AuthEnv, email: string): boolean {
   return admins.has(email.trim().toLowerCase());
 }
 
-type SendersEnv = Pick<AuthEnv, 'BOARD_SEND_AS' | 'BOARD_ADMIN_EMAILS'> & { MAIL_SEND_FROM?: string };
+function adminOnlyEmails(env: Pick<AuthEnv, 'BOARD_ADMIN_ONLY_EMAILS'>): Set<string> {
+  return new Set(
+    (env.BOARD_ADMIN_ONLY_EMAILS ?? '')
+      .split(',')
+      .map((s) => s.trim().toLowerCase())
+      .filter(Boolean),
+  );
+}
+
+/** True for addresses that only an administrator may use in Board Mail. */
+export function isAdminOnlyEmail(env: Pick<AuthEnv, 'BOARD_ADMIN_ONLY_EMAILS'>, email: string): boolean {
+  return adminOnlyEmails(env).has(email.trim().toLowerCase());
+}
+
+type SendersEnv = Pick<AuthEnv, 'BOARD_SEND_AS' | 'BOARD_ADMIN_EMAILS' | 'BOARD_ADMIN_ONLY_EMAILS'> & { MAIL_SEND_FROM?: string };
 
 export function senders(env: SendersEnv): Set<string> {
   return new Set(
-    (env.MAIL_SEND_FROM ?? '')
+    `${env.MAIL_SEND_FROM ?? ''},${env.BOARD_ADMIN_ONLY_EMAILS ?? ''}`
       .split(',')
       .map((s) => s.trim().toLowerCase())
       .filter(Boolean),
@@ -122,25 +138,28 @@ export function senders(env: SendersEnv): Set<string> {
 }
 
 /**
- * The role addresses one board member may send as. Unlisted senders get them
- * all; a listed sender is fenced to their entry, intersected with the senders
- * above so a stale config line can never grant more than the role list holds.
+ * The regular role addresses one board member may send as. Unlisted non-admins
+ * get all of them; admin-only identities stay out of their list. A listed
+ * sender is fenced to their entry, intersected with eligible senders so a
+ * stale config line can never grant more than the role list holds.
  * Fail closed: a listed sender whose entry names nothing valid may send
  * nothing, loudly, rather than everything quietly.
  */
 export function allowedFrom(env: SendersEnv, email: string): string[] {
   const all = senders(env);
   if (isAdmin(env, email)) return [...all];
+  const adminOnly = adminOnlyEmails(env);
+  const eligible = new Set([...all].filter((address) => !adminOnly.has(address)));
   const entry = (env.BOARD_SEND_AS ?? '')
     .split(';')
     .map((s) => s.trim().toLowerCase())
     .find((s) => s.startsWith(`${email.trim().toLowerCase()}=`));
-  if (!entry) return [...all];
+  if (!entry) return [...eligible];
   return entry
     .slice(entry.indexOf('=') + 1)
     .split(',')
     .map((s) => s.trim().toLowerCase())
-    .filter((s) => all.has(s));
+    .filter((s) => eligible.has(s));
 }
 
 function isConfigured(env: AuthEnv): boolean {

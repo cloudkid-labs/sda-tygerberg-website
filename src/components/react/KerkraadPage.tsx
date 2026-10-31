@@ -342,9 +342,9 @@ function KerkraadContent() {
         const data = (await res.json()) as { email?: string; admin?: boolean; allowedFrom?: string[] };
         setEmail(data.email ?? '');
         setIsAdmin(data.admin === true);
-        const allowed = Array.isArray(data.allowedFrom) && data.allowedFrom.length > 0 ? data.allowedFrom : FROM_ADDRESSES;
+        const allowed = Array.isArray(data.allowedFrom) ? data.allowedFrom : FROM_ADDRESSES;
         setAllowedSenders(allowed);
-        if (!allowed.includes(from)) setFrom(allowed[0]);
+        if (allowed.length > 0 && !allowed.includes(from)) setFrom(allowed[0]);
         setPhase('ready');
         const params = new URLSearchParams(window.location.search);
         const msg = params.get('msg');
@@ -1064,8 +1064,14 @@ function KerkraadContent() {
                           value={to}
                           onChange={(e) => setTo(e.target.value)}
                           placeholder={t.toPlaceholder}
+                          list={isAdmin ? 'board-mail-admin-recipients' : undefined}
                           className={inputClass}
                         />
+                        {isAdmin && (
+                          <datalist id="board-mail-admin-recipients">
+                            <option value="archive@sdatygerberg.co.za" />
+                          </datalist>
+                        )}
                         <span className="text-[13px] text-slate">{t.toHint}</span>
                       </label>
                       <label className="grid gap-1.5">

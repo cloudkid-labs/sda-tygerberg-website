@@ -1,6 +1,7 @@
 /// <reference types="@cloudflare/workers-types" />
 
 import PostalMime from 'postal-mime';
+import { decodeHtmlEntities } from './htmlEntities';
 
 /**
  * Inbound mail for the church domain.
@@ -134,18 +135,8 @@ async function emailHtmlToText(html: string): Promise<string> {
   const visibleText = chunks.join('');
   if (!visibleText.trim()) return '';
 
-  // PostalMime owns the full HTML named and numeric character-reference table.
-  // Reparse only the extracted text as an HTML part so references are decoded
-  // after chunks have been joined; no sender markup, URLs or attributes enter it.
-  const decoded = await PostalMime.parse(
-    new TextEncoder().encode(
-      'MIME-Version: 1.0\r\nContent-Type: text/html; charset=utf-8\r\n\r\n<div>' +
-        visibleText +
-        '</div>',
-    ),
-    { maxNestingDepth: 20, maxHeadersSize: 65_536, maxPartCount: 100 },
-  );
-  return normalizeEmailText(decoded.text ?? '');
+  // Decode only after chunks are joined so references split across chunks resolve.
+  return normalizeEmailText(decodeHtmlEntities(visibleText));
 }
 
 async function emailBodyText(parsed: { html?: string; text?: string }): Promise<string> {

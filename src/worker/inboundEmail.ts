@@ -63,6 +63,31 @@ const HIDDEN_EMAIL_CONTAINERS = new Set([
   'iframe', 'object',
 ]);
 const HIDDEN_EMAIL_VOID_ELEMENTS = new Set(['meta', 'link', 'embed']);
+const VOID_EMAIL_ELEMENTS = new Set([
+  'area', 'base', 'br', 'col', 'embed', 'hr', 'img', 'input', 'link', 'meta',
+  'param', 'source', 'track', 'wbr',
+]);
+
+function hasHiddenEmailPresentation(element: Element): boolean {
+  if (element.hasAttribute('hidden')) return true;
+  if (element.getAttribute('aria-hidden')?.trim().toLowerCase() === 'true') return true;
+
+  const style = (element.getAttribute('style') ?? '').replace(/\/\*[\s\S]*?\*\//g, '');
+  return style.split(';').some((declaration) => {
+    const separator = declaration.indexOf(':');
+    if (separator < 0) return false;
+    const property = declaration.slice(0, separator).trim().toLowerCase();
+    const value = declaration
+      .slice(separator + 1)
+      .replace(/\s*!important\s*$/i, '')
+      .trim()
+      .toLowerCase();
+
+    return (property === 'display' && value === 'none') ||
+      (property === 'visibility' && (value === 'hidden' || value === 'collapse')) ||
+      (property === 'content-visibility' && value === 'hidden');
+  });
+}
 
 function normalizeEmailText(text: string): string {
   return text
@@ -88,15 +113,19 @@ async function emailHtmlToText(html: string): Promise<string> {
       element(element) {
         const tag = element.tagName.toLowerCase();
         if (hiddenDepth > 0) return;
-        if (HIDDEN_EMAIL_CONTAINERS.has(tag)) {
+        if (
+          HIDDEN_EMAIL_CONTAINERS.has(tag) ||
+          HIDDEN_EMAIL_VOID_ELEMENTS.has(tag) ||
+          hasHiddenEmailPresentation(element)
+        ) {
+          if (VOID_EMAIL_ELEMENTS.has(tag)) {
+            element.remove();
+            return;
+          }
           hiddenDepth += 1;
           element.onEndTag(() => {
             if (hiddenDepth > 0) hiddenDepth -= 1;
           });
-          element.remove();
-          return;
-        }
-        if (HIDDEN_EMAIL_VOID_ELEMENTS.has(tag)) {
           element.remove();
           return;
         }
@@ -108,6 +137,13 @@ async function emailHtmlToText(html: string): Promise<string> {
           const alt = element.getAttribute('alt')?.trim();
           if (alt) chunks.push('[Image: ' + alt + ']');
           element.remove();
+          return;
+        }
+        if (tag === 'td' || tag === 'th') {
+          chunks.push(' ');
+          element.onEndTag(() => {
+            chunks.push(' ');
+          });
           return;
         }
         if (tag === 'li') {

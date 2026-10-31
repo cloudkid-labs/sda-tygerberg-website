@@ -178,7 +178,7 @@ function stripInlineCssComments(style: string): string {
       escaped = false;
       continue;
     }
-    if (character === '\\\\') {
+    if (character === '\\') {
       result.push(character);
       escaped = true;
       continue;
@@ -219,7 +219,7 @@ function splitInlineCssDeclarations(style: string): string[] {
       escaped = false;
       continue;
     }
-    if (character === '\\\\') {
+    if (character === '\\') {
       escaped = true;
       continue;
     }
@@ -253,8 +253,8 @@ function winningInlineStyleValue(style: string, requestedProperty: string): stri
     }
 
     let value = declaration.slice(separator + 1).trim();
-    const important = /\\s*!important\\s*$/i.test(value);
-    if (important) value = value.replace(/\\s*!important\\s*$/i, '').trim();
+    const important = /\s*!important\s*$/i.test(value);
+    if (important) value = value.replace(/\s*!important\s*$/i, '').trim();
 
     if (!winner || (important && !winner.important) || important === winner.important) {
       winner = { value: value.toLowerCase(), important };

@@ -123,8 +123,12 @@ function Headshot({
   );
 }
 
-/** `sizer` is the invisible card that gives the track its height: no image. */
-function Card({
+/**
+ * `sizer` is the invisible card that gives the track its height: no image.
+ * Exported for the CMS editor's preview, which uses `sizer` for a head with
+ * no photo yet — the stripes then show as the empty frame.
+ */
+export function Card({
   head,
   lang,
   cdn = 'unknown',

@@ -1,8 +1,9 @@
 /// <reference types="@cloudflare/workers-types" />
 
 /**
- * Google Sign-in (OIDC authorization-code flow with PKCE) for the /kerkraad
- * board-mail page. Issues a signed session cookie; never stores Google tokens.
+ * Google Sign-in (OIDC authorization-code flow with PKCE) for the members
+ * area (/members: board mail and the CMS). Issues a signed session cookie;
+ * never stores Google tokens.
  *
  * Absent secrets mean "not configured" (devtest, local dev) — never a crash.
  * See src/worker/contact.ts for the guard-ordering and logging conventions.
@@ -13,7 +14,7 @@ export type AuthEnv = {
   GOOGLE_CLIENT_SECRET?: string;
   /** HMAC key for the flow and session cookies. 48-char random via Terraform. */
   SESSION_SECRET?: string;
-  /** Comma-separated personal Google addresses allowed on /kerkraad. */
+  /** Comma-separated personal Google addresses allowed into /members. */
   BOARD_ALLOWED_EMAILS?: string;
   /**
    * Administrators can sign in and use all Board Mail actions and sender identities.
@@ -319,7 +320,8 @@ export async function handleAuthCallback(request: Request, env: AuthEnv): Promis
   ) {
     // One status for every rejection: valid session or nothing to learn.
     const headers = { 'Set-Cookie': clearFlow, 'Cache-Control': 'no-store' };
-    return new Response(null, { status: 303, headers: { ...headers, Location: '/kerkraad/?error=forbidden' } });
+    // The 403 page says why and who can fix it (C-70).
+    return new Response(null, { status: 303, headers: { ...headers, Location: '/no-access/' } });
   }
 
   const session = await signSession(email, env.SESSION_SECRET!);
@@ -327,7 +329,7 @@ export async function handleAuthCallback(request: Request, env: AuthEnv): Promis
   // and browsers keep only the first cookie in a folded header — which used
   // to cost exactly the session this response exists to set.
   const headers = new Headers({
-    Location: '/kerkraad/',
+    Location: '/members/',
     'Cache-Control': 'no-store',
   });
   headers.append('Set-Cookie', clearFlow);
@@ -336,6 +338,15 @@ export async function handleAuthCallback(request: Request, env: AuthEnv): Promis
     `${SESSION_COOKIE}=${session}; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=${SESSION_HOURS * 3600}`,
   );
   return new Response(null, { status: 303, headers });
+}
+
+/**
+ * Whether the request carries a session cookie at all, valid or not. Lets the
+ * members gate tell "never signed in" (send to /login) from "signed in but not
+ * on the list, or expired" (403) — C-70.
+ */
+export function hasSessionCookie(request: Request): boolean {
+  return getCookie(request, SESSION_COOKIE) !== null;
 }
 
 /** POST /auth/logout — clears the session cookie. */

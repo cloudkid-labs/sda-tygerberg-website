@@ -1,0 +1,13 @@
+---
+import Layout from '../../layouts/Layout.astro';
+import { MembersPage } from '../../components/react/MembersPage';
+import { boardCopy } from '../../data/boardCopy';
+
+// Private page: the Worker serves it only to a signed-in board member (C-70),
+// and robots.txt disallows it. Meta from the Afrikaans copy, like every page.
+const copy = boardCopy.af;
+---
+
+<Layout title={copy.pageTitle} description={copy.pageDescription}>
+  <MembersPage client:load />
+</Layout>

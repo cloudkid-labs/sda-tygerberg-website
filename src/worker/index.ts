@@ -16,6 +16,7 @@ import { handleInboxList, handleInboxMessage, handleInboxReply, handleInboxDelet
 import { healthResponse } from './health';
 import { handleInboundEmail, type InboundEmailEnv } from './inboundEmail';
 import { requestFacts, requestLogEntry } from './requestLog';
+import { isLegacyBoardPath, isMembersPath, legacyBoardRedirect, membersGate, noAccess } from './members';
 
 export type Env = LiveStatusEnv &
   LatestVideoEnv &
@@ -109,6 +110,20 @@ async function route(request: Request, env: Env, ctx: ExecutionContext): Promise
 
   if (pathname === '/api/contact') {
     return handleContact(request, env);
+  }
+
+  // The members area: gated HTML, the 403 page, and the old board-mail
+  // address. C-70.
+  if (isMembersPath(pathname)) {
+    return membersGate(request, env);
+  }
+
+  if (pathname === '/no-access' || pathname === '/no-access/') {
+    return noAccess(request, env);
+  }
+
+  if (isLegacyBoardPath(pathname)) {
+    return legacyBoardRedirect(request);
   }
 
   if (pathname === '/auth/login') {

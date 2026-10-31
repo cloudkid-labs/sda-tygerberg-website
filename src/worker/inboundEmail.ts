@@ -166,25 +166,117 @@ const OPTIONAL_CLOSURE_END_TAGS = new Set([
   'li', 'dd', 'dt', 'option',
 ]);
 
+function stripInlineCssComments(style: string): string {
+  const result: string[] = [];
+  let quote = '';
+  let escaped = false;
+
+  for (let index = 0; index < style.length; index++) {
+    const character = style[index];
+    if (escaped) {
+      result.push(character);
+      escaped = false;
+      continue;
+    }
+    if (character === '\\\\') {
+      result.push(character);
+      escaped = true;
+      continue;
+    }
+    if (quote) {
+      result.push(character);
+      if (character === quote) quote = '';
+      continue;
+    }
+    if (character === "'" || character === '"') {
+      quote = character;
+      result.push(character);
+      continue;
+    }
+    if (character === '/' && style[index + 1] === '*') {
+      const commentEnd = style.indexOf('*/', index + 2);
+      if (commentEnd < 0) break;
+      result.push(' ');
+      index = commentEnd + 1;
+      continue;
+    }
+    result.push(character);
+  }
+
+  return result.join('');
+}
+
+function splitInlineCssDeclarations(style: string): string[] {
+  const declarations: string[] = [];
+  let start = 0;
+  let quote = '';
+  let escaped = false;
+  let parentheses = 0;
+
+  for (let index = 0; index < style.length; index++) {
+    const character = style[index];
+    if (escaped) {
+      escaped = false;
+      continue;
+    }
+    if (character === '\\\\') {
+      escaped = true;
+      continue;
+    }
+    if (quote) {
+      if (character === quote) quote = '';
+      continue;
+    }
+    if (character === "'" || character === '"') {
+      quote = character;
+    } else if (character === '(') {
+      parentheses++;
+    } else if (character === ')' && parentheses > 0) {
+      parentheses--;
+    } else if (character === ';' && parentheses === 0) {
+      declarations.push(style.slice(start, index));
+      start = index + 1;
+    }
+  }
+
+  declarations.push(style.slice(start));
+  return declarations;
+}
+
+function winningInlineStyleValue(style: string, requestedProperty: string): string | undefined {
+  let winner: { value: string; important: boolean } | undefined;
+
+  for (const declaration of splitInlineCssDeclarations(stripInlineCssComments(style))) {
+    const separator = declaration.indexOf(':');
+    if (separator < 0 || declaration.slice(0, separator).trim().toLowerCase() !== requestedProperty) {
+      continue;
+    }
+
+    let value = declaration.slice(separator + 1).trim();
+    const important = /\\s*!important\\s*$/i.test(value);
+    if (important) value = value.replace(/\\s*!important\\s*$/i, '').trim();
+
+    if (!winner || (important && !winner.important) || important === winner.important) {
+      winner = { value: value.toLowerCase(), important };
+    }
+  }
+
+  return winner?.value;
+}
+
 function hasHiddenEmailPresentation(element: Element): boolean {
   if (element.hasAttribute('hidden')) return true;
   if (element.getAttribute('aria-hidden')?.trim().toLowerCase() === 'true') return true;
 
-  const style = (element.getAttribute('style') ?? '').replace(/\/\*[\s\S]*?\*\//g, '');
-  return style.split(';').some((declaration) => {
-    const separator = declaration.indexOf(':');
-    if (separator < 0) return false;
-    const property = declaration.slice(0, separator).trim().toLowerCase();
-    const value = declaration
-      .slice(separator + 1)
-      .replace(/\s*!important\s*$/i, '')
-      .trim()
-      .toLowerCase();
+  const style = element.getAttribute('style') ?? '';
+  const display = winningInlineStyleValue(style, 'display');
+  const visibility = winningInlineStyleValue(style, 'visibility');
+  const contentVisibility = winningInlineStyleValue(style, 'content-visibility');
 
-    return (property === 'display' && value === 'none') ||
-      (property === 'visibility' && (value === 'hidden' || value === 'collapse')) ||
-      (property === 'content-visibility' && value === 'hidden');
-  });
+  return display === 'none' ||
+    visibility === 'hidden' ||
+    visibility === 'collapse' ||
+    contentVisibility === 'hidden';
 }
 
 function normalizeEmailText(text: string): string {

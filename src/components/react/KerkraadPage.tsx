@@ -17,6 +17,8 @@ type ThreadSummary = {
   email: string | null;
   phone: string | null;
   lang: string;
+  subject?: string;
+  replyFrom?: string;
   replies: ThreadReply[];
   trashedAt?: string;
 };
@@ -177,7 +179,7 @@ function KerkraadContent() {
   const [trashError, setTrashError] = useState(false);
 
   const topicLabel = (topic: string) =>
-    topic === 'bible-study' ? t.topicBibleStudy : t.topicConnect;
+    topic === 'bible-study' ? t.topicBibleStudy : topic === 'email' ? 'Email' : t.topicConnect;
 
   const fmtDate = (iso: string) => {
     try {
@@ -689,6 +691,7 @@ function KerkraadContent() {
                             {openThread.name}
                           </h2>
                           <p className="mb-1 text-[13px] font-bold text-navy">{topicLabel(openThread.topic)}</p>
+                          {openThread.subject && <p className="mb-2 text-[15px] font-semibold text-ink">{openThread.subject}</p>}
                           <p className="tabular-nums mb-4 text-[13px] text-slate">{fmtDate(openThread.submittedAt)}</p>
                           <p className="mb-2 text-[13px] font-bold text-navy">{t.theirMessage}</p>
                           <p className="mb-6 whitespace-pre-wrap text-[15px] leading-relaxed">{openThread.message}</p>
@@ -717,8 +720,7 @@ function KerkraadContent() {
                             // Replies go out as the topic's role address (see TOPIC_FROM in
                             // src/worker/inbox.ts); a sender fenced to another address
                             // gets the note instead of a form that would 403.
-                            ['connect', 'bible-study'].includes(openThread.topic) &&
-                            (allowedSenders.length === 0 || allowedSenders.includes('welkom@sdatygerberg.co.za')) ? (
+                            (allowedSenders.length === 0 || allowedSenders.includes(openThread.replyFrom ?? 'welkom@sdatygerberg.co.za')) ? (
                             <form onSubmit={sendReply} className="grid gap-3">
                               {replyError && (
                                 <p className="rounded-card border border-subtle bg-cream-card px-4 py-3 text-[14.5px] text-slate">

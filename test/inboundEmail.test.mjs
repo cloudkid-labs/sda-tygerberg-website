@@ -127,4 +127,31 @@ describe('handleInboundEmail', () => {
     assert.equal(m.rejections.length, 1);
     assert.match(logged.join('\n'), /forward to treasurer@example\.test failed/);
   });
+  test('stores parsed inbound mail in Board Mail after forwarding', async () => {
+    const store = new Map();
+    const bucket = { async put(key, value) { store.set(key, value); } };
+    const m = fakeMessage('welkom@sdatygerberg.co.za');
+    m.message.raw = new Response('From: Jan Example <jan@example.co.za>\r\nTo: welkom@sdatygerberg.co.za\r\nSubject: Re: Hallo\r\nContent-Type: text/plain; charset=utf-8\r\n\r\nDankie, ek sal daar wees.').body;
+    await handleInboundEmail(m.message, { MAIL_FORWARD_TO: CHURCH, SUBMISSIONS: bucket });
+    assert.deepEqual(m.attempted, [CHURCH]);
+    assert.equal(store.size, 1);
+    const item = JSON.parse([...store.values()][0]);
+    assert.equal(item.topic, 'email');
+    assert.equal(item.email, 'jan@example.co.za');
+    assert.equal(item.subject, 'Re: Hallo');
+    assert.equal(item.message, 'Dankie, ek sal daar wees.');
+    assert.equal(item.replyFrom, 'welkom@sdatygerberg.co.za');
+  });
+
+  test('keeps delivered mail when MIME parsing fails', async () => {
+    const errors = await capturingErrors(async () => {
+      const m = fakeMessage('welkom@sdatygerberg.co.za');
+      m.message.raw = new Response('not a valid email').body;
+      await handleInboundEmail(m.message, { MAIL_FORWARD_TO: CHURCH, SUBMISSIONS: { async put() { throw new Error('unexpected'); } } });
+      assert.deepEqual(m.attempted, [CHURCH]);
+      assert.deepEqual(m.rejections, []);
+    });
+    assert.match(errors.join(' '), /inbox store failed/);
+  });
+
 });

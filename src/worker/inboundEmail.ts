@@ -212,6 +212,8 @@ function splitInlineCssDeclarations(style: string): string[] {
   let quote = '';
   let escaped = false;
   let parentheses = 0;
+  let brackets = 0;
+  let braces = 0;
 
   for (let index = 0; index < style.length; index++) {
     const character = style[index];
@@ -233,7 +235,15 @@ function splitInlineCssDeclarations(style: string): string[] {
       parentheses++;
     } else if (character === ')' && parentheses > 0) {
       parentheses--;
-    } else if (character === ';' && parentheses === 0) {
+    } else if (character === '[') {
+      brackets++;
+    } else if (character === ']' && brackets > 0) {
+      brackets--;
+    } else if (character === '{') {
+      braces++;
+    } else if (character === '}' && braces > 0) {
+      braces--;
+    } else if (character === ';' && parentheses === 0 && brackets === 0 && braces === 0) {
       declarations.push(style.slice(start, index));
       start = index + 1;
     }

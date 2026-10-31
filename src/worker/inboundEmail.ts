@@ -166,25 +166,179 @@ const OPTIONAL_CLOSURE_END_TAGS = new Set([
   'li', 'dd', 'dt', 'option',
 ]);
 
+function stripInlineCssComments(style: string): string {
+  const result: string[] = [];
+  let quote = '';
+  let escaped = false;
+
+  for (let index = 0; index < style.length; index++) {
+    const character = style[index];
+    if (escaped) {
+      result.push(character);
+      if (character === '\r' && style[index + 1] === '\n') {
+        result.push(style[index + 1]);
+        index++;
+      }
+      escaped = false;
+      continue;
+    }
+    if (character === '\\') {
+      result.push(character);
+      escaped = true;
+      continue;
+    }
+    if (quote) {
+      result.push(character);
+      if (character === quote || character === '\n' || character === '\r' || character === '\f') quote = '';
+      continue;
+    }
+    if (character === "'" || character === '"') {
+      quote = character;
+      result.push(character);
+      continue;
+    }
+    if (character === '/' && style[index + 1] === '*') {
+      const commentEnd = style.indexOf('*/', index + 2);
+      if (commentEnd < 0) break;
+      result.push(' ');
+      index = commentEnd + 1;
+      continue;
+    }
+    result.push(character);
+  }
+
+  return result.join('');
+}
+
+function splitInlineCssDeclarations(style: string): string[] {
+  const declarations: string[] = [];
+  let start = 0;
+  let quote = '';
+  let escaped = false;
+  let parentheses = 0;
+  let brackets = 0;
+  let braces = 0;
+
+  for (let index = 0; index < style.length; index++) {
+    const character = style[index];
+    if (escaped) {
+      if (character === '\r' && style[index + 1] === '\n') index++;
+      escaped = false;
+      continue;
+    }
+    if (character === '\\') {
+      escaped = true;
+      continue;
+    }
+    if (quote) {
+      if (character === quote || character === '\n' || character === '\r' || character === '\f') quote = '';
+      continue;
+    }
+    if (character === "'" || character === '"') {
+      quote = character;
+    } else if (character === '(') {
+      parentheses++;
+    } else if (character === ')' && parentheses > 0) {
+      parentheses--;
+    } else if (character === '[') {
+      brackets++;
+    } else if (character === ']' && brackets > 0) {
+      brackets--;
+    } else if (character === '{') {
+      braces++;
+    } else if (character === '}' && braces > 0) {
+      braces--;
+    } else if (character === ';' && parentheses === 0 && brackets === 0 && braces === 0) {
+      declarations.push(style.slice(start, index));
+      start = index + 1;
+    }
+  }
+
+  declarations.push(style.slice(start));
+  return declarations;
+}
+
+const CSS_WIDE_KEYWORDS = new Set(['inherit', 'initial', 'revert', 'revert-layer', 'unset']);
+const DISPLAY_OUTSIDE = new Set(['block', 'inline', 'run-in']);
+const DISPLAY_INSIDE = new Set(['flow', 'flow-root', 'table', 'flex', 'grid', 'ruby']);
+const DISPLAY_INTERNAL = new Set([
+  'table-row-group', 'table-header-group', 'table-footer-group', 'table-row',
+  'table-cell', 'table-column-group', 'table-column', 'table-caption',
+  'ruby-base', 'ruby-text', 'ruby-base-container', 'ruby-text-container',
+]);
+const DISPLAY_LEGACY = new Set([
+  'inline-block', 'inline-table', 'inline-flex', 'inline-grid',
+  '-webkit-box', '-webkit-inline-box', '-webkit-flex', '-webkit-inline-flex',
+]);
+
+function isValidPresentationValue(property: string, value: string): boolean {
+  if (CSS_WIDE_KEYWORDS.has(value)) return true;
+  if (property === 'visibility') {
+    return value === 'visible' || value === 'hidden' || value === 'collapse';
+  }
+  if (property === 'content-visibility') {
+    return value === 'visible' || value === 'auto' || value === 'hidden';
+  }
+  if (property !== 'display') return false;
+  if (value === 'none' || value === 'contents' || DISPLAY_INTERNAL.has(value) || DISPLAY_LEGACY.has(value)) {
+    return true;
+  }
+
+  let outsideCount = 0;
+  let insideCount = 0;
+  let insideValue = '';
+  let listItemCount = 0;
+  for (const token of value.split(/\s+/)) {
+    if (DISPLAY_OUTSIDE.has(token)) outsideCount++;
+    else if (DISPLAY_INSIDE.has(token)) {
+      insideCount++;
+      insideValue = token;
+    }
+    else if (token === 'list-item') listItemCount++;
+    else return false;
+  }
+
+  return outsideCount <= 1 && insideCount <= 1 && listItemCount <= 1 &&
+    (listItemCount === 0 || insideCount === 0 || insideValue === 'flow' || insideValue === 'flow-root') &&
+    (outsideCount + insideCount + listItemCount > 0);
+}
+
+function winningInlineStyleValue(style: string, requestedProperty: string): string | undefined {
+  let winner: { value: string; important: boolean } | undefined;
+
+  for (const declaration of splitInlineCssDeclarations(stripInlineCssComments(style))) {
+    const separator = declaration.indexOf(':');
+    if (separator < 0 || declaration.slice(0, separator).trim().toLowerCase() !== requestedProperty) {
+      continue;
+    }
+
+    let value = declaration.slice(separator + 1).trim();
+    const important = /\s*!\s*important\s*$/i.test(value);
+    if (important) value = value.replace(/\s*!\s*important\s*$/i, '').trim();
+    value = value.toLowerCase();
+    if (!isValidPresentationValue(requestedProperty, value)) continue;
+
+    if (!winner || (important && !winner.important) || important === winner.important) {
+      winner = { value, important };
+    }
+  }
+
+  return winner?.value;
+}
+
 function hasHiddenEmailPresentation(element: Element): boolean {
   if (element.hasAttribute('hidden')) return true;
   if (element.getAttribute('aria-hidden')?.trim().toLowerCase() === 'true') return true;
 
-  const style = (element.getAttribute('style') ?? '').replace(/\/\*[\s\S]*?\*\//g, '');
-  return style.split(';').some((declaration) => {
-    const separator = declaration.indexOf(':');
-    if (separator < 0) return false;
-    const property = declaration.slice(0, separator).trim().toLowerCase();
-    const value = declaration
-      .slice(separator + 1)
-      .replace(/\s*!important\s*$/i, '')
-      .trim()
-      .toLowerCase();
+  const style = element.getAttribute('style') ?? '';
+  const display = winningInlineStyleValue(style, 'display');
+  const visibility = winningInlineStyleValue(style, 'visibility');
+  const contentVisibility = winningInlineStyleValue(style, 'content-visibility');
 
-    return (property === 'display' && value === 'none') ||
-      (property === 'visibility' && (value === 'hidden' || value === 'collapse')) ||
-      (property === 'content-visibility' && value === 'hidden');
-  });
+  return display === 'none' ||
+    visibility === 'hidden' ||
+    visibility === 'collapse' ||
+    contentVisibility === 'hidden';
 }
 
 function normalizeEmailText(text: string): string {

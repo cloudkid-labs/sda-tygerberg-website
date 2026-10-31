@@ -1,6 +1,6 @@
 /// <reference types="@cloudflare/workers-types" />
 
-import { verifySession, isAdmin, allowedFrom, type AuthEnv } from './auth';
+import { verifySession, isAdmin, isAdminOnlyEmail, allowedFrom, senders, type AuthEnv } from './auth';
 import { sendViaBrevo, storeSent, type MailSendEnv, type SentItem } from './mailSend';
 import { mailHtml, LOGO_REMOTE_URL } from './signature';
 
@@ -41,6 +41,16 @@ function json(body: unknown, status: number): Response {
 
 function str(value: unknown): string {
   return typeof value === 'string' ? value.trim() : '';
+}
+
+function isAdminOnlySubmission(env: InboxEnv, sessionEmail: string, item: Submission): boolean {
+  return !isAdmin(env, sessionEmail) &&
+    (isAdminOnlyEmail(env, item.replyFrom ?? '') || isAdminOnlyEmail(env, item.email ?? ''));
+}
+
+function isAdminOnlySentItem(env: InboxEnv, sessionEmail: string, item: SentItem): boolean {
+  return !isAdmin(env, sessionEmail) &&
+    (isAdminOnlyEmail(env, item.from) || (item.to ?? []).some((address) => isAdminOnlyEmail(env, address)));
 }
 
 /**
@@ -95,6 +105,7 @@ export async function handleInboxList(request: Request, env: InboxEnv): Promise<
       const s = (await obj.json()) as Submission;
       const { message: _omitted, ...summary } = s;
       if (trashedOnly !== Boolean(s.trashedAt)) continue;
+      if (isAdminOnlySubmission(env, session.email, s)) continue;
       items.push(summary);
     } catch {
       // A stray object is skipped, never fatal — the log says which key.
@@ -159,8 +170,12 @@ export async function handleInboxMessage(request: Request, env: InboxEnv): Promi
   if (!key) return json({ ok: false, outcome: 'invalid', errors: ['id'] }, !id || id.includes('/') || id.includes('..') ? 400 : 404);
   const obj = await env.SUBMISSIONS!.get(key);
   if (!obj) return json({ ok: false, outcome: 'invalid', errors: ['id'] }, 404);
+  const item = (await obj.json()) as Submission;
+  if (isAdminOnlySubmission(env, session.email, item)) {
+    return json({ ok: false, outcome: 'invalid', errors: ['id'] }, 404);
+  }
   console.log(`inbox: read by=${session.email}`);
-  return json({ ok: true, item: (await obj.json()) as Submission }, 200);
+  return json({ ok: true, item }, 200);
 }
 
 /**
@@ -220,7 +235,9 @@ export async function handleInboxSent(request: Request, env: InboxEnv): Promise<
     const obj = await env.SUBMISSIONS.get(key);
     if (!obj) return json({ ok: false, outcome: 'invalid', errors: ['id'] }, 404);
     const item = (await obj.json()) as SentItem;
-    if (trashedOnly !== Boolean(item.trashedAt)) return json({ ok: false, outcome: 'invalid', errors: ['id'] }, 404);
+    if (trashedOnly !== Boolean(item.trashedAt) || isAdminOnlySentItem(env, session.email, item)) {
+      return json({ ok: false, outcome: 'invalid', errors: ['id'] }, 404);
+    }
     return json({ ok: true, item }, 200);
   }
   const items: Omit<SentItem, 'body'>[] = [];
@@ -229,7 +246,7 @@ export async function handleInboxSent(request: Request, env: InboxEnv): Promise<
     if (!obj) continue;
     try {
       const s = (await obj.json()) as SentItem;
-      if (trashedOnly !== Boolean(s.trashedAt)) continue;
+      if (trashedOnly !== Boolean(s.trashedAt) || isAdminOnlySentItem(env, session.email, s)) continue;
       const { body: _omitted, ...summary } = s;
       items.push(summary);
     } catch {
@@ -297,15 +314,15 @@ export async function handleInboxReply(request: Request, env: InboxEnv): Promise
   const obj = await env.SUBMISSIONS.get(key);
   if (!obj) return json({ ok: false, outcome: 'invalid', errors: ['id'] }, 404);
   const item = (await obj.json()) as Submission;
+  if (isAdminOnlySubmission(env, session.email, item)) {
+    return json({ ok: false, outcome: 'invalid', errors: ['id'] }, 404);
+  }
   if (!item.email) {
     return json({ ok: false, outcome: 'invalid', errors: ['to'] }, 400);
   }
 
   const from = item.replyFrom?.toLowerCase() ?? TOPIC_FROM[item.topic] ?? 'welkom@sdatygerberg.co.za';
-  const senders = new Set(
-    (env.MAIL_SEND_FROM ?? '').split(',').map((s) => s.trim().toLowerCase()).filter(Boolean),
-  );
-  if (!senders.has(from)) return json({ ok: false, outcome: 'not-configured' }, 503);
+  if (!senders(env).has(from)) return json({ ok: false, outcome: 'not-configured' }, 503);
   if (!allowedFrom(env, session.email).includes(from)) {
     return json({ ok: false, outcome: 'not-allowed', errors: ['from'] }, 403);
   }

@@ -131,7 +131,7 @@ describe('handleInboundEmail', () => {
     const store = new Map();
     const bucket = { async put(key, value) { store.set(key, value); } };
     const m = fakeMessage('welkom@sdatygerberg.co.za');
-    m.message.raw = new Response('From: Jan Example <jan@example.co.za>\\r\\nTo: welkom@sdatygerberg.co.za\\r\\nSubject: Re: Hallo\\r\\nContent-Type: text/plain; charset=utf-8\\r\\n\\r\\nDankie, ek sal daar wees.').body;
+    m.message.raw = new Response('From: Jan Example <jan@example.co.za>\r\nTo: welkom@sdatygerberg.co.za\r\nSubject: Re: Hallo\r\nContent-Type: text/plain; charset=utf-8\r\n\r\nDankie, ek sal daar wees.').body;
     await handleInboundEmail(m.message, { MAIL_FORWARD_TO: CHURCH, SUBMISSIONS: bucket });
     assert.deepEqual(m.attempted, [CHURCH]);
     assert.equal(store.size, 1);

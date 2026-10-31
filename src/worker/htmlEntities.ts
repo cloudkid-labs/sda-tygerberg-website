@@ -2248,7 +2248,7 @@ const C1_ENTITY_REPLACEMENTS = new Map<number, number>([
 ]);
 
 export function decodeHtmlEntities(value: string): string {
-  return value.replace(/&(#\\d+|#x[a-f0-9]+|[a-z][a-z0-9]*);?/gi, (match: string, entity: string) => {
+  return value.replace(/&(#\d+|#x[a-f0-9]+|[a-z][a-z0-9]*);?/gi, (match: string, entity: string) => {
     if (typeof htmlEntities[match] === 'string') {
       return htmlEntities[match];
     }
@@ -2273,7 +2273,7 @@ export function decodeHtmlEntities(value: string): string {
     }
 
     if (codePoint === 0 || (codePoint >= 0xd800 && codePoint <= 0xdfff) || codePoint > 0x10ffff) {
-      return '\\ufffd';
+      return '\ufffd';
     }
 
     codePoint = C1_ENTITY_REPLACEMENTS.get(codePoint) ?? codePoint;

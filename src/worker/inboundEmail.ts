@@ -100,12 +100,12 @@ async function emailHtmlToText(html: string): Promise<string> {
         }
         if (tag === 'li') {
           chunks.push('\n- ');
-          element.onEndTag(() => chunks.push('\n'));
+          element.onEndTag(() => { chunks.push('\n'); });
           return;
         }
         if (BLOCK_EMAIL_ELEMENTS.has(tag)) {
           chunks.push('\n');
-          element.onEndTag(() => chunks.push('\n'));
+          element.onEndTag(() => { chunks.push('\n'); });
         }
       },
       text(chunk) {

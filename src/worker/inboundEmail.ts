@@ -483,6 +483,14 @@ async function emailHtmlToText(html: string): Promise<string> {
   const transformed = new HTMLRewriter()
     .on('*', {
       element(element) {
+        const endTagCallbacks: Array<() => void> = [];
+        const registerEndTagCallbacks = (): void => {
+          if (endTagCallbacks.length === 0) return;
+          element.onEndTag(() => {
+            for (const callback of endTagCallbacks) callback();
+          });
+        };
+
         const tag = element.tagName.toLowerCase();
         closeImplicitlyOnStart(tag);
         closeVisibilityOverridesOnStart(tag);
@@ -496,7 +504,7 @@ async function emailHtmlToText(html: string): Promise<string> {
         const endScopeId = openedScopeKind ? openedScopeId : currentScope(endScopeKind);
 
         if (OPTIONAL_CLOSURE_END_TAGS.has(tag) && !VOID_EMAIL_ELEMENTS.has(tag)) {
-          element.onEndTag(() => {
+          endTagCallbacks.push(() => {
             closeImplicitlyOnEnd(tag, endScopeKind, endScopeId);
             closeVisibilityOverridesOnEnd(tag, endScopeKind, endScopeId);
             if (openedScopeKind && openedScopeId !== null) {
@@ -504,13 +512,17 @@ async function emailHtmlToText(html: string): Promise<string> {
             }
           });
         }
-        if (hiddenElements.length > 0) return;
+        if (hiddenElements.length > 0) {
+          registerEndTagCallbacks();
+          return;
+        }
         if (
           HIDDEN_EMAIL_CONTAINERS.has(tag) ||
           HIDDEN_EMAIL_VOID_ELEMENTS.has(tag) ||
           hasHiddenEmailPresentation(element)
         ) {
           if (VOID_EMAIL_ELEMENTS.has(tag)) {
+            registerEndTagCallbacks();
             element.remove();
             return;
           }
@@ -522,9 +534,10 @@ async function emailHtmlToText(html: string): Promise<string> {
             scopeId: currentScope(hiddenScopeKind),
           };
           hiddenElements.push(hidden);
-          element.onEndTag(() => {
+          endTagCallbacks.push(() => {
             closeHiddenElement(hidden.id);
           });
+          registerEndTagCallbacks();
           element.remove();
           return;
         }
@@ -546,41 +559,46 @@ async function emailHtmlToText(html: string): Promise<string> {
             scopeId: currentScope(visibilityScopeKind),
           };
           visibilityOverrides.push(override);
-          element.onEndTag(() => closeVisibilityOverride(override.id));
+          endTagCallbacks.push(() => closeVisibilityOverride(override.id));
         }
         const currentVisibilityHidden =
           visibilityOverride ?? visibilityOverrides[visibilityOverrides.length - 1]?.hidden ?? false;
 
         if (tag === 'br' || tag === 'hr') {
-          chunks.push('\n');
+          if (!currentVisibilityHidden) chunks.push('\n');
+          registerEndTagCallbacks();
           return;
         }
         if (tag === 'img') {
           const alt = element.getAttribute('alt')?.trim();
           if (alt && !currentVisibilityHidden) chunks.push('[Image: ' + alt + ']');
+          registerEndTagCallbacks();
           element.remove();
           return;
         }
         if (tag === 'td' || tag === 'th') {
           chunks.push(' ');
-          element.onEndTag(() => {
+          endTagCallbacks.push(() => {
             chunks.push(' ');
           });
+          registerEndTagCallbacks();
           return;
         }
         if (tag === 'li') {
-          chunks.push('\n- ');
-          element.onEndTag(() => {
-            chunks.push('\n');
+          if (!currentVisibilityHidden) chunks.push('\n- ');
+          endTagCallbacks.push(() => {
+            if (!currentVisibilityHidden) chunks.push('\n');
           });
+          registerEndTagCallbacks();
           return;
         }
         if (BLOCK_EMAIL_ELEMENTS.has(tag)) {
           chunks.push('\n');
-          element.onEndTag(() => {
+          endTagCallbacks.push(() => {
             chunks.push('\n');
           });
         }
+        registerEndTagCallbacks();
       },
       text(chunk) {
         if (

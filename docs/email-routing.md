@@ -19,7 +19,7 @@ flowchart LR
   subgraph CF["Cloudflare"]
     direction TB
     API["Worker · /api/contact<br/>From: welkom@sdatygerberg.co.za<br/>Reply-To: the visitor"]
-    KERKRAAD["Worker · /api/mail/send<br/>From: welkom@sdatygerberg.co.za, klerk@sdatygerberg.co.za,<br/>tesourier@sdatygerberg.co.za, kerk@sdatygerberg.co.za<br/>Admin only: archive@sdatygerberg.co.za<br/>Reply-To: the From address"]
+    KERKRAAD["Worker · /api/mail/send<br/>From: welkom@sdatygerberg.co.za, klerk@sdatygerberg.co.za,<br/>tesourier@sdatygerberg.co.za, kerk@sdatygerberg.co.za<br/>Admin only: archive@sdatygerberg.co.za, rainier@sdatygerberg.co.za<br/>Reply-To: the From address"]
     CATCHALL["Email Routing<br/>catch-all rule"]
     INBOUND["Worker · email() handler"]
     ARCHIVE["archive@sdatygerberg.co.za<br/>literal routing rule"]
@@ -90,6 +90,7 @@ Solid arrows always happen. Dotted arrows are fallbacks or best-effort copies.
 | `tesourier@sdatygerberg.co.za` | Zapper's merchant notification address. Not a mailbox. Also a board send-as address | `MAIL_ROUTES` key, `MAIL_SEND_FROM` |
 | `muller31jp@gmail.com` | Treasurer. Receives everything sent to `tesourier@`; sends and is notified as treasurer only | `MAIL_ROUTES` value, `BOARD_SEND_AS` |
 | `archive@sdatygerberg.co.za` | R2 archive. Admins may also use it as a Board Mail From address and recipient; other members cannot | `CONTACT_EMAIL_BCC`, `MAIL_ARCHIVE_TO`, `BOARD_ADMIN_ONLY_EMAILS` |
+| `rainier@sdatygerberg.co.za` | Admin-only Board Mail identity for From, To, and incoming messages routed through the catch-all | `BOARD_ADMIN_ONLY_EMAILS` |
 
 Every form-email recipient must also be in `send_email.allowed_destination_addresses`,
 or the whole send is rejected (C-31).
@@ -98,9 +99,10 @@ or the whole send is rejected (C-31).
 
 Board members sign in with Google on the private `/kerkraad` page and send as
 one of the four role addresses through the Brevo API. Admins also get
-`archive@` as a From address and recipient. The Worker rejects non-admin sends
-that use it as From or To, and hides Inbox and Sent messages involving that
-address from non-admins. The archive's automatic BCC remains system-controlled
+`archive@` and `rainier@` as From addresses and recipients. The Worker rejects
+non-admin sends that use either address as From or To, and hides Inbox and Sent
+messages involving those addresses from non-admins. Messages sent directly to
+`rainier@` arrive through the catch-all and appear only to admins in the Inbox. The archive's automatic BCC remains system-controlled
 for retention. The Worker holds the Brevo key; replies to role addresses return
 through Email Routing to the church inbox. The allow-list of board members is a
 plain-text `BOARD_ALLOWED_EMAILS` var in `wrangler.jsonc` (not a secret, so the
@@ -110,8 +112,8 @@ never on the public site (C-68).
 Per-sender send-as: `BOARD_SEND_AS` fences a listed address to named role
 addresses (the treasurer writes only as `tesourier@`). Unlisted non-admins may
 use regular role addresses; the Worker excludes admin-only identities from
-their From list and rejects those addresses in To. The page offers the
-admin-only recipient only to admins and filters the From dropdown to match.
+their From list and rejects those addresses in To. The page offers both
+admin-only recipients only to admins and filters the From dropdown to match.
 Treasurer notifications stay treasurer-scoped: visitor notifications go only
 to the clerk, never to the treasurer address.
 

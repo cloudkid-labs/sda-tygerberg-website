@@ -52,6 +52,85 @@ export type InboundEmailMessage = Pick<ForwardableEmailMessage, 'to' | 'forward'
 const MAX_INBOUND_BYTES = 5 * 1024 * 1024;
 const MAX_STORED_BODY_CHARS = 100_000;
 
+const BLOCK_EMAIL_ELEMENTS = new Set([
+  'address', 'article', 'aside', 'blockquote', 'dd', 'details', 'div', 'dl',
+  'dt', 'fieldset', 'figcaption', 'figure', 'footer', 'header', 'h1', 'h2',
+  'h3', 'h4', 'h5', 'h6', 'main', 'nav', 'ol', 'p', 'section', 'table', 'tr', 'ul',
+]);
+const HIDDEN_EMAIL_ELEMENTS = new Set([
+  'head', 'script', 'style', 'title', 'meta', 'link', 'noscript', 'template',
+  'svg', 'canvas', 'iframe', 'object', 'embed',
+]);
+
+function normalizeEmailText(text: string): string {
+  return text
+    .replace(/\r\n?/g, '\n')
+    .replace(/\u00a0/g, ' ')
+    .replace(/[ \t]+\n/g, '\n')
+    .replace(/\n[ \t]*\n(?:[ \t]*\n)+/g, '\n\n')
+    .trim();
+}
+
+/**
+ * Extracts visible text from an untrusted HTML alternative. The original
+ * markup is never stored or rendered; unsupported Worker runtimes fall back to
+ * PostalMime's plain-text alternative.
+ */
+async function emailHtmlToText(html: string): Promise<string> {
+  if (typeof HTMLRewriter === 'undefined') return '';
+
+  const chunks: string[] = [];
+  const transformed = new HTMLRewriter()
+    .on('*', {
+      element(element) {
+        const tag = element.tagName.toLowerCase();
+        if (HIDDEN_EMAIL_ELEMENTS.has(tag)) {
+          element.remove();
+          return;
+        }
+        if (tag === 'br' || tag === 'hr') {
+          chunks.push('\n');
+          return;
+        }
+        if (tag === 'img') {
+          const alt = element.getAttribute('alt')?.trim();
+          if (alt) chunks.push('[Image: ' + alt + ']');
+          element.remove();
+          return;
+        }
+        if (tag === 'li') {
+          chunks.push('\n- ');
+          element.onEndTag(() => chunks.push('\n'));
+          return;
+        }
+        if (BLOCK_EMAIL_ELEMENTS.has(tag)) {
+          chunks.push('\n');
+          element.onEndTag(() => chunks.push('\n'));
+        }
+      },
+      text(chunk) {
+        if (!chunk.removed) chunks.push(chunk.text);
+      },
+    })
+    .transform(new Response(html));
+
+  // Consume the transformed stream so every HTMLRewriter handler runs.
+  await transformed.text();
+  return normalizeEmailText(chunks.join(''));
+}
+
+async function emailBodyText(parsed: { html?: string; text?: string }): Promise<string> {
+  if (parsed.html) {
+    try {
+      const htmlText = await emailHtmlToText(parsed.html);
+      if (htmlText) return htmlText;
+    } catch {
+      // Keep the decoded text/plain alternative if HTML extraction fails.
+    }
+  }
+  return normalizeEmailText(parsed.text ?? '');
+}
+
 async function readBounded(stream: ReadableStream<Uint8Array>): Promise<Uint8Array> {
   const reader = stream.getReader();
   const chunks: Uint8Array[] = [];
@@ -139,7 +218,7 @@ export async function handleInboundEmail(
       const raw = await readBounded(message.raw);
       const parsed = await PostalMime.parse(raw, { maxNestingDepth: 20, maxHeadersSize: 65_536, maxPartCount: 100 });
       const sender = parsed.from?.address?.trim().toLowerCase();
-      const text = (parsed.text ?? '').trim().slice(0, MAX_STORED_BODY_CHARS);
+      const text = (await emailBodyText(parsed)).slice(0, MAX_STORED_BODY_CHARS);
       if (!sender || !text) throw new Error('missing sender or text body');
       const at = new Date().toISOString();
       const [date] = at.split('T');

@@ -48,6 +48,14 @@ type TrashItem = {
 const inputClass =
   'w-full rounded-card border border-subtle bg-white px-4 py-2.5 text-[15px] text-ink placeholder:text-slate/60';
 
+function displayEmailText(text: string): string {
+  return text
+    .replace(/\r\n?/g, '\n')
+    .replace(/[ \t]+\n/g, '\n')
+    .replace(/\n(?:[ \t]*\n){2,}/g, '\n\n')
+    .trim();
+}
+
 /**
  * The inbox as two queues: unanswered threads under New, answered ones under
  * Replied. Answering moves the thread — the reply count is the state, so no
@@ -694,7 +702,7 @@ function KerkraadContent() {
                           {openThread.subject && <p className="mb-2 text-[15px] font-semibold text-ink">{openThread.subject}</p>}
                           <p className="tabular-nums mb-4 text-[13px] text-slate">{fmtDate(openThread.submittedAt)}</p>
                           <p className="mb-2 text-[13px] font-bold text-navy">{t.theirMessage}</p>
-                          <p className="mb-6 whitespace-pre-wrap text-[15px] leading-relaxed">{openThread.message}</p>
+                          <p className="mb-6 whitespace-pre-wrap break-words text-[15px] leading-relaxed">{displayEmailText(openThread.message)}</p>
                           {openThread.replies.length > 0 && (
                             <div className="mb-6">
                               <p className="mb-2">
@@ -709,7 +717,7 @@ function KerkraadContent() {
                                       {r.by} · {fmtDate(r.at)}
                                     </p>
                                     {r.body && (
-                                      <p className="whitespace-pre-wrap text-[14.5px] leading-relaxed text-ink">{r.body}</p>
+                                      <p className="whitespace-pre-wrap break-words text-[14.5px] leading-relaxed text-ink">{displayEmailText(r.body)}</p>
                                     )}
                                   </li>
                                 ))}
@@ -899,10 +907,10 @@ function KerkraadContent() {
                             <div className="mb-6 rounded-card border border-subtle bg-cream-card p-4">
                               <p className="mb-1 text-[13px] font-bold text-navy">{t.sentOriginal}</p>
                               <p className="mb-1 font-serif text-[16px] text-ink">{sentThread.name}</p>
-                              <p className="whitespace-pre-wrap text-[14.5px] leading-relaxed text-slate">{sentThread.message}</p>
+                              <p className="whitespace-pre-wrap break-words text-[14.5px] leading-relaxed text-slate">{displayEmailText(sentThread.message)}</p>
                             </div>
                           )}
-                          <p className="whitespace-pre-wrap text-[15px] leading-relaxed">{openSent.body}</p>
+                          <p className="whitespace-pre-wrap break-words text-[15px] leading-relaxed">{displayEmailText(openSent.body)}</p>
                           {isAdmin && (
                             <div className="mt-8 border-t border-subtle pt-4">
                               {openSent.trashedAt ? (

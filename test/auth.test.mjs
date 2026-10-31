@@ -200,7 +200,17 @@ describe('handleMailSession', () => {
     }
   });
 
-  test('session carries the send-as list, fenced where configured', async () => {
+  test('an admin can sign in without a separate allow-list entry', async () => {
+    const session = await signSession('admin@example.co.za', SECRET);
+    const res = await handleMailSession(
+      new Request('https://x/api/mail/session', { headers: { cookie: `__Host-kerkraad=${session}` } }),
+      env({ BOARD_ALLOWED_EMAILS: '', BOARD_ADMIN_EMAILS: 'admin@example.co.za' }),
+    );
+    assert.equal(res.status, 200);
+    assert.equal((await res.json()).admin, true);
+  });
+
+  test('admins can use all sender identities even when a restriction exists', async () => {
     const from = 'welkom@sdatygerberg.co.za,klerk@sdatygerberg.co.za,tesourier@sdatygerberg.co.za,kerk@sdatygerberg.co.za';
     const session = await signSession('boss@example.co.za', SECRET);
     const open = await handleMailSession(
@@ -227,7 +237,7 @@ describe('handleMailSession', () => {
     );
     const fencedJson = await fenced.json();
     assert.equal(fencedJson.admin, true);
-    assert.deepEqual(fencedJson.allowedFrom, ['tesourier@sdatygerberg.co.za']);
+    assert.deepEqual(fencedJson.allowedFrom.sort(), from.split(',').sort());
   });
 
   test('401 on expired, tampered, or delisted sessions', async () => {

@@ -4,7 +4,7 @@
 
 - The Cloudflare Email Worker continues forwarding inbound mail to the configured clerk or per-address route. Archive forwarding remains best effort.
 - After delivery, the Worker parses the original RFC 822 message and stores an Inbox record in the existing `SUBMISSIONS` R2 bucket.
-- Board Mail displays the sender, subject, received time and plain text body. Attachments and HTML bodies are not stored.
+- Board Mail displays the sender, subject, received time and a safe plain text rendering. When an HTML alternative exists, the Worker extracts visible text from it (link labels and image alt text); HTML markup, attachments and raw email are not stored.
 - Replies use the address the original message was sent to, subject to the user's configured send-as permissions. Admins retain full sender access.
 - Website form submissions keep their current behavior and reply address.
 

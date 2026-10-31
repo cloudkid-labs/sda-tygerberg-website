@@ -1,6 +1,7 @@
 /// <reference types="@cloudflare/workers-types" />
 
 import PostalMime from 'postal-mime';
+import { decodeHtmlEntities } from './htmlEntities';
 
 /**
  * Inbound mail for the church domain.
@@ -51,6 +52,338 @@ export type InboundEmailMessage = Pick<ForwardableEmailMessage, 'to' | 'forward'
 
 const MAX_INBOUND_BYTES = 5 * 1024 * 1024;
 const MAX_STORED_BODY_CHARS = 100_000;
+
+const BLOCK_EMAIL_ELEMENTS = new Set([
+  'address', 'article', 'aside', 'blockquote', 'dd', 'details', 'div', 'dl',
+  'dt', 'fieldset', 'figcaption', 'figure', 'footer', 'header', 'h1', 'h2',
+  'h3', 'h4', 'h5', 'h6', 'main', 'nav', 'ol', 'p', 'pre', 'section', 'table', 'tr', 'ul',
+]);
+const HIDDEN_EMAIL_CONTAINERS = new Set([
+  'head', 'script', 'style', 'title', 'noscript', 'template', 'svg', 'canvas',
+  'iframe', 'object',
+]);
+const HIDDEN_EMAIL_VOID_ELEMENTS = new Set(['meta', 'link', 'embed']);
+const VOID_EMAIL_ELEMENTS = new Set([
+  'area', 'base', 'br', 'col', 'embed', 'hr', 'img', 'input', 'link', 'meta',
+  'param', 'source', 'track', 'wbr',
+]);
+const HEAD_CONTENT_EMAIL_ELEMENTS = new Set([
+  'base', 'basefont', 'bgsound', 'link', 'meta', 'noframes', 'noscript',
+  'script', 'style', 'template', 'title',
+]);
+const P_AUTO_CLOSE_TAGS = new Set([
+  'address', 'article', 'aside', 'blockquote', 'button', 'details', 'dialog',
+  'dir', 'div', 'dl', 'fieldset', 'figcaption', 'figure', 'footer', 'form',
+  'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'header', 'hgroup', 'hr', 'main',
+  'menu', 'nav', 'ol', 'p', 'pre', 'search', 'section', 'table', 'ul',
+]);
+
+type EmailScopeKind = 'list' | 'table' | 'definition-list' | 'select' | 'ruby';
+type EmailClosureRule = { tags: ReadonlySet<string>; scope?: EmailScopeKind };
+const SCOPE_CONTAINER_KIND: Record<string, EmailScopeKind> = {
+  ul: 'list',
+  ol: 'list',
+  menu: 'list',
+  table: 'table',
+  dl: 'definition-list',
+  select: 'select',
+  datalist: 'select',
+  ruby: 'ruby',
+};
+const OPTIONAL_CONTENT_SCOPE_KIND: Record<string, EmailScopeKind> = {
+  li: 'list',
+  dt: 'definition-list',
+  dd: 'definition-list',
+  td: 'table',
+  th: 'table',
+  tr: 'table',
+  thead: 'table',
+  tbody: 'table',
+  tfoot: 'table',
+  colgroup: 'table',
+  option: 'select',
+  optgroup: 'select',
+  rt: 'ruby',
+  rp: 'ruby',
+};
+const END_TAG_SCOPE_KIND: Record<string, EmailScopeKind> = {
+  ul: 'list',
+  ol: 'list',
+  menu: 'list',
+  table: 'table',
+  dl: 'definition-list',
+  select: 'select',
+  datalist: 'select',
+  ruby: 'ruby',
+  option: 'select',
+  optgroup: 'select',
+  td: 'table',
+  th: 'table',
+  tr: 'table',
+  thead: 'table',
+  tbody: 'table',
+  tfoot: 'table',
+  colgroup: 'table',
+};
+const IMPLIED_CLOSES_ON_START: Record<string, EmailClosureRule> = {
+  dd: { tags: new Set(['dd', 'dt']), scope: 'definition-list' },
+  dt: { tags: new Set(['dd', 'dt']), scope: 'definition-list' },
+  li: { tags: new Set(['li']), scope: 'list' },
+  optgroup: { tags: new Set(['optgroup']), scope: 'select' },
+  option: { tags: new Set(['option', 'optgroup']), scope: 'select' },
+  p: { tags: P_AUTO_CLOSE_TAGS },
+  rp: { tags: new Set(['rp', 'rt']), scope: 'ruby' },
+  rt: { tags: new Set(['rp', 'rt']), scope: 'ruby' },
+  colgroup: { tags: new Set(['colgroup']), scope: 'table' },
+  td: { tags: new Set(['td', 'th', 'tr', 'thead', 'tbody', 'tfoot']), scope: 'table' },
+  th: { tags: new Set(['td', 'th', 'tr', 'thead', 'tbody', 'tfoot']), scope: 'table' },
+  tr: { tags: new Set(['tr', 'thead', 'tbody', 'tfoot']), scope: 'table' },
+  thead: { tags: new Set(['tbody', 'tfoot']), scope: 'table' },
+  tbody: { tags: new Set(['tbody', 'thead', 'tfoot']), scope: 'table' },
+  tfoot: { tags: new Set(['tbody', 'thead']), scope: 'table' },
+};
+const IMPLIED_CLOSES_ON_END: Record<string, EmailClosureRule> = {
+  dd: { tags: new Set(['dl']), scope: 'definition-list' },
+  dt: { tags: new Set(['dl']), scope: 'definition-list' },
+  head: { tags: new Set(['body']) },
+  li: { tags: new Set(['ol', 'ul', 'menu']), scope: 'list' },
+  optgroup: { tags: new Set(['select', 'datalist']), scope: 'select' },
+  option: { tags: new Set(['optgroup', 'select', 'datalist']), scope: 'select' },
+  p: { tags: new Set([...P_AUTO_CLOSE_TAGS, 'body', 'li', 'dd', 'dt', 'option', 'td', 'th', 'tr']) },
+  rp: { tags: new Set(['ruby']), scope: 'ruby' },
+  rt: { tags: new Set(['ruby']), scope: 'ruby' },
+  colgroup: { tags: new Set(['table']), scope: 'table' },
+  td: { tags: new Set(['tr', 'thead', 'tbody', 'tfoot', 'table']), scope: 'table' },
+  th: { tags: new Set(['tr', 'thead', 'tbody', 'tfoot', 'table']), scope: 'table' },
+  tr: { tags: new Set(['thead', 'tbody', 'tfoot', 'table']), scope: 'table' },
+  thead: { tags: new Set(['table']), scope: 'table' },
+  tbody: { tags: new Set(['table']), scope: 'table' },
+  tfoot: { tags: new Set(['table']), scope: 'table' },
+};
+const OPTIONAL_CLOSURE_END_TAGS = new Set([
+  ...P_AUTO_CLOSE_TAGS, 'body', 'ol', 'ul', 'menu', 'dl', 'ruby', 'optgroup',
+  'select', 'datalist', 'table', 'thead', 'tbody', 'tfoot', 'tr', 'td', 'th',
+  'li', 'dd', 'dt', 'option',
+]);
+
+function hasHiddenEmailPresentation(element: Element): boolean {
+  if (element.hasAttribute('hidden')) return true;
+  if (element.getAttribute('aria-hidden')?.trim().toLowerCase() === 'true') return true;
+
+  const style = (element.getAttribute('style') ?? '').replace(/\/\*[\s\S]*?\*\//g, '');
+  return style.split(';').some((declaration) => {
+    const separator = declaration.indexOf(':');
+    if (separator < 0) return false;
+    const property = declaration.slice(0, separator).trim().toLowerCase();
+    const value = declaration
+      .slice(separator + 1)
+      .replace(/\s*!important\s*$/i, '')
+      .trim()
+      .toLowerCase();
+
+    return (property === 'display' && value === 'none') ||
+      (property === 'visibility' && (value === 'hidden' || value === 'collapse')) ||
+      (property === 'content-visibility' && value === 'hidden');
+  });
+}
+
+function normalizeEmailText(text: string): string {
+  return text
+    .replace(/\r\n?/g, '\n')
+    .replace(/\u00a0/g, ' ')
+    .replace(/[ \t]+\n/g, '\n')
+    .replace(/\n[ \t]*\n(?:[ \t]*\n)+/g, '\n\n')
+    .trim();
+}
+
+/**
+ * Extracts visible text from an untrusted HTML alternative. The original
+ * markup is never stored or rendered; unsupported Worker runtimes fall back to
+ * PostalMime's plain-text alternative.
+ */
+async function emailHtmlToText(html: string): Promise<string> {
+  if (typeof HTMLRewriter === 'undefined') return '';
+
+  const chunks: string[] = [];
+  const hiddenElements: Array<{
+    id: number;
+    tag: string;
+    scopeKind?: EmailScopeKind;
+    scopeId: number | null;
+  }> = [];
+  const scopeStacks: Record<EmailScopeKind, number[]> = {
+    list: [],
+    table: [],
+    'definition-list': [],
+    select: [],
+    ruby: [],
+  };
+  let hiddenElementId = 0;
+  let scopeId = 0;
+
+  const currentScope = (kind?: EmailScopeKind): number | null =>
+    kind ? scopeStacks[kind][scopeStacks[kind].length - 1] ?? null : null;
+
+  const closeScope = (kind: EmailScopeKind, id: number): void => {
+    const index = scopeStacks[kind].lastIndexOf(id);
+    if (index >= 0) scopeStacks[kind].splice(index);
+  };
+
+  const closeHiddenElement = (id: number): void => {
+    const index = hiddenElements.findIndex((hidden) => hidden.id === id);
+    if (index >= 0) hiddenElements.splice(index);
+  };
+
+  const closeImplicitlyOnStart = (nextTag: string): void => {
+    const headIndex = hiddenElements.findIndex((hidden) => hidden.tag === 'head');
+    if (
+      headIndex >= 0 &&
+      nextTag !== 'html' &&
+      nextTag !== 'head' &&
+      !HEAD_CONTENT_EMAIL_ELEMENTS.has(nextTag)
+    ) {
+      hiddenElements.splice(headIndex);
+      return;
+    }
+
+    for (let index = hiddenElements.length - 1; index >= 0; index -= 1) {
+      const hidden = hiddenElements[index];
+      const rule = IMPLIED_CLOSES_ON_START[hidden.tag];
+      if (!rule?.tags.has(nextTag)) continue;
+      if (
+        rule.scope &&
+        (hidden.scopeKind !== rule.scope || hidden.scopeId !== currentScope(rule.scope))
+      ) {
+        continue;
+      }
+      hiddenElements.splice(index);
+      return;
+    }
+  };
+
+  const closeImplicitlyOnEnd = (
+    endTag: string,
+    scopeKind?: EmailScopeKind,
+    scopeId: number | null = null,
+  ): void => {
+    for (let index = hiddenElements.length - 1; index >= 0; index -= 1) {
+      const hidden = hiddenElements[index];
+      const rule = IMPLIED_CLOSES_ON_END[hidden.tag];
+      if (!rule?.tags.has(endTag)) continue;
+      if (
+        rule.scope &&
+        (hidden.scopeKind !== rule.scope || hidden.scopeId !== scopeId || scopeKind !== rule.scope)
+      ) {
+        continue;
+      }
+      hiddenElements.splice(index);
+      return;
+    }
+  };
+
+  const transformed = new HTMLRewriter()
+    .on('*', {
+      element(element) {
+        const tag = element.tagName.toLowerCase();
+        closeImplicitlyOnStart(tag);
+
+        const openedScopeKind = SCOPE_CONTAINER_KIND[tag];
+        const openedScopeId = openedScopeKind ? ++scopeId : null;
+        if (openedScopeKind && openedScopeId !== null) {
+          scopeStacks[openedScopeKind].push(openedScopeId);
+        }
+        const endScopeKind = openedScopeKind ?? END_TAG_SCOPE_KIND[tag];
+        const endScopeId = openedScopeKind ? openedScopeId : currentScope(endScopeKind);
+
+        if (OPTIONAL_CLOSURE_END_TAGS.has(tag) && !VOID_EMAIL_ELEMENTS.has(tag)) {
+          element.onEndTag(() => {
+            closeImplicitlyOnEnd(tag, endScopeKind, endScopeId);
+            if (openedScopeKind && openedScopeId !== null) {
+              closeScope(openedScopeKind, openedScopeId);
+            }
+          });
+        }
+        if (hiddenElements.length > 0) return;
+        if (
+          HIDDEN_EMAIL_CONTAINERS.has(tag) ||
+          HIDDEN_EMAIL_VOID_ELEMENTS.has(tag) ||
+          hasHiddenEmailPresentation(element)
+        ) {
+          if (VOID_EMAIL_ELEMENTS.has(tag)) {
+            element.remove();
+            return;
+          }
+          const hiddenScopeKind = OPTIONAL_CONTENT_SCOPE_KIND[tag];
+          const hidden = {
+            id: ++hiddenElementId,
+            tag,
+            scopeKind: hiddenScopeKind,
+            scopeId: currentScope(hiddenScopeKind),
+          };
+          hiddenElements.push(hidden);
+          element.onEndTag(() => {
+            closeHiddenElement(hidden.id);
+          });
+          element.remove();
+          return;
+        }
+        if (tag === 'br' || tag === 'hr') {
+          chunks.push('\n');
+          return;
+        }
+        if (tag === 'img') {
+          const alt = element.getAttribute('alt')?.trim();
+          if (alt) chunks.push('[Image: ' + alt + ']');
+          element.remove();
+          return;
+        }
+        if (tag === 'td' || tag === 'th') {
+          chunks.push(' ');
+          element.onEndTag(() => {
+            chunks.push(' ');
+          });
+          return;
+        }
+        if (tag === 'li') {
+          chunks.push('\n- ');
+          element.onEndTag(() => {
+            chunks.push('\n');
+          });
+          return;
+        }
+        if (BLOCK_EMAIL_ELEMENTS.has(tag)) {
+          chunks.push('\n');
+          element.onEndTag(() => {
+            chunks.push('\n');
+          });
+        }
+      },
+      text(chunk) {
+        if (hiddenElements.length === 0 && !chunk.removed) chunks.push(chunk.text);
+      },
+    })
+    .transform(new Response(html));
+
+  // Consume the transformed stream so every HTMLRewriter handler runs.
+  await transformed.text();
+  const visibleText = chunks.join('');
+  if (!visibleText.trim()) return '';
+
+  // Decode only after chunks are joined so references split across chunks resolve.
+  return normalizeEmailText(decodeHtmlEntities(visibleText));
+}
+
+async function emailBodyText(parsed: { html?: string; text?: string }): Promise<string> {
+  if (parsed.html) {
+    try {
+      const htmlText = await emailHtmlToText(parsed.html);
+      if (htmlText) return htmlText;
+    } catch {
+      // Keep the decoded text/plain alternative if HTML extraction fails.
+    }
+  }
+  return normalizeEmailText(parsed.text ?? '');
+}
 
 async function readBounded(stream: ReadableStream<Uint8Array>): Promise<Uint8Array> {
   const reader = stream.getReader();
@@ -139,7 +472,7 @@ export async function handleInboundEmail(
       const raw = await readBounded(message.raw);
       const parsed = await PostalMime.parse(raw, { maxNestingDepth: 20, maxHeadersSize: 65_536, maxPartCount: 100 });
       const sender = parsed.from?.address?.trim().toLowerCase();
-      const text = (parsed.text ?? '').trim().slice(0, MAX_STORED_BODY_CHARS);
+      const text = (await emailBodyText(parsed)).slice(0, MAX_STORED_BODY_CHARS);
       if (!sender || !text) throw new Error('missing sender or text body');
       const at = new Date().toISOString();
       const [date] = at.split('T');

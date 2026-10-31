@@ -298,8 +298,8 @@ function winningInlineStyleValue(style: string, requestedProperty: string): stri
     }
 
     let value = declaration.slice(separator + 1).trim();
-    const important = /\s*!important\s*$/i.test(value);
-    if (important) value = value.replace(/\s*!important\s*$/i, '').trim();
+    const important = /\s*!\s*important\s*$/i.test(value);
+    if (important) value = value.replace(/\s*!\s*important\s*$/i, '').trim();
     value = value.toLowerCase();
     if (!isValidPresentationValue(requestedProperty, value)) continue;
 

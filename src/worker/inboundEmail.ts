@@ -175,6 +175,10 @@ function stripInlineCssComments(style: string): string {
     const character = style[index];
     if (escaped) {
       result.push(character);
+      if (character === '\r' && style[index + 1] === '\n') {
+        result.push(style[index + 1]);
+        index++;
+      }
       escaped = false;
       continue;
     }
@@ -185,7 +189,7 @@ function stripInlineCssComments(style: string): string {
     }
     if (quote) {
       result.push(character);
-      if (character === quote) quote = '';
+      if (character === quote || character === '\n' || character === '\r' || character === '\f') quote = '';
       continue;
     }
     if (character === "'" || character === '"') {
@@ -218,6 +222,7 @@ function splitInlineCssDeclarations(style: string): string[] {
   for (let index = 0; index < style.length; index++) {
     const character = style[index];
     if (escaped) {
+      if (character === '\r' && style[index + 1] === '\n') index++;
       escaped = false;
       continue;
     }
@@ -226,7 +231,7 @@ function splitInlineCssDeclarations(style: string): string[] {
       continue;
     }
     if (quote) {
-      if (character === quote) quote = '';
+      if (character === quote || character === '\n' || character === '\r' || character === '\f') quote = '';
       continue;
     }
     if (character === "'" || character === '"') {

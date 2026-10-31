@@ -216,7 +216,7 @@ function KerkraadContent() {
     setThreadsLoading(true);
     setThreadsError(false);
     try {
-      const res = await fetch('/api/mail/inbox', { headers: { Accept: 'application/json' } });
+      const res = await fetch('/api/mail/inbox', { cache: 'no-store', headers: { Accept: 'application/json' } });
       if (!res.ok) throw new Error(String(res.status));
       const data = (await res.json()) as { items?: ThreadSummary[] };
       setThreads(data.items ?? []);
@@ -231,7 +231,7 @@ function KerkraadContent() {
     setSentLoading(true);
     setSentError(false);
     try {
-      const res = await fetch('/api/mail/sent', { headers: { Accept: 'application/json' } });
+      const res = await fetch('/api/mail/sent', { cache: 'no-store', headers: { Accept: 'application/json' } });
       if (!res.ok) throw new Error(String(res.status));
       const data = (await res.json()) as { items?: SentSummary[] };
       setSentItems(data.items ?? []);
@@ -247,8 +247,8 @@ function KerkraadContent() {
     setTrashError(false);
     try {
       const [inboxRes, sentRes] = await Promise.all([
-        fetch('/api/mail/inbox?trashed=1', { headers: { Accept: 'application/json' } }),
-        fetch('/api/mail/sent?trashed=1', { headers: { Accept: 'application/json' } }),
+        fetch('/api/mail/inbox?trashed=1', { cache: 'no-store', headers: { Accept: 'application/json' } }),
+        fetch('/api/mail/sent?trashed=1', { cache: 'no-store', headers: { Accept: 'application/json' } }),
       ]);
       if (!inboxRes.ok || !sentRes.ok) throw new Error('trash list');
       const inbox = (await inboxRes.json()) as { items?: ThreadSummary[] };
@@ -622,7 +622,12 @@ function KerkraadContent() {
                     type="button"
                     role="tab"
                     aria-selected={view === v}
-                    onClick={() => showView(v)}
+                    onClick={() => {
+                      showView(v);
+                      if (v === 'inbox') void loadInbox();
+                      else if (v === 'sent') void loadSent();
+                      else if (v === 'trash') void loadTrash();
+                    }}
                     className={`rounded-pill px-5 py-2.5 text-[14px] font-bold transition-colors ${
                       view === v ? 'bg-navy text-white' : 'border-[1.5px] border-navy text-navy hover:bg-navy hover:text-white'
                     }`}

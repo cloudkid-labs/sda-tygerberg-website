@@ -56,7 +56,7 @@ const MAX_STORED_BODY_CHARS = 100_000;
 const BLOCK_EMAIL_ELEMENTS = new Set([
   'address', 'article', 'aside', 'blockquote', 'dd', 'details', 'div', 'dl',
   'dt', 'fieldset', 'figcaption', 'figure', 'footer', 'header', 'h1', 'h2',
-  'h3', 'h4', 'h5', 'h6', 'main', 'nav', 'ol', 'p', 'section', 'table', 'tr', 'ul',
+  'h3', 'h4', 'h5', 'h6', 'main', 'nav', 'ol', 'p', 'pre', 'section', 'table', 'tr', 'ul',
 ]);
 const HIDDEN_EMAIL_CONTAINERS = new Set([
   'head', 'script', 'style', 'title', 'noscript', 'template', 'svg', 'canvas',

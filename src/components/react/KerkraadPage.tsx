@@ -1070,6 +1070,7 @@ function KerkraadContent() {
                         {isAdmin && (
                           <datalist id="board-mail-admin-recipients">
                             <option value="archive@sdatygerberg.co.za" />
+                            <option value="rainier@sdatygerberg.co.za" />
                           </datalist>
                         )}
                         <span className="text-[13px] text-slate">{t.toHint}</span>

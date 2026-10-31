@@ -971,99 +971,50 @@ function KerkraadContent() {
                     </div>
                   )}
                   {!trashLoading && !trashError && trashItems.length > 0 && (
-                    <>
-                      <ul className="grid gap-3 md:hidden">
-                        {trashItems.map((x) => (
-                          <li key={x.id} className="rounded-card-lg border border-subtle bg-cream-card p-4">
-                            <div className="flex items-start justify-between gap-3">
-                              <p className="min-w-0 break-words font-bold text-ink">{x.from}</p>
-                              <span className="shrink-0 rounded-pill bg-tan px-3 py-1 text-[11px] font-bold uppercase text-slate">
-                                {x.source === 'inbox' ? t.trashInbox : t.trashSent}
-                              </span>
+                    <ul className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+                      {trashItems.map((x) => (
+                        <li key={x.id} className="flex h-full min-w-0 flex-col rounded-card-lg border border-subtle bg-cream-card p-5">
+                          <div className="flex min-w-0 items-start justify-between gap-3">
+                            <p className="min-w-0 break-words font-bold text-ink">{x.from}</p>
+                            <span className="shrink-0 rounded-pill bg-tan px-3 py-1 text-[11px] font-bold uppercase text-slate">
+                              {x.source === 'inbox' ? t.trashInbox : t.trashSent}
+                            </span>
+                          </div>
+                          <dl className="mt-4 grid min-w-0 gap-3 text-[13.5px]">
+                            <div className="min-w-0">
+                              <dt className="font-bold text-slate">{t.colTo}</dt>
+                              <dd className="break-all text-ink">{x.contact || '—'}</dd>
                             </div>
-                            <dl className="mt-3 grid gap-2 text-[13.5px]">
-                              <div>
-                                <dt className="font-bold text-slate">{t.colTo}</dt>
-                                <dd className="break-all text-ink">{x.contact || '—'}</dd>
-                              </div>
-                              <div>
-                                <dt className="font-bold text-slate">{t.colSubject}</dt>
-                                <dd className="break-words text-ink">{x.subject}</dd>
-                              </div>
-                              <div>
-                                <dt className="font-bold text-slate">{t.colDate}</dt>
-                                <dd className="tabular-nums text-slate">{fmtDate(x.date)}</dd>
-                              </div>
-                            </dl>
-                            <div className="mt-4 grid gap-2 sm:grid-cols-2">
-                              <button
-                                type="button"
-                                onClick={() => restoreThread(x.id, x.source)}
-                                disabled={deletingId === x.id}
-                                className="w-full rounded-pill border-[1.5px] border-navy px-4 py-2.5 text-[13px] font-bold text-navy transition-colors hover:bg-navy hover:text-white disabled:opacity-60"
-                              >
-                                {deletingId === x.id ? t.restoring : t.restoreLabel}
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => permanentDelete(x.id, x.source)}
-                                disabled={deletingId === x.id}
-                                className="w-full rounded-pill border-[1.5px] border-orange px-4 py-2.5 text-[13px] font-bold text-orange transition-colors hover:bg-orange hover:text-white disabled:opacity-60"
-                              >
-                                {t.deletePermanently}
-                              </button>
+                            <div className="min-w-0">
+                              <dt className="font-bold text-slate">{t.colSubject}</dt>
+                              <dd className="break-words text-ink">{x.subject}</dd>
                             </div>
-                          </li>
-                        ))}
-                      </ul>
-                      <div className="hidden overflow-x-auto md:block">
-                        <table className="w-full min-w-[900px] border-collapse text-left">
-                          <thead>
-                            <tr className="border-b border-subtle text-[13px] text-slate">
-                              <th scope="col" className="py-2 pr-3 font-bold">{t.colItem}</th>
-                              <th scope="col" className="py-2 pr-3 font-bold">{t.colTo}</th>
-                              <th scope="col" className="py-2 pr-3 font-bold">{t.colSubject}</th>
-                              <th scope="col" className="py-2 font-bold">{t.colDate}</th>
-                              <th scope="col" className="py-2 font-bold"><span className="sr-only">{t.tabTrash}</span></th>
-                              <th scope="col" className="py-2 font-bold"><span className="sr-only">{t.restoreLabel} / {t.deletePermanently}</span></th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {trashItems.map((x) => (
-                              <tr key={x.id} className="border-b border-subtle">
-                                <td className="max-w-[220px] break-words py-3 pr-3 text-[14px]">{x.from}</td>
-                                <td className="max-w-[250px] break-all py-3 pr-3 text-[14px] text-slate">{x.contact || '—'}</td>
-                                <td className="max-w-[200px] break-words py-3 pr-3 text-[14px]">{x.subject}</td>
-                                <td className="whitespace-nowrap tabular-nums py-3 pr-3 text-[14px] text-slate">{fmtDate(x.date)}</td>
-                                <td className="whitespace-nowrap py-3 pr-3 text-right text-[13px] text-slate uppercase">
-                                  {x.source === 'inbox' ? t.trashInbox : t.trashSent}
-                                </td>
-                                <td className="whitespace-nowrap py-3 pr-3 text-right">
-                                  <div className="flex justify-end gap-2">
-                                    <button
-                                      type="button"
-                                      onClick={() => restoreThread(x.id, x.source)}
-                                      disabled={deletingId === x.id}
-                                      className="rounded-pill border-[1.5px] border-navy px-4 py-2 text-[13px] font-bold text-navy transition-colors hover:bg-navy hover:text-white disabled:opacity-60"
-                                    >
-                                      {deletingId === x.id ? t.restoring : t.restoreLabel}
-                                    </button>
-                                    <button
-                                      type="button"
-                                      onClick={() => permanentDelete(x.id, x.source)}
-                                      disabled={deletingId === x.id}
-                                      className="rounded-pill border-[1.5px] border-orange px-4 py-2 text-[13px] font-bold text-orange transition-colors hover:bg-orange hover:text-white disabled:opacity-60"
-                                    >
-                                      {t.deletePermanently}
-                                    </button>
-                                  </div>
-                                </td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      </div>
-                    </>
+                            <div>
+                              <dt className="font-bold text-slate">{t.colDate}</dt>
+                              <dd className="tabular-nums text-slate">{fmtDate(x.date)}</dd>
+                            </div>
+                          </dl>
+                          <div className="mt-auto grid gap-2 pt-5">
+                            <button
+                              type="button"
+                              onClick={() => restoreThread(x.id, x.source)}
+                              disabled={deletingId === x.id}
+                              className="w-full rounded-pill border-[1.5px] border-navy px-4 py-2.5 text-[13px] font-bold text-navy transition-colors hover:bg-navy hover:text-white disabled:opacity-60"
+                            >
+                              {deletingId === x.id ? t.restoring : t.restoreLabel}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => permanentDelete(x.id, x.source)}
+                              disabled={deletingId === x.id}
+                              className="w-full rounded-pill border-[1.5px] border-orange px-4 py-2.5 text-[13px] font-bold text-orange transition-colors hover:bg-orange hover:text-white disabled:opacity-60"
+                            >
+                              {t.deletePermanently}
+                            </button>
+                          </div>
+                        </li>
+                      ))}
+                    </ul>
                   )}
                 </div>
               )}

@@ -19,6 +19,8 @@ export type Submission = {
   phone: string | null;
   lang: string;
   message: string;
+  subject?: string;
+  replyFrom?: string;
   replies: SubmissionReply[];
   trashedAt?: string;
 };
@@ -299,7 +301,7 @@ export async function handleInboxReply(request: Request, env: InboxEnv): Promise
     return json({ ok: false, outcome: 'invalid', errors: ['to'] }, 400);
   }
 
-  const from = TOPIC_FROM[item.topic] ?? 'welkom@sdatygerberg.co.za';
+  const from = item.replyFrom?.toLowerCase() ?? TOPIC_FROM[item.topic] ?? 'welkom@sdatygerberg.co.za';
   const senders = new Set(
     (env.MAIL_SEND_FROM ?? '').split(',').map((s) => s.trim().toLowerCase()).filter(Boolean),
   );
@@ -308,7 +310,9 @@ export async function handleInboxReply(request: Request, env: InboxEnv): Promise
     return json({ ok: false, outcome: 'not-allowed', errors: ['from'] }, 403);
   }
 
-  const subject = `Re: ${item.topic === 'bible-study' ? 'Bybelstudie-versoek' : 'Jou boodskap aan Tygerberg SDA'}`;
+  const subject = item.topic === 'email'
+    ? `Re: ${(item.subject ?? 'Email').replace(/^Re:\s*/i, '')}`
+    : `Re: ${item.topic === 'bible-study' ? 'Bybelstudie-versoek' : 'Jou boodskap aan Tygerberg SDA'}`;
   const ok = await sendViaBrevo(
     env,
     from,

@@ -332,13 +332,9 @@ function hasHiddenEmailPresentation(element: Element): boolean {
 
   const style = element.getAttribute('style') ?? '';
   const display = winningInlineStyleValue(style, 'display');
-  const visibility = winningInlineStyleValue(style, 'visibility');
   const contentVisibility = winningInlineStyleValue(style, 'content-visibility');
 
-  return display === 'none' ||
-    visibility === 'hidden' ||
-    visibility === 'collapse' ||
-    contentVisibility === 'hidden';
+  return display === 'none' || contentVisibility === 'hidden';
 }
 
 function normalizeEmailText(text: string): string {
@@ -365,6 +361,13 @@ async function emailHtmlToText(html: string): Promise<string> {
     scopeKind?: EmailScopeKind;
     scopeId: number | null;
   }> = [];
+  const visibilityOverrides: Array<{
+    id: number;
+    tag: string;
+    hidden: boolean;
+    scopeKind?: EmailScopeKind;
+    scopeId: number | null;
+  }> = [];
   const scopeStacks: Record<EmailScopeKind, number[]> = {
     list: [],
     table: [],
@@ -373,6 +376,7 @@ async function emailHtmlToText(html: string): Promise<string> {
     ruby: [],
   };
   let hiddenElementId = 0;
+  let visibilityOverrideId = 0;
   let scopeId = 0;
 
   const currentScope = (kind?: EmailScopeKind): number | null =>
@@ -386,6 +390,47 @@ async function emailHtmlToText(html: string): Promise<string> {
   const closeHiddenElement = (id: number): void => {
     const index = hiddenElements.findIndex((hidden) => hidden.id === id);
     if (index >= 0) hiddenElements.splice(index);
+  };
+
+  const closeVisibilityOverride = (id: number): void => {
+    const index = visibilityOverrides.findIndex((override) => override.id === id);
+    if (index >= 0) visibilityOverrides.splice(index);
+  };
+
+  const closeVisibilityOverridesOnStart = (nextTag: string): void => {
+    for (let index = visibilityOverrides.length - 1; index >= 0; index -= 1) {
+      const override = visibilityOverrides[index];
+      const rule = IMPLIED_CLOSES_ON_START[override.tag];
+      if (!rule?.tags.has(nextTag)) continue;
+      if (
+        rule.scope &&
+        (override.scopeKind !== rule.scope || override.scopeId !== currentScope(rule.scope))
+      ) {
+        continue;
+      }
+      visibilityOverrides.splice(index);
+      return;
+    }
+  };
+
+  const closeVisibilityOverridesOnEnd = (
+    endTag: string,
+    scopeKind?: EmailScopeKind,
+    scopeId: number | null = null,
+  ): void => {
+    for (let index = visibilityOverrides.length - 1; index >= 0; index -= 1) {
+      const override = visibilityOverrides[index];
+      const rule = IMPLIED_CLOSES_ON_END[override.tag];
+      if (!rule?.tags.has(endTag)) continue;
+      if (
+        rule.scope &&
+        (override.scopeKind !== rule.scope || override.scopeId !== scopeId || scopeKind !== rule.scope)
+      ) {
+        continue;
+      }
+      visibilityOverrides.splice(index);
+      return;
+    }
   };
 
   const closeImplicitlyOnStart = (nextTag: string): void => {
@@ -440,6 +485,7 @@ async function emailHtmlToText(html: string): Promise<string> {
       element(element) {
         const tag = element.tagName.toLowerCase();
         closeImplicitlyOnStart(tag);
+        closeVisibilityOverridesOnStart(tag);
 
         const openedScopeKind = SCOPE_CONTAINER_KIND[tag];
         const openedScopeId = openedScopeKind ? ++scopeId : null;
@@ -452,6 +498,7 @@ async function emailHtmlToText(html: string): Promise<string> {
         if (OPTIONAL_CLOSURE_END_TAGS.has(tag) && !VOID_EMAIL_ELEMENTS.has(tag)) {
           element.onEndTag(() => {
             closeImplicitlyOnEnd(tag, endScopeKind, endScopeId);
+            closeVisibilityOverridesOnEnd(tag, endScopeKind, endScopeId);
             if (openedScopeKind && openedScopeId !== null) {
               closeScope(openedScopeKind, openedScopeId);
             }
@@ -481,13 +528,37 @@ async function emailHtmlToText(html: string): Promise<string> {
           element.remove();
           return;
         }
+
+        const style = element.getAttribute('style') ?? '';
+        const visibility = winningInlineStyleValue(style, 'visibility');
+        const visibilityOverride = visibility === 'hidden' || visibility === 'collapse'
+          ? true
+          : visibility === 'visible' || visibility === 'initial' ||
+              visibility === 'revert' || visibility === 'revert-layer'
+            ? false
+            : undefined;
+        if (visibilityOverride !== undefined && !VOID_EMAIL_ELEMENTS.has(tag)) {
+          const visibilityScopeKind = OPTIONAL_CONTENT_SCOPE_KIND[tag];
+          const override = {
+            id: ++visibilityOverrideId,
+            tag,
+            hidden: visibilityOverride,
+            scopeKind: visibilityScopeKind,
+            scopeId: currentScope(visibilityScopeKind),
+          };
+          visibilityOverrides.push(override);
+          element.onEndTag(() => closeVisibilityOverride(override.id));
+        }
+        const currentVisibilityHidden =
+          visibilityOverride ?? visibilityOverrides[visibilityOverrides.length - 1]?.hidden ?? false;
+
         if (tag === 'br' || tag === 'hr') {
           chunks.push('\n');
           return;
         }
         if (tag === 'img') {
           const alt = element.getAttribute('alt')?.trim();
-          if (alt) chunks.push('[Image: ' + alt + ']');
+          if (alt && !currentVisibilityHidden) chunks.push('[Image: ' + alt + ']');
           element.remove();
           return;
         }
@@ -513,7 +584,13 @@ async function emailHtmlToText(html: string): Promise<string> {
         }
       },
       text(chunk) {
-        if (hiddenElements.length === 0 && !chunk.removed) chunks.push(chunk.text);
+        if (
+          hiddenElements.length === 0 &&
+          visibilityOverrides[visibilityOverrides.length - 1]?.hidden !== true &&
+          !chunk.removed
+        ) {
+          chunks.push(chunk.text);
+        }
       },
     })
     .transform(new Response(html));

@@ -2253,7 +2253,7 @@ export function decodeHtmlEntities(value: string): string {
       return htmlEntities[match];
     }
 
-    if (entity.charAt(0) !== '#' || match.charAt(match.length - 1) !== ';') {
+    if (entity.charAt(0) !== '#') {
       return match;
     }
 

@@ -1,5 +1,7 @@
 /// <reference types="@cloudflare/workers-types" />
 
+import PostalMime from 'postal-mime';
+
 /**
  * Inbound mail for the church domain.
  *
@@ -33,6 +35,8 @@ export type InboundEmailEnv = {
   MAIL_ROUTES?: Record<string, string>;
   /** The archive hop. Unset skips archiving entirely. */
   MAIL_ARCHIVE_TO?: string;
+  /** Board Mail Inbox storage. Inbound messages are stored after delivery. */
+  SUBMISSIONS?: R2Bucket;
 };
 
 /**
@@ -41,7 +45,33 @@ export type InboundEmailEnv = {
  * moved once — it returns `EmailSendResult` now, not `void` — and this way the
  * real type stays the source of truth.
  */
-export type InboundEmailMessage = Pick<ForwardableEmailMessage, 'to' | 'forward' | 'setReject'>;
+export type InboundEmailMessage = Pick<ForwardableEmailMessage, 'to' | 'forward' | 'setReject'> & {
+  raw?: ReadableStream<Uint8Array>;
+};
+
+const MAX_INBOUND_BYTES = 5 * 1024 * 1024;
+const MAX_STORED_BODY_CHARS = 100_000;
+
+async function readBounded(stream: ReadableStream<Uint8Array>): Promise<Uint8Array> {
+  const reader = stream.getReader();
+  const chunks: Uint8Array[] = [];
+  let size = 0;
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      size += value.byteLength;
+      if (size > MAX_INBOUND_BYTES) throw new Error('message exceeds inbox parsing limit');
+      chunks.push(value);
+    }
+  } finally {
+    reader.releaseLock();
+  }
+  const result = new Uint8Array(size);
+  let offset = 0;
+  for (const chunk of chunks) { result.set(chunk, offset); offset += chunk.byteLength; }
+  return result;
+}
 
 const sameAddress = (a: string, b: string): boolean =>
   a.trim().toLowerCase() === b.trim().toLowerCase();
@@ -100,5 +130,34 @@ export async function handleInboundEmail(
   // its literal rule is missing. Re-posting it to that same address would loop.
   if (archiveTo && !sameAddress(message.to, archiveTo)) {
     await attempt(message, archiveTo);
+  }
+
+  // The normal delivery above remains authoritative. Board Mail storage is a
+  // best-effort copy so a parser or R2 failure cannot bounce mail already delivered.
+  if (env.SUBMISSIONS && message.raw) {
+    try {
+      const raw = await readBounded(message.raw);
+      const parsed = await PostalMime.parse(raw, { maxNestingDepth: 20, maxHeadersSize: 65_536, maxPartCount: 100 });
+      const sender = parsed.from?.address?.trim().toLowerCase();
+      const text = (parsed.text ?? '').trim().slice(0, MAX_STORED_BODY_CHARS);
+      if (!sender || !text) throw new Error('missing sender or text body');
+      const at = new Date().toISOString();
+      const [date] = at.split('T');
+      const id = `${Date.now().toString(36)}${[...crypto.getRandomValues(new Uint8Array(6))].map((b) => b.toString(16).padStart(2, '0')).join('')}`;
+      const topic = 'email';
+      await env.SUBMISSIONS.put(
+        `submissions/${date.replaceAll('-', '/')}/${at}-${id}.json`,
+        JSON.stringify({
+          id, submittedAt: at, topic, name: parsed.from?.name?.trim() || sender,
+          email: sender, phone: null, lang: 'en', message: text,
+          subject: (parsed.subject?.replace(/[\\r\\n\\t]/g, ' ').trim().slice(0, 150)) || '(no subject)', replyFrom: message.to.trim().toLowerCase(),
+          replies: [],
+        }),
+      );
+      console.log(`inbound mail: inbox stored id=${id}`);
+    } catch (error) {
+      const detail = error instanceof Error ? error.message : String(error);
+      console.error(`inbound mail: inbox store failed: ${detail}`);
+    }
   }
 }

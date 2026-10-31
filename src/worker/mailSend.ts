@@ -1,6 +1,6 @@
 /// <reference types="@cloudflare/workers-types" />
 
-import { verifySession, allowedFrom, senders, type AuthEnv } from './auth';
+import { verifySession, allowedFrom, senders, isAdmin, isAdminOnlyEmail, type AuthEnv } from './auth';
 import { mailHtml, LOGO_REMOTE_URL } from './signature';
 
 export type MailSendEnv = AuthEnv & {
@@ -115,7 +115,10 @@ export async function sendViaBrevo(
         to: to.map((email) => ({ email })),
         // Replies return through Email Routing to the church inbox.
         replyTo: { email: from },
-        bcc: [{ email: ARCHIVE_BCC }],
+        // Do not duplicate a recipient when an admin sends directly to archive@.
+        bcc: to.some((email) => email.trim().toLowerCase() === ARCHIVE_BCC)
+          ? undefined
+          : [{ email: ARCHIVE_BCC }],
         subject,
         textContent: text,
         htmlContent: html,
@@ -205,6 +208,11 @@ export async function handleMailSend(request: Request, env: MailSendEnv): Promis
   const text = str(body.body);
   if (!text || text.length > MAX_BODY_CHARS) errors.push('body');
   if (errors.length > 0) return json({ ok: false, outcome: 'invalid', errors }, 400);
+
+  // Admin-only addresses are restricted in both the From and recipient fields.
+  if (!isAdmin(env, session.email) && to.some((address) => isAdminOnlyEmail(env, address))) {
+    return json({ ok: false, outcome: 'not-allowed', errors: ['to'] }, 403);
+  }
 
   // Per-sender send-as fence: the treasurer writes only as tesourier@.
   // Unknown addresses fail the allow-list above; this is the finer fence.

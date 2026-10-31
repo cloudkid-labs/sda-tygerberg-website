@@ -123,13 +123,16 @@
     // addresses are now readable to anyone with repo or Cloudflare access.
     // The repo is private; do not copy them onto the public site (C-20).
     "BOARD_ALLOWED_EMAILS": "muller31jp@gmail.com,sdatygerbergklerk@gmail.com,sdatygerbergkerk@gmail.com,rainiersvn1@gmail.com,johanemomberg@gmail.com",
-    // Who may send as what. `email=address[;email=address]`; anyone unlisted
-    // may use every MAIL_SEND_FROM address. The treasurer writes only as
-    // tesourier@ — enforced in the Worker, mirrored in the page's dropdown.
+    // Who may send as what. `email=address[;email=address]`; unlisted
+    // non-admins may use regular MAIL_SEND_FROM addresses. The treasurer writes
+    // only as tesourier@ — enforced in the Worker, mirrored in the dropdown.
     "BOARD_SEND_AS": "muller31jp@gmail.com=tesourier@sdatygerberg.co.za",
-    // Who may delete inbox threads. Subset of the allow-list, one address for
-    // now. Plain-text var like BOARD_ALLOWED_EMAILS so the dashboard shows it.
+    // Board Mail admins can use every sender address, access all mail, and
+    // delete inbox threads.
     "BOARD_ADMIN_EMAILS": "rainiersvn1@gmail.com",
+    // Additional Board Mail identity usable only by administrators as From or
+    // recipient. The archive's automatic BCC remains system-controlled.
+    "BOARD_ADMIN_ONLY_EMAILS": "archive@sdatygerberg.co.za",
 
     // Inbound mail. Email Routing's catch-all for sdatygerberg.co.za hands
     // every address to this Worker; `inboundEmail.ts` forwards one copy to

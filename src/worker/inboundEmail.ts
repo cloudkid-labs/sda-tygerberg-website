@@ -533,8 +533,7 @@ async function emailHtmlToText(html: string): Promise<string> {
         const visibility = winningInlineStyleValue(style, 'visibility');
         const visibilityOverride = visibility === 'hidden' || visibility === 'collapse'
           ? true
-          : visibility === 'visible' || visibility === 'initial' ||
-              visibility === 'revert' || visibility === 'revert-layer'
+          : visibility === 'visible' || visibility === 'initial'
             ? false
             : undefined;
         if (visibilityOverride !== undefined && !VOID_EMAIL_ELEMENTS.has(tag)) {

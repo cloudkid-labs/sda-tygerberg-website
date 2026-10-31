@@ -132,7 +132,7 @@
     "BOARD_ADMIN_EMAILS": "rainiersvn1@gmail.com",
     // Additional Board Mail identity usable only by administrators as From or
     // recipient. The archive's automatic BCC remains system-controlled.
-    "BOARD_ADMIN_ONLY_EMAILS": "archive@sdatygerberg.co.za",
+    "BOARD_ADMIN_ONLY_EMAILS": "archive@sdatygerberg.co.za,rainier@sdatygerberg.co.za",
 
     // Inbound mail. Email Routing's catch-all for sdatygerberg.co.za hands
     // every address to this Worker; `inboundEmail.ts` forwards one copy to

@@ -108,6 +108,10 @@ export type HomeCopy = {
   footerBlurb: string;
   footerVisit: string;
   footerTimesLabel: string;
+  /** Label above the social pills in the footer's "Besoek ons" column. */
+  followUs: string;
+  /** Screen-reader suffix on links that open a new tab. */
+  opensNewTab: string;
   footerCreditBuilder: string;
   footerCreditChurch: string;
 };
@@ -220,6 +224,8 @@ export const homeCopy: Record<Lang, HomeCopy> = {
     footerBlurb: '’n Gemeente wat hoop, genesing en die liefde van Jesus met die Tygerberg-omgewing deel.',
     footerVisit: 'Besoek ons',
     footerTimesLabel: 'Dienstye',
+    followUs: 'Volg ons',
+    opensNewTab: '(maak in ’n nuwe oortjie oop)',
     footerCreditBuilder: 'Geskep deur CK Labs ™',
     footerCreditChurch: 'Deel van die wêreldwye Adventistekerk · adventist.org',
   },
@@ -326,6 +332,8 @@ export const homeCopy: Record<Lang, HomeCopy> = {
     footerBlurb: 'A congregation sharing hope, healing and the love of Jesus with the Tygerberg community.',
     footerVisit: 'Visit us',
     footerTimesLabel: 'Service times',
+    followUs: 'Follow us',
+    opensNewTab: '(opens in a new tab)',
     footerCreditBuilder: 'Created & Maintained by CK Labs ™',
     footerCreditChurch: 'Part of the worldwide Adventist Church · adventist.org',
   },

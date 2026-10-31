@@ -55,6 +55,24 @@ export const SITE = {
 } as const;
 
 /**
+ * The church's social channels, in display order — the one place their URLs
+ * live. The homepage footer and /connect both render this list; neither types a
+ * URL of its own. YouTube is the streams tab, the same URL the hero links to.
+ *
+ * Text labels only: a platform's logo comes from that platform's own brand kit
+ * or not at all, never redrawn.
+ */
+export type SocialLink = { id: 'youtube' | 'instagram' | 'facebook'; label: string; url: string };
+
+export const SOCIAL_LINKS: readonly SocialLink[] = [
+  { id: 'youtube', label: 'YouTube', url: SITE.youtubeStreamsUrl },
+  { id: 'instagram', label: 'Instagram', url: 'https://www.instagram.com/sdatygerberg' },
+  // TODO(board): confirm SDATygerbergStream is the church's main Facebook page,
+  // not a stream-only page. URL is verbatim from the brief.
+  { id: 'facebook', label: 'Facebook', url: 'https://www.facebook.com/SDATygerbergStream' },
+];
+
+/**
  * Blood bank drives, from the church's "Bloedbank datums 2026" roster. ISO so
  * a past date can be dropped without parsing prose, and language-independent —
  * only the month names are copy (`homeCopy.months`).

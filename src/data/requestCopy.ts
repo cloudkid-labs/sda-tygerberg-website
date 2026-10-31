@@ -57,6 +57,9 @@ export type FormCopy = {
   addressLabel: string;
   timesLabel: string;
   directionsCta: string;
+  /** Label above the social pills in the "other ways" card on /connect. */
+  followUs: string;
+  opensNewTab: string;
 };
 
 export const requestTopics: Record<RequestTopic, Record<Lang, TopicCopy>> = {
@@ -170,6 +173,8 @@ export const requestFormCopy: Record<Lang, FormCopy> = {
     addressLabel: 'Adres',
     timesLabel: 'Sabbatdienste',
     directionsCta: 'Kry Aanwysings',
+    followUs: 'Volg ons',
+    opensNewTab: '(maak in ’n nuwe oortjie oop)',
   },
   en: {
     backHome: 'Back to Homepage',
@@ -205,5 +210,7 @@ export const requestFormCopy: Record<Lang, FormCopy> = {
     addressLabel: 'Address',
     timesLabel: 'Sabbath Services',
     directionsCta: 'Get Directions',
+    followUs: 'Follow us',
+    opensNewTab: '(opens in a new tab)',
   },
 };

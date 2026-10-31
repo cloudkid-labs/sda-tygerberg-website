@@ -188,7 +188,7 @@ describe('handleInboxReply', () => {
     const session = await signSession('boss@example.co.za', SECRET);
     const res = await handleInboxReply(
       post({ id: 'abc-1', body: 'Hi' }, session),
-      env(bucket, { BOARD_SEND_AS: 'boss@example.co.za=kerk@sdatygerberg.co.za' }),
+      env(bucket, { BOARD_ADMIN_EMAILS: '', BOARD_SEND_AS: 'boss@example.co.za=kerk@sdatygerberg.co.za' }),
     );
     assert.equal(res.status, 403);
     assert.equal((await res.json()).outcome, 'not-allowed');

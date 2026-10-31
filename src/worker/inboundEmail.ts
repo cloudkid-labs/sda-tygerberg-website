@@ -1,5 +1,7 @@
 /// <reference types="@cloudflare/workers-types" />
 
+import PostalMime from 'postal-mime';
+
 /**
  * Inbound mail for the church domain.
  *
@@ -33,6 +35,8 @@ export type InboundEmailEnv = {
   MAIL_ROUTES?: Record<string, string>;
   /** The archive hop. Unset skips archiving entirely. */
   MAIL_ARCHIVE_TO?: string;
+  /** Board Mail Inbox storage. Inbound messages are stored after delivery. */
+  SUBMISSIONS?: R2Bucket;
 };
 
 /**
@@ -41,7 +45,9 @@ export type InboundEmailEnv = {
  * moved once — it returns `EmailSendResult` now, not `void` — and this way the
  * real type stays the source of truth.
  */
-export type InboundEmailMessage = Pick<ForwardableEmailMessage, 'to' | 'forward' | 'setReject'>;
+export type InboundEmailMessage = Pick<ForwardableEmailMessage, 'to' | 'forward' | 'setReject'> & {
+  raw?: ReadableStream<Uint8Array>;
+};
 
 const sameAddress = (a: string, b: string): boolean =>
   a.trim().toLowerCase() === b.trim().toLowerCase();
@@ -100,5 +106,33 @@ export async function handleInboundEmail(
   // its literal rule is missing. Re-posting it to that same address would loop.
   if (archiveTo && !sameAddress(message.to, archiveTo)) {
     await attempt(message, archiveTo);
+  }
+
+  // The normal delivery above remains authoritative. Board Mail storage is a
+  // best-effort copy so a parser or R2 failure cannot bounce mail already delivered.
+  if (env.SUBMISSIONS && message.raw) {
+    try {
+      const parsed = await PostalMime.parse(message.raw);
+      const sender = parsed.from?.address?.trim().toLowerCase();
+      const text = (parsed.text ?? '').trim();
+      if (!sender || !text) throw new Error('missing sender or text body');
+      const at = new Date().toISOString();
+      const [date] = at.split('T');
+      const id = `${Date.now().toString(36)}${[...crypto.getRandomValues(new Uint8Array(6))].map((b) => b.toString(16).padStart(2, '0')).join('')}`;
+      const topic = 'email';
+      await env.SUBMISSIONS.put(
+        `submissions/${date.replaceAll('-', '/')}/${at}-${id}.json`,
+        JSON.stringify({
+          id, submittedAt: at, topic, name: parsed.from?.name?.trim() || sender,
+          email: sender, phone: null, lang: 'en', message: text,
+          subject: parsed.subject?.trim() || '(no subject)', replyFrom: message.to.trim().toLowerCase(),
+          replies: [],
+        }),
+      );
+      console.log(`inbound mail: inbox stored id=${id}`);
+    } catch (error) {
+      const detail = error instanceof Error ? error.message : String(error);
+      console.error(`inbound mail: inbox store failed: ${detail}`);
+    }
   }
 }

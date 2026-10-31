@@ -67,6 +67,55 @@ const VOID_EMAIL_ELEMENTS = new Set([
   'area', 'base', 'br', 'col', 'embed', 'hr', 'img', 'input', 'link', 'meta',
   'param', 'source', 'track', 'wbr',
 ]);
+const HEAD_CONTENT_EMAIL_ELEMENTS = new Set([
+  'base', 'basefont', 'bgsound', 'link', 'meta', 'noframes', 'noscript',
+  'script', 'style', 'template', 'title',
+]);
+const P_AUTO_CLOSE_TAGS = new Set([
+  'address', 'article', 'aside', 'blockquote', 'button', 'details', 'dialog',
+  'dir', 'div', 'dl', 'fieldset', 'figcaption', 'figure', 'footer', 'form',
+  'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'header', 'hgroup', 'hr', 'main',
+  'menu', 'nav', 'ol', 'p', 'pre', 'search', 'section', 'table', 'ul',
+]);
+const IMPLIED_CLOSES_ON_START: Record<string, ReadonlySet<string>> = {
+  dd: new Set(['dd', 'dt']),
+  dt: new Set(['dd', 'dt']),
+  li: new Set(['li']),
+  optgroup: new Set(['optgroup']),
+  option: new Set(['option', 'optgroup']),
+  p: P_AUTO_CLOSE_TAGS,
+  rp: new Set(['rp', 'rt']),
+  rt: new Set(['rp', 'rt']),
+  colgroup: new Set(['colgroup']),
+  td: new Set(['td', 'th', 'tr', 'thead', 'tbody', 'tfoot', 'table']),
+  th: new Set(['td', 'th', 'tr', 'thead', 'tbody', 'tfoot', 'table']),
+  tr: new Set(['tr', 'thead', 'tbody', 'tfoot', 'table']),
+  thead: new Set(['tbody', 'tfoot']),
+  tbody: new Set(['tbody', 'thead', 'tfoot']),
+  tfoot: new Set(['tbody', 'thead']),
+};
+const IMPLIED_CLOSES_ON_END: Record<string, ReadonlySet<string>> = {
+  dd: new Set(['dl']),
+  dt: new Set(['dl']),
+  head: new Set(['body']),
+  li: new Set(['ol', 'ul', 'menu']),
+  optgroup: new Set(['select', 'datalist']),
+  option: new Set(['optgroup', 'select', 'datalist']),
+  p: new Set([...P_AUTO_CLOSE_TAGS, 'body']),
+  rp: new Set(['ruby']),
+  rt: new Set(['ruby']),
+  colgroup: new Set(['table']),
+  td: new Set(['tr', 'thead', 'tbody', 'tfoot', 'table']),
+  th: new Set(['tr', 'thead', 'tbody', 'tfoot', 'table']),
+  tr: new Set(['thead', 'tbody', 'tfoot', 'table']),
+  thead: new Set(['table']),
+  tbody: new Set(['table']),
+  tfoot: new Set(['table']),
+};
+const OPTIONAL_CLOSURE_END_TAGS = new Set([
+  ...P_AUTO_CLOSE_TAGS, 'body', 'ol', 'ul', 'menu', 'dl', 'ruby', 'optgroup',
+  'select', 'datalist', 'table', 'thead', 'tbody', 'tfoot', 'tr',
+]);
 
 function hasHiddenEmailPresentation(element: Element): boolean {
   if (element.hasAttribute('hidden')) return true;
@@ -107,12 +156,51 @@ async function emailHtmlToText(html: string): Promise<string> {
   if (typeof HTMLRewriter === 'undefined') return '';
 
   const chunks: string[] = [];
-  let hiddenDepth = 0;
+  const hiddenElements: Array<{ id: number; tag: string }> = [];
+  let hiddenElementId = 0;
+
+  const closeHiddenElement = (id: number): void => {
+    const index = hiddenElements.findIndex((hidden) => hidden.id === id);
+    if (index >= 0) hiddenElements.splice(index);
+  };
+  const closeImplicitlyOnStart = (nextTag: string): void => {
+    const headIndex = hiddenElements.findIndex((hidden) => hidden.tag === 'head');
+    if (
+      headIndex >= 0 &&
+      nextTag !== 'html' &&
+      nextTag !== 'head' &&
+      !HEAD_CONTENT_EMAIL_ELEMENTS.has(nextTag)
+    ) {
+      hiddenElements.splice(headIndex);
+      return;
+    }
+    for (let index = hiddenElements.length - 1; index >= 0; index -= 1) {
+      if (IMPLIED_CLOSES_ON_START[hiddenElements[index].tag]?.has(nextTag)) {
+        hiddenElements.splice(index);
+        return;
+      }
+    }
+  };
+  const closeImplicitlyOnEnd = (endTag: string): void => {
+    for (let index = hiddenElements.length - 1; index >= 0; index -= 1) {
+      if (IMPLIED_CLOSES_ON_END[hiddenElements[index].tag]?.has(endTag)) {
+        hiddenElements.splice(index);
+        return;
+      }
+    }
+  };
+
   const transformed = new HTMLRewriter()
     .on('*', {
       element(element) {
         const tag = element.tagName.toLowerCase();
-        if (hiddenDepth > 0) return;
+        closeImplicitlyOnStart(tag);
+        if (OPTIONAL_CLOSURE_END_TAGS.has(tag) && !VOID_EMAIL_ELEMENTS.has(tag)) {
+          element.onEndTag(() => {
+            closeImplicitlyOnEnd(tag);
+          });
+        }
+        if (hiddenElements.length > 0) return;
         if (
           HIDDEN_EMAIL_CONTAINERS.has(tag) ||
           HIDDEN_EMAIL_VOID_ELEMENTS.has(tag) ||
@@ -122,9 +210,10 @@ async function emailHtmlToText(html: string): Promise<string> {
             element.remove();
             return;
           }
-          hiddenDepth += 1;
+          const hidden = { id: ++hiddenElementId, tag };
+          hiddenElements.push(hidden);
           element.onEndTag(() => {
-            if (hiddenDepth > 0) hiddenDepth -= 1;
+            closeHiddenElement(hidden.id);
           });
           element.remove();
           return;
@@ -161,7 +250,7 @@ async function emailHtmlToText(html: string): Promise<string> {
         }
       },
       text(chunk) {
-        if (hiddenDepth === 0 && !chunk.removed) chunks.push(chunk.text);
+        if (hiddenElements.length === 0 && !chunk.removed) chunks.push(chunk.text);
       },
     })
     .transform(new Response(html));

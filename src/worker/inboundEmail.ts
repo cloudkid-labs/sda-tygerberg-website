@@ -57,10 +57,11 @@ const BLOCK_EMAIL_ELEMENTS = new Set([
   'dt', 'fieldset', 'figcaption', 'figure', 'footer', 'header', 'h1', 'h2',
   'h3', 'h4', 'h5', 'h6', 'main', 'nav', 'ol', 'p', 'section', 'table', 'tr', 'ul',
 ]);
-const HIDDEN_EMAIL_ELEMENTS = new Set([
-  'head', 'script', 'style', 'title', 'meta', 'link', 'noscript', 'template',
-  'svg', 'canvas', 'iframe', 'object', 'embed',
+const HIDDEN_EMAIL_CONTAINERS = new Set([
+  'head', 'script', 'style', 'title', 'noscript', 'template', 'svg', 'canvas',
+  'iframe', 'object',
 ]);
+const HIDDEN_EMAIL_VOID_ELEMENTS = new Set(['meta', 'link', 'embed']);
 
 function normalizeEmailText(text: string): string {
   return text
@@ -80,11 +81,21 @@ async function emailHtmlToText(html: string): Promise<string> {
   if (typeof HTMLRewriter === 'undefined') return '';
 
   const chunks: string[] = [];
+  let hiddenDepth = 0;
   const transformed = new HTMLRewriter()
     .on('*', {
       element(element) {
         const tag = element.tagName.toLowerCase();
-        if (HIDDEN_EMAIL_ELEMENTS.has(tag)) {
+        if (hiddenDepth > 0) return;
+        if (HIDDEN_EMAIL_CONTAINERS.has(tag)) {
+          hiddenDepth += 1;
+          element.onEndTag(() => {
+            if (hiddenDepth > 0) hiddenDepth -= 1;
+          });
+          element.remove();
+          return;
+        }
+        if (HIDDEN_EMAIL_VOID_ELEMENTS.has(tag)) {
           element.remove();
           return;
         }
@@ -100,23 +111,41 @@ async function emailHtmlToText(html: string): Promise<string> {
         }
         if (tag === 'li') {
           chunks.push('\n- ');
-          element.onEndTag(() => { chunks.push('\n'); });
+          element.onEndTag(() => {
+            chunks.push('\n');
+          });
           return;
         }
         if (BLOCK_EMAIL_ELEMENTS.has(tag)) {
           chunks.push('\n');
-          element.onEndTag(() => { chunks.push('\n'); });
+          element.onEndTag(() => {
+            chunks.push('\n');
+          });
         }
       },
       text(chunk) {
-        if (!chunk.removed) chunks.push(chunk.text);
+        if (hiddenDepth === 0 && !chunk.removed) chunks.push(chunk.text);
       },
     })
     .transform(new Response(html));
 
   // Consume the transformed stream so every HTMLRewriter handler runs.
   await transformed.text();
-  return normalizeEmailText(chunks.join(''));
+  const visibleText = chunks.join('');
+  if (!visibleText.trim()) return '';
+
+  // PostalMime owns the full HTML named and numeric character-reference table.
+  // Reparse only the extracted text as an HTML part so references are decoded
+  // after chunks have been joined; no sender markup, URLs or attributes enter it.
+  const decoded = await PostalMime.parse(
+    new TextEncoder().encode(
+      'MIME-Version: 1.0\r\nContent-Type: text/html; charset=utf-8\r\n\r\n<div>' +
+        visibleText +
+        '</div>',
+    ),
+    { maxNestingDepth: 20, maxHeadersSize: 65_536, maxPartCount: 100 },
+  );
+  return normalizeEmailText(decoded.text ?? '');
 }
 
 async function emailBodyText(parsed: { html?: string; text?: string }): Promise<string> {

@@ -176,6 +176,15 @@
       "allowed_sender_addresses": ["welkom@sdatygerberg.co.za"]
     }
   ],
+  // The Worker renders React for the CMS (src/worker/cmsRender.tsx, C-70) and
+  // those components read `import.meta.env`, which only Vite defines. This is
+  // the Worker's copy of the two values they read at module scope: BASE_URL,
+  // and PUBLIC_IMAGE_CDN left undefined (= enabled). The build's own flags reach
+  // the render through the page payload instead. Not inherited — env.devtest
+  // repeats it.
+  "define": {
+    "import.meta.env": "{\"BASE_URL\":\"/\"}"
+  },
   // Consent records for /api/contact submissions — CONCERNS.md C-34.
   //
   // A bucket that already existed in the account and had nothing writing to it:
@@ -204,6 +213,16 @@
     {
       "binding": "SUBMISSIONS",
       "bucket_name": "tygerberg-submissions"
+    },
+    // Website content for the members-area CMS: events, department heads,
+    // pages (draft and live), images, history and the audit log — C-70.
+    // Created by terraform/ (cloudflare_r2_bucket.cms), which must be applied
+    // BEFORE a deploy carrying this binding: wrangler refuses to deploy against
+    // a bucket that does not exist. Unbound, the site serves the seed and
+    // /api/cms answers `not-configured`.
+    {
+      "binding": "CMS",
+      "bucket_name": "tygerberg-cms"
     }
   ],
   "routes": [
@@ -233,6 +252,9 @@
     "devtest": {
       "name": "tygerberg-sda-website-devtest",
       "routes": [{ "pattern": "tygerberg-sda.cloudkid.link", "custom_domain": true }],
+      "define": {
+        "import.meta.env": "{\"BASE_URL\":\"/\"}"
+      },
       "vars": {
         "LIVE_CHECK_CRON": "* 9-12 * * 6",
         "LIVE_CHECK_TZ": "Africa/Johannesburg",
@@ -242,6 +264,11 @@
       // Devtest reads and writes its own submissions bucket, so trialling the
       // inbox never touches the production queue. Create with:
       // wrangler r2 bucket create tygerberg-submissions-devtest
+      //
+      // TODO(infra): bind CMS -> tygerberg-cms-devtest once terraform/ has
+      // created it (cloudflare_r2_bucket.cms_devtest). Until then devtest has
+      // no CMS bucket and serves the seed — it also has no sign-in secrets, so
+      // the members area cannot be used there either way. C-70
       "r2_buckets": [
         {
           "binding": "SUBMISSIONS",

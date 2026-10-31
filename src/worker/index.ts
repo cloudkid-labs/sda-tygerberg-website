@@ -17,6 +17,10 @@ import { healthResponse } from './health';
 import { handleInboundEmail, type InboundEmailEnv } from './inboundEmail';
 import { requestFacts, requestLogEntry } from './requestLog';
 import { isLegacyBoardPath, isMembersPath, legacyBoardRedirect, membersGate, noAccess } from './members';
+import { handleCms, type CmsEnv } from './cms';
+import { serveMedia } from './cmsMedia';
+import { serveCmsPage, serveHome, serveSitemap } from './cmsPublic';
+import { renderAboutSection, renderPageRoot, renderWeekSection } from './cmsRender';
 
 export type Env = LiveStatusEnv &
   LatestVideoEnv &
@@ -24,9 +28,13 @@ export type Env = LiveStatusEnv &
   InboundEmailEnv &
   AuthEnv &
   MailSendEnv &
-  InboxEnv & {
+  InboxEnv &
+  CmsEnv & {
     ASSETS: Fetcher;
   };
+
+/** The React renders the Worker writes into built pages — C-70. */
+const RENDER = { week: renderWeekSection, about: renderAboutSection, page: renderPageRoot };
 
 /**
  * A headshot master, but not one of the pre-resized copies under `fallback/`.
@@ -167,6 +175,28 @@ async function route(request: Request, env: Env, ctx: ExecutionContext): Promise
     return handleInboxSent(request, env);
   }
 
+  if (pathname.startsWith('/api/cms/')) {
+    return handleCms(request, env);
+  }
+
+  if (pathname.startsWith('/media/')) {
+    return (await serveMedia(request, env)) ?? env.ASSETS.fetch(new Request(new URL('/__missing__', request.url), request));
+  }
+
+  // The CMS page shell is an implementation detail, never a page of its own.
+  if (pathname === '/page-shell' || pathname.startsWith('/page-shell/')) {
+    return env.ASSETS.fetch(new Request(new URL('/__missing__', request.url), request));
+  }
+
+  // Live CMS content into the built homepage — C-70.
+  if (pathname === '/' && (request.method === 'GET' || request.method === 'HEAD')) {
+    return serveHome(request, env, RENDER);
+  }
+
+  if (pathname === '/sitemap.xml') {
+    return serveSitemap(request, env);
+  }
+
   if (pathname === '/api/live-status') {
     // One upstream call shared by every viewer in the colo — CONCERNS.md C-16.
     const { result, cached } = await getLiveStatusCached(request, env, ctx);
@@ -200,5 +230,9 @@ async function route(request: Request, env: Env, ctx: ExecutionContext): Promise
     );
   }
 
-  return env.ASSETS.fetch(request);
+  const asset = await env.ASSETS.fetch(request);
+  // No file for this path: a live CMS page, or the 404 the build already has.
+  // Drafts are never looked up here (C-70).
+  if (asset.status === 404) return (await serveCmsPage(request, env, RENDER)) ?? asset;
+  return asset;
 }

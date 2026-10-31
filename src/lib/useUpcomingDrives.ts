@@ -26,9 +26,15 @@ const DRIVES_AT_BUILD = BLOOD_DRIVES.filter((d) => d >= import.meta.env.PUBLIC_B
  * CONCERNS.md C-36. Shared by the week card and the blood bank page so the two
  * can never disagree about what "upcoming" means, and so the reasoning behind
  * the seed lives in one place instead of two.
+ *
+ * `asOf` replaces the build date for the first render where the page says
+ * which date it was rendered for — the homepage, whose week section the Worker
+ * re-renders per request (C-70). Same date on both sides of hydration either
+ * way.
  */
-export function useUpcomingDrives(): readonly string[] {
+export function useUpcomingDrives(asOf?: string): readonly string[] {
   const [now, setNow] = useState<string | null>(null);
   useEffect(() => setNow(today()), []);
-  return now ? BLOOD_DRIVES.filter((d) => d >= now) : DRIVES_AT_BUILD;
+  if (now) return BLOOD_DRIVES.filter((d) => d >= now);
+  return asOf ? BLOOD_DRIVES.filter((d) => d >= asOf) : DRIVES_AT_BUILD;
 }

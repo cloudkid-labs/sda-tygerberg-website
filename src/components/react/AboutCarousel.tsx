@@ -1,16 +1,14 @@
 import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react';
 import { useLanguage } from '../../context/LanguageContext';
 import { homeCopy } from '../../data/homeCopy';
-import { shownDepartmentHeads, type DepartmentHeadWithPhoto } from '../../data/departmentHeads';
 import type { Lang } from '../../data/site';
+import type { PublicHead } from '../../lib/cms/types';
 import {
   cdnImageUrl,
   cdnSrcset,
-  headshotFallbackUrl,
-  headshotSource,
+  headshotFallbackFor,
   HEADSHOT_SIZES,
   HEADSHOT_WIDTHS,
-  IMAGE_CDN_ENABLED,
   probeImageCdn,
   type ImageCdnStatus,
 } from '../../lib/cdnImage';
@@ -32,21 +30,20 @@ const COMMIT_RATIO = 0.22;
  */
 const AXIS_LOCK_PX = 8;
 
-const COUNT = shownDepartmentHeads.length;
-
 /**
  * Slot a card occupies relative to the active one: 0 is leftmost visible,
  * positive runs off to the right, negative off to the left. CONCERNS.md C-12.
+ * `count` is the deck size — CMS content now, so a parameter rather than a
+ * module constant.
  */
-function slotOf(index: number, active: number) {
-  const ahead = (((index - active) % COUNT) + COUNT) % COUNT;
+function slotOf(index: number, active: number, count: number) {
+  const ahead = (((index - active) % count) + count) % count;
   // Far half of the ring goes round the back, so cards also leave to the left.
-  return ahead > COUNT / 2 ? ahead - COUNT : ahead;
+  return ahead > count / 2 ? ahead - count : ahead;
 }
 
 /** Outside this, a card is mid-wrap and must move without animating — C-12. */
-const ANIMATE_SPAN = Math.max(2, Math.floor(COUNT / 2) - 2);
-const isAnimatedSlot = (slot: number) => slot >= -ANIMATE_SPAN && slot <= ANIMATE_SPAN;
+const animateSpan = (count: number) => Math.max(2, Math.floor(count / 2) - 2);
 
 // Paired with HEADSHOT_SIZES in src/lib/cdnImage.ts — CONCERNS.md C-03.
 const CARD_WIDTH = 'w-[72%] sm:w-[45%] lg:w-[31%]';
@@ -59,44 +56,38 @@ const CARD_WIDTH = 'w-[72%] sm:w-[45%] lg:w-[31%]';
  */
 const PHOTO_ASPECT = '4/5';
 
-/** Smallest candidate of the first photo — already in its srcset, so free. */
-const PROBE_URL = shownDepartmentHeads[0]
-  ? cdnImageUrl(headshotSource(shownDepartmentHeads[0].photo), HEADSHOT_WIDTHS[0])
-  : null;
-
 /**
  * Whether the edge transformer is answering: asked once, shared by every card.
  * `unknown` is optimistic and matches the server-rendered HTML. CONCERNS.md
- * C-09.
+ * C-09. `enabled` is the build's PUBLIC_IMAGE_CDN, carried in the page payload
+ * so the Worker's render of this deck starts from the same state (C-70).
+ * `probeUrl` is the smallest candidate of the first photo — already in its
+ * srcset, so free.
  */
-function useImageCdn(): ImageCdnStatus {
-  const [status, setStatus] = useState<ImageCdnStatus>(
-    IMAGE_CDN_ENABLED ? 'unknown' : 'unavailable',
-  );
+function useImageCdn(enabled: boolean, probeUrl: string | null): ImageCdnStatus {
+  const [status, setStatus] = useState<ImageCdnStatus>(enabled ? 'unknown' : 'unavailable');
 
   useEffect(() => {
-    if (!IMAGE_CDN_ENABLED || !PROBE_URL) return;
+    if (!enabled || !probeUrl) return;
     let live = true;
-    probeImageCdn(PROBE_URL).then((ok) => {
+    probeImageCdn(probeUrl).then((ok) => {
       if (live) setStatus(ok ? 'available' : 'unavailable');
     });
     return () => {
       live = false;
     };
-  }, []);
+  }, [enabled, probeUrl]);
 
   return status;
 }
 
 /** Cloudflare resizes per viewport; the browser picks from `sizes`. */
 function Headshot({
-  name,
   photo,
   eager,
   cdn,
 }: {
-  name: string;
-  photo: string;
+  photo: PublicHead['photo'];
   eager: boolean;
   cdn: ImageCdnStatus;
 }) {
@@ -104,7 +95,7 @@ function Headshot({
   // broken URL. Falls back to the resized copy, never the original — C-02.
   const [transformFailed, setTransformFailed] = useState(false);
   const useCdn = cdn !== 'unavailable' && !transformFailed;
-  const fallback = headshotFallbackUrl(photo);
+  const fallback = headshotFallbackFor(photo.src);
 
   /** `onError` misses failures that happened before hydration — C-05. */
   const catchErrorBeforeHydration = (img: HTMLImageElement | null) => {
@@ -114,10 +105,10 @@ function Headshot({
   return (
     <img
       ref={catchErrorBeforeHydration}
-      src={useCdn ? cdnImageUrl(headshotSource(photo), 640) : fallback}
-      srcSet={useCdn ? cdnSrcset(headshotSource(photo)) : undefined}
+      src={useCdn ? cdnImageUrl(photo.src, 640) : fallback}
+      srcSet={useCdn ? cdnSrcset(photo.src) : undefined}
       sizes={useCdn ? HEADSHOT_SIZES : undefined}
-      alt={name}
+      alt={photo.alt}
       // Off-screen cards sit outside the track's overflow, so lazy holds them.
       loading={eager ? 'eager' : 'lazy'}
       decoding="async"
@@ -140,7 +131,7 @@ function Card({
   eager = false,
   sizer = false,
 }: {
-  head: DepartmentHeadWithPhoto;
+  head: PublicHead;
   lang: Lang;
   cdn?: ImageCdnStatus;
   eager?: boolean;
@@ -158,14 +149,14 @@ function Card({
       >
         {/* No placeholder branch: a card only exists if its photo does. The
             stripes still show through while the image is in flight. */}
-        {sizer ? null : <Headshot name={head.name} photo={head.photo} eager={eager} cdn={cdn} />}
+        {sizer ? null : <Headshot photo={head.photo} eager={eager} cdn={cdn} />}
       </div>
       <div className="p-4 text-center">
         <div className="font-serif text-lg text-navy">{head.name}</div>
         {/* Stacked, not joined — three roles on one line is unreadable. */}
         <div className="mt-0.5 text-sm leading-snug text-slate">
-          {head.roles[lang].map((role) => (
-            <div key={role}>{role}</div>
+          {head.positions.map((position) => (
+            <div key={position[lang]}>{position[lang]}</div>
           ))}
         </div>
       </div>
@@ -173,12 +164,15 @@ function Card({
   );
 }
 
-function CarouselDeck() {
+function CarouselDeck({ heads, cdnEnabled }: { heads: PublicHead[]; cdnEnabled: boolean }) {
   const { lang } = useLanguage();
   const t = homeCopy[lang];
+  const COUNT = heads.length;
+  const ANIMATE_SPAN = animateSpan(COUNT);
+  const isAnimatedSlot = (slot: number) => slot >= -ANIMATE_SPAN && slot <= ANIMATE_SPAN;
 
   // One probe for the whole deck, not one per card.
-  const cdn = useImageCdn();
+  const cdn = useImageCdn(cdnEnabled, cdnImageUrl(heads[0].photo.src, HEADSHOT_WIDTHS[0]));
 
   const [active, setActive] = useState(0);
   const [dragging, setDragging] = useState(false);
@@ -390,9 +384,7 @@ function CarouselDeck() {
 
   // Rendered invisibly in flow to give the track a height — the real cards are
   // absolutely positioned and cannot.
-  const tallest = shownDepartmentHeads.reduce((a, b) =>
-    b.roles[lang].length > a.roles[lang].length ? b : a,
-  );
+  const tallest = heads.reduce((a, b) => (b.positions.length > a.positions.length ? b : a));
 
   return (
     <section id="oor" className="scroll-mt-24 bg-tan py-16">
@@ -438,8 +430,8 @@ function CarouselDeck() {
               <Card head={tallest} lang={lang} sizer />
             </div>
 
-            {shownDepartmentHeads.map((head, index) => {
-              const slot = slotOf(index, active);
+            {heads.map((head, index) => {
+              const slot = slotOf(index, active, COUNT);
               const animate = !dragging && !reduceMotion && isAnimatedSlot(slot);
               // Three cards show at the widest breakpoint; the rest are hidden
               // from assistive tech. Erring wide — hiding a visible card is the
@@ -519,7 +511,7 @@ function CarouselDeck() {
 
           {/* Announced only while the deck is not moving on its own — C-13. */}
           <span className="sr-only" aria-live={paused || reduceMotion ? 'polite' : 'off'}>
-            {active + 1} {t.carouselOf} {COUNT} — {shownDepartmentHeads[active].name}
+            {active + 1} {t.carouselOf} {COUNT} — {heads[Math.min(active, COUNT - 1)].name}
           </span>
         </div>
       </div>
@@ -528,13 +520,12 @@ function CarouselDeck() {
 }
 
 /*
- * The guard lives out here so the deck's hooks are never skipped. COUNT is
- * fixed at module load, so the old early return could not actually reorder
- * hooks — but it sat above `useLanguage()`, which is the shape the rules of
- * hooks exist to forbid, and it only stayed correct by an argument in a
- * comment. `slotOf` takes `% COUNT` and would divide by zero with no heads.
+ * The guard lives out here so the deck's hooks are never skipped. `slotOf`
+ * takes `% count` and would divide by zero with no heads. The heads are the
+ * CMS's visible, photographed ones in order (C-29, C-70) — the build's seed,
+ * or the live list the Worker swapped into the page.
  */
-export function AboutCarousel() {
-  if (COUNT === 0) return null;
-  return <CarouselDeck />;
+export function AboutCarousel({ heads, cdnEnabled }: { heads: PublicHead[]; cdnEnabled: boolean }) {
+  if (heads.length === 0) return null;
+  return <CarouselDeck heads={heads} cdnEnabled={cdnEnabled} />;
 }

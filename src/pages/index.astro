@@ -3,6 +3,8 @@ import Layout from '../layouts/Layout.astro';
 import { Home } from '../components/react/Home';
 import { SITE } from '../data/site';
 import { embedPageUrl, parseLatestFromEmbedHtml, type LatestVideo } from '../lib/latestVideo';
+import { buildHomePayload, HOME_PAYLOAD_ID } from '../lib/cms/payload';
+import { scriptJson } from '../lib/cms/public';
 
 /*
  * Build-time seed for the video preview card: the newest upload's id and
@@ -37,5 +39,10 @@ try {
   title="Tygerberg SDA Kerk · Sewendedag Adventiste Kerk, Kaapstad"
   description="Sluit elke Sabbat by Tygerberg SDA Kerk aan in Boston, Kaapstad — of kyk lewendig van waar jy ook al is."
 >
+  {/* The CMS payload: the seed as at the build. The Worker swaps in live
+      content per request and re-renders #week and #oor to match (C-70). It
+      must come before the island — the Worker reads `build` from it before it
+      reaches either section. */}
+  <script is:inline type="application/json" id={HOME_PAYLOAD_ID} set:html={scriptJson(buildHomePayload())} />
   <Home client:load latestVideo={latestVideo} />
 </Layout>

@@ -243,6 +243,46 @@ function splitInlineCssDeclarations(style: string): string[] {
   return declarations;
 }
 
+const CSS_WIDE_KEYWORDS = new Set(['inherit', 'initial', 'revert', 'revert-layer', 'unset']);
+const DISPLAY_OUTSIDE = new Set(['block', 'inline', 'run-in']);
+const DISPLAY_INSIDE = new Set(['flow', 'flow-root', 'table', 'flex', 'grid', 'ruby']);
+const DISPLAY_INTERNAL = new Set([
+  'table-row-group', 'table-header-group', 'table-footer-group', 'table-row',
+  'table-cell', 'table-column-group', 'table-column', 'table-caption',
+  'ruby-base', 'ruby-text', 'ruby-base-container', 'ruby-text-container',
+]);
+const DISPLAY_LEGACY = new Set([
+  'inline-block', 'inline-table', 'inline-flex', 'inline-grid',
+  '-webkit-box', '-webkit-inline-box', '-webkit-flex', '-webkit-inline-flex',
+]);
+
+function isValidPresentationValue(property: string, value: string): boolean {
+  if (CSS_WIDE_KEYWORDS.has(value)) return true;
+  if (property === 'visibility') {
+    return value === 'visible' || value === 'hidden' || value === 'collapse';
+  }
+  if (property === 'content-visibility') {
+    return value === 'visible' || value === 'auto' || value === 'hidden';
+  }
+  if (property !== 'display') return false;
+  if (value === 'none' || value === 'contents' || DISPLAY_INTERNAL.has(value) || DISPLAY_LEGACY.has(value)) {
+    return true;
+  }
+
+  let outsideCount = 0;
+  let insideCount = 0;
+  let listItemCount = 0;
+  for (const token of value.split(/\s+/)) {
+    if (DISPLAY_OUTSIDE.has(token)) outsideCount++;
+    else if (DISPLAY_INSIDE.has(token)) insideCount++;
+    else if (token === 'list-item') listItemCount++;
+    else return false;
+  }
+
+  return outsideCount <= 1 && insideCount <= 1 && listItemCount <= 1 &&
+    (outsideCount + insideCount + listItemCount > 0);
+}
+
 function winningInlineStyleValue(style: string, requestedProperty: string): string | undefined {
   let winner: { value: string; important: boolean } | undefined;
 
@@ -255,9 +295,11 @@ function winningInlineStyleValue(style: string, requestedProperty: string): stri
     let value = declaration.slice(separator + 1).trim();
     const important = /\s*!important\s*$/i.test(value);
     if (important) value = value.replace(/\s*!important\s*$/i, '').trim();
+    value = value.toLowerCase();
+    if (!isValidPresentationValue(requestedProperty, value)) continue;
 
     if (!winner || (important && !winner.important) || important === winner.important) {
-      winner = { value: value.toLowerCase(), important };
+      winner = { value, important };
     }
   }
 

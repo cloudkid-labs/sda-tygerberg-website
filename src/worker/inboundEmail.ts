@@ -271,15 +271,20 @@ function isValidPresentationValue(property: string, value: string): boolean {
 
   let outsideCount = 0;
   let insideCount = 0;
+  let insideValue = '';
   let listItemCount = 0;
   for (const token of value.split(/\s+/)) {
     if (DISPLAY_OUTSIDE.has(token)) outsideCount++;
-    else if (DISPLAY_INSIDE.has(token)) insideCount++;
+    else if (DISPLAY_INSIDE.has(token)) {
+      insideCount++;
+      insideValue = token;
+    }
     else if (token === 'list-item') listItemCount++;
     else return false;
   }
 
   return outsideCount <= 1 && insideCount <= 1 && listItemCount <= 1 &&
+    (listItemCount === 0 || insideCount === 0 || insideValue === 'flow' || insideValue === 'flow-root') &&
     (outsideCount + insideCount + listItemCount > 0);
 }
 

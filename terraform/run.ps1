@@ -35,6 +35,12 @@ $ErrorActionPreference = 'Stop'
 # an exception: with this $true (the default in some 7.x setups), a plan that
 # exits 2 — "changes present", not an error — would throw.
 $PSNativeCommandUseErrorActionPreference = $false
+# Terraform writes UTF-8. Piped through PowerShell (Invoke-Terraform does),
+# its bytes are decoded with [Console]::OutputEncoding, which on Windows is the
+# OEM code page (437): the plan separator U+2500 '─' (E2 94 80) then shows as
+# 'ΓöÇ'. Decode as UTF-8 for this run; the original is restored in finally.
+$originalOutputEncoding = [Console]::OutputEncoding
+[Console]::OutputEncoding = [System.Text.UTF8Encoding]::new($false)
 $RequiredTerraform = [version]'1.17.0'
 $TerraformVersion = '1.17.0' # pinned: the version the offline tests pass on
 
@@ -340,4 +346,5 @@ try {
   if ($planFile -and (Test-Path $planFile)) { Remove-Item $planFile -Force -ErrorAction SilentlyContinue }
   Pop-Location
   Stop-Transcript | Out-Null
+  [Console]::OutputEncoding = $originalOutputEncoding
 }

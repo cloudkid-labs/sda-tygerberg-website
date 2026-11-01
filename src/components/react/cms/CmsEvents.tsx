@@ -350,11 +350,11 @@ export function CmsEvents({ onOpenPage }: { onOpenPage?: (slug: string) => void 
           </button>
         </div>
         <p className="mb-4 text-[14px] text-slate-muted">{t.evHelp}</p>
-        <ol className="grid gap-2.5">
+        <ol className="grid grid-cols-[minmax(0,1fr)] gap-2.5">
           {items.map((e, i) => (
             <li
               key={e.id}
-              className={`flex items-center gap-3 rounded-card border bg-cream-card p-3 sm:px-4 ${
+              className={`flex min-w-0 items-center gap-3 rounded-card border bg-cream-card p-3 sm:px-4 ${
                 e.id === selected ? 'border-navy shadow-[inset_3px_0_0_var(--color-navy)]' : 'border-subtle hover:border-ink/30'
               }`}
             >

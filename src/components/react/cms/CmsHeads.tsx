@@ -293,7 +293,7 @@ export function CmsHeads() {
                 ) : current.photo ? (
                   <Thumb src={current.photo.src} alt={fill(t.hdEditAria, { name: current.name })} className="h-full w-full object-cover object-top" />
                 ) : (
-                  <span className="flex h-full items-center justify-center text-[12px] text-slate-muted">{t.hdNoPhoto}</span>
+                  <span className="flex h-full items-end justify-center pb-3 text-[12px] font-bold text-slate">{t.hdNoPhoto}</span>
                 )}
                 <span aria-hidden="true" className="pointer-events-none absolute left-[22%] top-[10%] h-[48%] w-[56%] rounded-[50%] border-2 border-dashed border-white/90 shadow-[0_0_0_9999px_rgba(7,42,59,.18)]" />
               </div>

@@ -132,7 +132,7 @@ function ListEditor<T>({
   return (
     <div className="grid gap-3">
       {items.map((item, i) => (
-        <div key={i} className="grid gap-3 rounded-xl border border-subtle bg-cream p-3">
+        <div key={i} className="grid min-w-0 gap-3 rounded-xl border border-subtle bg-cream p-3">
           {render(item, (v) => onChange(items.map((x, j) => (j === i ? v : x))), i)}
           {items.length > 1 && (
             <button type="button" className="min-h-11 justify-self-start text-[13px] font-bold text-[#9a4f0f] underline" onClick={() => onChange(items.filter((_, j) => j !== i))}>
@@ -352,7 +352,8 @@ export function CmsPages({ initialSlug }: { initialSlug?: string | null }) {
     setDirty(false);
     setError('');
     setFieldErrors(new Set());
-    setNote(res.data.live ? t.published : t.draft);
+    // The status line already says Live or Draft.
+    setNote('');
   }
 
   useEffect(() => {
@@ -473,7 +474,7 @@ export function CmsPages({ initialSlug }: { initialSlug?: string | null }) {
           </button>
         </div>
         <p className="mb-4 text-[14px] text-slate-muted">{t.pgHelp}</p>
-        <ul className="grid gap-2">
+        <ul className="grid grid-cols-[minmax(0,1fr)] gap-2">
           {list.map((p) => (
             <li key={p.slug}>
               <button
@@ -515,7 +516,7 @@ export function CmsPages({ initialSlug }: { initialSlug?: string | null }) {
           </div>
           <p className="mb-5 text-[13px] text-slate-muted">
             {t.pgTemplate} <strong className="text-ink">{t.pgTemplateName}</strong> · {statusLine}
-            <span aria-live="polite"> · {note}</span>
+            <span aria-live="polite">{note ? ` · ${note}` : ''}</span>
             {loaded && loaded.page.updatedBy !== 'seed' && ` · ${fill(t.lastChange, { by: loaded.page.updatedBy, at: formatWhen(loaded.page.updatedAt, lang) })}`}
           </p>
 
@@ -525,7 +526,7 @@ export function CmsPages({ initialSlug }: { initialSlug?: string | null }) {
             </div>
           )}
 
-          <fieldset className="mb-6 grid gap-4 rounded-xl border border-subtle p-4">
+          <fieldset className="mb-6 grid min-w-0 gap-4 rounded-xl border border-subtle p-4">
             <legend className="px-1 text-[12px] font-bold uppercase tracking-[.1em] text-slate-muted">{t.pgHeader}</legend>
             <Pair id="pg-title" label={t.pgTitle} value={content.title} onChange={(v) => edit((c) => ({ ...c, title: v }))} invalid={(l) => bad(`title.${l}`)} />
             <Pair id="pg-eyebrow" label={t.pgEyebrow} value={content.eyebrow} onChange={(v) => edit((c) => ({ ...c, eyebrow: v }))} />
@@ -557,22 +558,24 @@ export function CmsPages({ initialSlug }: { initialSlug?: string | null }) {
               {content.blocks.length === 1 ? t.pgBlockCountOne : fill(t.pgBlockCount, { n: content.blocks.length })}
             </span>
           </div>
-          <ol className="mb-6 grid gap-2.5">
+          <ol className="mb-6 grid grid-cols-[minmax(0,1fr)] gap-2.5">
             {content.blocks.map((block, i) => {
               const hasError = [...fieldErrors].some((e) => e.startsWith(`blocks.${i}.`));
               return (
-                <li key={i} className={`rounded-card border bg-white p-3 ${open === i || hasError ? 'border-navy' : 'border-ink/12'}`}>
+                <li key={i} className={`min-w-0 rounded-card border bg-white p-3 ${open === i || hasError ? 'border-navy' : 'border-ink/12'}`}>
                   <div className="flex items-center gap-2">
-                    <span className="flex-none rounded-md border border-dashed border-ink/30 px-2 py-0.5 text-[10.5px] font-bold uppercase tracking-[.1em] text-slate-muted">
+                    <span className="hidden flex-none rounded-md border border-dashed border-ink/30 px-2 py-0.5 text-[10.5px] font-bold uppercase tracking-[.1em] text-slate-muted min-[480px]:inline">
                       {t.blocks[block.type]}
                     </span>
                     <button
                       type="button"
                       aria-expanded={open === i}
                       onClick={() => setOpen(open === i ? -1 : i)}
-                      className="min-h-11 min-w-0 flex-1 truncate text-left text-[14px] text-ink"
+                      className="min-h-11 min-w-0 flex-1 text-left text-[14px] text-ink"
                     >
-                      {summaryOf(block) || <span className="text-slate-muted">{t.pgEmptyBlock}</span>}
+                      {/* On a phone the type tag moves into the row, above the summary. */}
+                      <span className="block text-[10.5px] font-bold uppercase tracking-[.1em] text-slate-muted min-[480px]:hidden">{t.blocks[block.type]}</span>
+                      <span className="block truncate">{summaryOf(block) || <span className="text-slate-muted">{t.pgEmptyBlock}</span>}</span>
                     </button>
                     <IconButton label={t.pgBlockUp} disabled={i === 0} onClick={() => edit((c) => { const b = c.blocks.slice(); [b[i - 1], b[i]] = [b[i], b[i - 1]]; return { ...c, blocks: b }; })}>
                       <ArrowUp />

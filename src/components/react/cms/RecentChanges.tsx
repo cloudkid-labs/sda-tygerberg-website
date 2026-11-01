@@ -23,7 +23,10 @@ export function describeChange(c: AuditChange, t: CmsCopy): string {
   const label = c.block ? fill(a.block, { n: c.block.n, type: t.blocks[c.block.type] ?? c.block.type }) : c.label || a.page;
   switch (c.op) {
     case 'edited':
-      return fill(a.edited, { label, fields: list(c.fields.map((f) => a.fields[f] ?? f), a.and) });
+      return fill(a.edited, {
+        label: c.from ? `${c.from} → ${label}` : label,
+        fields: list(c.fields.map((f) => a.fields[f] ?? f), a.and),
+      });
     case 'moved':
       return fill(a.moved, { label, from: c.from, to: c.to });
     default:

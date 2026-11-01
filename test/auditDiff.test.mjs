@@ -47,6 +47,26 @@ describe('heads', () => {
   });
 });
 
+describe('renames show old → new', () => {
+  test('a head renamed', () => {
+    assert.deepEqual(say(diffHeads([head('p1', 'Paul')], [head('p1', 'Paul Miller')])), ['Paul → Paul Miller: changed name']);
+  });
+  test('an event renamed (by its Afrikaans name), with another field', () => {
+    assert.deepEqual(say(diffEvents([ev('a', 'Biduur')], [ev('a', 'Gebedsuur', { start: '18:00' })])), ['Biduur → Gebedsuur: changed name and start time']);
+  });
+  test('an English-only rename keeps the label plain', () => {
+    const before = [ev('a', 'Biduur')];
+    const after = [{ ...before[0], name: { af: 'Biduur', en: 'Prayer hour' } }];
+    assert.deepEqual(say(diffEvents(before, after)), ['Biduur: changed name']);
+  });
+  test('a page retitled', () => {
+    const l = (s) => ({ af: s, en: s });
+    const pg = (title) => ({ slug: 'p', title: l(title), eyebrow: l(''), intro: l(''), blocks: [], status: 'draft', updatedBy: 'x', updatedAt: 'y' });
+    assert.deepEqual(say(diffPage(pg('Somerkamp'), pg('Somerkamp 2027'))), ['Somerkamp → Somerkamp 2027: changed title']);
+    assert.deepEqual(say(diffPage(pg('Somerkamp'), pg('Somerkamp 2027')), 'af'), ['Somerkamp → Somerkamp 2027: titel verander']);
+  });
+});
+
 describe('pages', () => {
   const l = (s) => ({ af: s, en: s });
   const page = (blocks, extra = {}) => ({ slug: 'p', title: l('T'), eyebrow: l('E'), intro: l('I'), blocks, status: 'draft', updatedBy: 'x', updatedAt: 'y', ...extra });
@@ -61,7 +81,7 @@ describe('pages', () => {
     const before = page([text('One'), faq, text('Three')]);
     const after = page([{ ...text('One'), heading: l('Uno') }, text('Three'), { type: 'image', src: '/m.jpg', alt: l('a'), caption: l('c') }], { title: l('New') });
     assert.deepEqual(say(diffPage(before, after)), [
-      'Page: changed title',
+      'T → New: changed title',
       'Block 1 (Text): changed heading',
       'Added Block 3 (Image)',
       'Removed Block 2 (FAQ)',

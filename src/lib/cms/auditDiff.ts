@@ -7,7 +7,8 @@ import type { Block, BlockType, ChurchEvent, DepartmentHead, Page } from './type
  */
 export type AuditChange =
   | { op: 'added' | 'removed' | 'published' | 'unpublished' | 'shown' | 'hidden'; label: string; block?: BlockRef }
-  | { op: 'edited'; label: string; fields: string[]; block?: BlockRef }
+  /** `from` is the old name when the edit renamed the item: "from → label". */
+  | { op: 'edited'; label: string; fields: string[]; from?: string; block?: BlockRef }
   | { op: 'moved'; label: string; from: number; to: number; block?: BlockRef };
 
 /** A page block, by 1-based position and type; the label is then empty. */
@@ -74,7 +75,10 @@ function diffList<T extends { id: string }>(before: T[], after: T[], label: (ite
       continue;
     }
     const fields = changedFields(old, item);
-    if (fields.length) changes.push({ op: 'edited', label: label(item), fields });
+    if (fields.length) {
+      const was = label(old);
+      changes.push({ op: 'edited', label: label(item), fields, ...(was !== label(item) ? { from: was } : {}) });
+    }
     if (flag.isOn(old) !== flag.isOn(item)) changes.push({ op: flag.isOn(item) ? flag.on : flag.off, label: label(item) });
   }
   for (const item of before) if (!next.has(item.id)) changes.push({ op: 'removed', label: label(item) });
@@ -115,7 +119,12 @@ export function diffPage(before: Page | null, after: Page): AuditChange[] {
   if (!before) return [];
   const changes: AuditChange[] = [];
   const fields = changedFields(before, after, new Set([...BOOKKEEPING, 'blocks']));
-  if (fields.length) changes.push({ op: 'edited', label: '', fields });
+  if (fields.length) {
+    // A retitled page reads "old → new"; otherwise it is just "Page".
+    const title = (p: Page) => p.title.af || p.title.en;
+    const renamed = fields.includes('title') && title(before) !== title(after);
+    changes.push({ op: 'edited', label: renamed ? title(after) : '', fields, ...(renamed ? { from: title(before) } : {}) });
+  }
 
   // Identical blocks can repeat; make each occurrence a distinct key.
   const keyed = (blocks: Block[]) => {

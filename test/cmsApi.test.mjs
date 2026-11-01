@@ -118,7 +118,7 @@ describe('events', () => {
     assert.equal(audit.data.items.length, 2, 'a save that changed nothing is not audited');
     assert.equal(audit.data.items[0].by, BOARD);
     assert.ok(audit.data.items[0].changes.every((c) => c.op === 'moved'), 'newest first: the reorder');
-    assert.deepEqual(audit.data.items[1].changes, [{ op: 'edited', label: 'Biduur (nuut)', fields: ['name'] }]);
+    assert.deepEqual(audit.data.items[1].changes, [{ op: 'edited', label: 'Biduur (nuut)', fields: ['name'], from: 'Biduur' }]);
   });
 
   test('the audit log pages newest first: 10, 25 or 50 at a time, then a cursor for more', async () => {

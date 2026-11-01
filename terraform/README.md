@@ -1,6 +1,6 @@
 # terraform
 
-Manages the infrastructure behind the church board mail page (`/kerkraad`): Brevo DNS
+Manages the infrastructure behind the members area (`/members`: board mail and the CMS): Brevo DNS
 records on `sdatygerberg.co.za` and the Worker's deploy secrets in GitHub
 Actions. Spec: *Church Board Mail via Google Sign-in: Implementation Spec*.
 

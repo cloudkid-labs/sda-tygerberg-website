@@ -109,6 +109,82 @@ export function diffHeads(before: Pick<DepartmentHead, 'id' | 'name' | 'visible'
   return diffList(before, after, headLabel, { on: 'shown', off: 'hidden', isOn: (h) => h.visible });
 }
 
+// ---- Order around a move-only save ---------------------------------------------
+
+/**
+ * The list's order before and after a save that only moved things, stored
+ * with its audit line so back-to-back moves can be shown as one (auditMerge):
+ * a swap is ambiguous — either item "moved" — so chaining the named moves is
+ * not enough; the orders are. Keys are item ids, or for page blocks (which
+ * have no id) a short hash of the block's content; `names` labels each key
+ * (an item's name, a block's type).
+ */
+export type AuditOrder = { kind: 'list' | 'blocks'; before: string[]; after: string[]; names: Record<string, string> };
+
+type Move = Extract<AuditChange, { op: 'moved' }>;
+
+/** Only a save whose every change is a move carries its order. */
+export const isMoveOnly = (changes: AuditChange[]) => changes.length > 0 && changes.every((c) => c.op === 'moved');
+
+function listOrder<T extends { id: string }>(before: T[], after: T[], label: (item: T) => string): AuditOrder {
+  const names: Record<string, string> = {};
+  for (const item of [...before, ...after]) names[item.id] = label(item);
+  return { kind: 'list', before: before.map((i) => i.id), after: after.map((i) => i.id), names };
+}
+
+export const eventsOrder = (before: Pick<ChurchEvent, 'id' | 'name'>[], after: Pick<ChurchEvent, 'id' | 'name'>[]) =>
+  listOrder(before, after, eventLabel);
+export const headsOrder = (before: Pick<DepartmentHead, 'id' | 'name'>[], after: Pick<DepartmentHead, 'id' | 'name'>[]) =>
+  listOrder(before, after, headLabel);
+
+/** FNV-1a, 32-bit, as hex: enough to tell a page's blocks apart. */
+function shortHash(s: string): string {
+  let h = 0x811c9dc5;
+  for (let i = 0; i < s.length; i++) h = Math.imul(h ^ s.charCodeAt(i), 0x01000193);
+  return (h >>> 0).toString(16).padStart(8, '0');
+}
+
+function blockKeys(blocks: Block[], names: Record<string, string>): string[] {
+  const seen = new Map<string, number>();
+  return blocks.map((b) => {
+    const content = canonical(b);
+    const n = (seen.get(content) ?? 0) + 1;
+    seen.set(content, n);
+    const key = shortHash(`${n}:${content}`);
+    names[key] = b.type;
+    return key;
+  });
+}
+
+export function pageOrder(before: Pick<Page, 'blocks'>, after: Pick<Page, 'blocks'>): AuditOrder {
+  const names: Record<string, string> = {};
+  return { kind: 'blocks', before: blockKeys(before.blocks, names), after: blockKeys(after.blocks, names), names };
+}
+
+/**
+ * The moves between two orders, as the diff names them: only what left the
+ * longest unchanged run moved, with 1-based positions.
+ */
+export function movesBetween(o: AuditOrder): Move[] {
+  const next = new Set(o.after);
+  const prev = new Set(o.before);
+  const keptBefore = o.before.filter((k) => next.has(k));
+  const keptAfter = o.after.filter((k) => prev.has(k));
+  const stayed = lcs(keptBefore, keptAfter);
+  const out: Move[] = [];
+  for (const k of keptAfter) {
+    if (stayed.has(k)) continue;
+    const from = o.before.indexOf(k) + 1;
+    const to = o.after.indexOf(k) + 1;
+    out.push(
+      o.kind === 'blocks'
+        ? { op: 'moved', label: '', from, to, block: { n: to, type: o.names[k] as BlockType } }
+        : { op: 'moved', label: o.names[k] ?? k, from, to },
+    );
+  }
+  return out;
+}
+
 /**
  * Page fields, then blocks. Blocks carry no id, so the longest run of
  * unchanged blocks is matched by content first. Of the rest, an identical

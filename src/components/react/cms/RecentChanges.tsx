@@ -2,13 +2,14 @@ import { useEffect, useState } from 'react';
 import { useLanguage } from '../../../context/LanguageContext';
 import { cmsCopy, fill, type CmsCopy } from '../../../data/cmsCopy';
 import type { AuditChange } from '../../../lib/cms/auditDiff';
+import { mergeMoves, type MergeableEntry } from '../../../lib/cms/auditMerge';
 import { buttonSecondary, cmsApi, formatWhen } from './ui';
 
 const PAGE_SIZES = [10, 25, 50] as const;
 type PageSize = (typeof PAGE_SIZES)[number];
 type AuditPage = { items: Entry[]; next: string | null };
 
-type Entry = { at: string; by: string; action: string; target: string; detail?: string; changes?: AuditChange[] };
+type Entry = MergeableEntry;
 
 /** Events and heads are named by the action; pages and photos by the target. */
 const SHOWS_TARGET = new Set(['page.create', 'page.save', 'page.publish', 'page.unpublish', 'media.upload']);
@@ -49,6 +50,9 @@ export function RecentChanges({ refreshKey }: { refreshKey: string }) {
   const [failed, setFailed] = useState(false);
   const [open, setOpen] = useState(false);
 
+  // Back-to-back move-only saves read as one entry; display only.
+  const shown = items === null ? null : mergeMoves(items);
+
   const page = (cursor: string | null) =>
     cmsApi<AuditPage>('GET', `/api/cms/audit?limit=${size}${cursor ? `&cursor=${encodeURIComponent(cursor)}` : ''}`);
 
@@ -86,7 +90,7 @@ export function RecentChanges({ refreshKey }: { refreshKey: string }) {
       <div className="border-t border-subtle px-4 py-3">
         <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
           <span aria-live="polite" className="text-[12.5px] text-slate-muted">
-            {items && items.length > 0 ? fill(t.recentShowing, { n: items.length }) : ''}
+            {shown && shown.length > 0 ? fill(t.recentShowing, { n: shown.length }) : ''}
           </span>
           <label className="flex items-center gap-2 text-[13px] font-bold text-navy">
             {t.recentPerPage}
@@ -104,11 +108,11 @@ export function RecentChanges({ refreshKey }: { refreshKey: string }) {
           </label>
         </div>
         {failed && <p className="mb-2 text-[13.5px] text-[#9a4f0f]">{t.errLoad}</p>}
-        {items === null ? null : items.length === 0 ? (
+        {shown === null ? null : shown.length === 0 && !next ? (
           <p className="text-[13.5px] text-slate-muted">{t.recentEmpty}</p>
         ) : (
           <ul className="grid gap-2 text-[13px]">
-            {items.map((e, i) => (
+            {shown.map((e, i) => (
               <li key={i} className="grid gap-0.5 sm:grid-cols-[170px_minmax(0,1fr)] sm:gap-3">
                 <span className="tabular-nums text-slate-muted">{formatWhen(e.at, lang)}</span>
                 <div className="min-w-0 break-words text-ink">

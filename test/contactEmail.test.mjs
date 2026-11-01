@@ -217,6 +217,22 @@ describe('sendContactEmail body and headers', () => {
     assert.ok(f.sent[0].subject.length < 200);
   });
 
+  test('one notification per TO address; notified when any of them got it', async () => {
+    const sent = [];
+    const EMAIL = { async send(msg) { if (msg.to === 'kerk@x.test') throw Object.assign(new Error('unverified'), { code: 'E_DEST' }); sent.push(msg); } };
+    const realError = console.error;
+    console.error = () => {};
+    try {
+      const ok = await sendContactEmail({ ...baseEnv({ CONTACT_EMAIL_TO: 'klerk@x.test, kerk@x.test ,tes@x.test,' }), EMAIL }, fields(), AT);
+      assert.equal(ok, true);
+      assert.deepEqual(sent.map((m) => m.to), ['klerk@x.test', 'tes@x.test']);
+      const allFail = { async send() { throw new Error('down'); } };
+      assert.equal(await sendContactEmail({ ...baseEnv({ CONTACT_EMAIL_TO: 'a@x.test,b@x.test' }), EMAIL: allFail }, fields(), AT), false);
+    } finally {
+      console.error = realError;
+    }
+  });
+
   test('returns false on a notification failure and logs the code, not the submission — C-20', async () => {
     const f = fakeEmail({ failWith: Object.assign(new Error('destination not verified'), { code: 'E_FAIL' }) });
     assert.equal(

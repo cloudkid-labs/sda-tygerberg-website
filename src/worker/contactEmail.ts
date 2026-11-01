@@ -166,31 +166,39 @@ export async function sendContactEmail(
   const startedAt = Date.now();
   const label = TOPIC_LABELS[fields.topic as ContactTopic] ?? 'Navraag';
 
+  // One notification per address — `to` takes a single address on the
+  // Workers send binding. Notified when any of them got it; only when every
+  // one fails is the enquiry handed to the webhook fallback.
+  const recipients = CONTACT_EMAIL_TO.split(',').map((s) => s.trim()).filter(Boolean);
   console.log(
-    `contact send: start to=${CONTACT_EMAIL_TO} from=${CONTACT_EMAIL_FROM}` +
+    `contact send: start to=${recipients.join(',')} from=${CONTACT_EMAIL_FROM}` +
       ` archive=${CONTACT_EMAIL_BCC ?? 'unset'} topic=${fields.topic}` +
       ` record=${recordId ?? 'absent'}`,
   );
-  try {
-    const attachments = origin ? await loadAttachments(origin, load) : [];
-    await EMAIL.send({
-      to: CONTACT_EMAIL_TO,
-      from: CONTACT_EMAIL_FROM,
-      subject: `Nuwe boodskap — ${label}: ${headerSafe(fields.name, 60)} — meld aan om te lees`,
-      text: notificationBody(fields, submittedAt, recordId),
-      ...(attachments.length > 0 ? { attachments } : {}),
-    });
-    console.log(`contact send: notified in ${Date.now() - startedAt}ms to=${CONTACT_EMAIL_TO}`);
-  } catch (error) {
-    // Logged for the observability tail. The code and message only — the
-    // submission itself is personal data and does not belong in logs (C-20).
-    const code = (error as { code?: string })?.code ?? 'unknown';
-    const message = (error as { message?: string })?.message ?? '';
-    console.error(
-      `contact send: FAILED in ${Date.now() - startedAt}ms code=${code} detail=${message}`,
-    );
-    return false;
+  const attachments = origin ? await loadAttachments(origin, load).catch(() => []) : [];
+  let notified = 0;
+  for (const to of recipients) {
+    try {
+      await EMAIL.send({
+        to,
+        from: CONTACT_EMAIL_FROM,
+        subject: `Nuwe boodskap — ${label}: ${headerSafe(fields.name, 60)} — meld aan om te lees`,
+        text: notificationBody(fields, submittedAt, recordId),
+        ...(attachments.length > 0 ? { attachments } : {}),
+      });
+      notified++;
+      console.log(`contact send: notified in ${Date.now() - startedAt}ms to=${to}`);
+    } catch (error) {
+      // Logged for the observability tail. The code and message only — the
+      // submission itself is personal data and does not belong in logs (C-20).
+      const code = (error as { code?: string })?.code ?? 'unknown';
+      const message = (error as { message?: string })?.message ?? '';
+      console.error(
+        `contact send: FAILED in ${Date.now() - startedAt}ms to=${to} code=${code} detail=${message}`,
+      );
+    }
   }
+  if (notified === 0) return false;
 
   // The record copy: full enquiry to each church-controlled archive address,
   // which files into R2. One send per address — `to` takes a single address

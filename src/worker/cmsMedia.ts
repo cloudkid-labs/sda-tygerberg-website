@@ -25,10 +25,14 @@ export type MediaEnv = { CMS?: R2Bucket };
 
 export const MAX_UPLOAD_BYTES = 5 * 1024 * 1024;
 
-/** 4:5 for headshots (C-04: at least the widest srcset entry, 1280), 16:9 for page images. */
+/**
+ * 4:5 for headshots (C-04: at least the widest srcset entry, 1280), 16:9 for
+ * page images, a small square for a Settings profile picture (C-71).
+ */
 export const MEDIA_SIZES = {
   head: { width: 1280, height: 1600 },
   page: { width: 1600, height: 900 },
+  profile: { width: 320, height: 320 },
 } as const;
 
 type Kind = keyof typeof MEDIA_SIZES;
@@ -76,7 +80,7 @@ async function transform(
   return stripImageMetadata(bytes, type);
 }
 
-/** POST /api/cms/media?kind=head|page[&id=<head id>][&focus=0..1] — raw image body. */
+/** POST /api/cms/media?kind=head|page|profile[&id=<head id>][&focus=0..1] — raw image body. */
 export async function handleMediaUpload(
   request: Request,
   env: MediaEnv,
@@ -88,7 +92,7 @@ export async function handleMediaUpload(
     return json({ ok: false, outcome: 'invalid', errors: ['origin'] }, 403);
   }
   const kind = url.searchParams.get('kind');
-  if (kind !== 'head' && kind !== 'page') return json({ ok: false, outcome: 'invalid', errors: ['kind'] }, 400);
+  if (kind !== 'head' && kind !== 'page' && kind !== 'profile') return json({ ok: false, outcome: 'invalid', errors: ['kind'] }, 400);
   const id = url.searchParams.get('id') ?? '';
   if (kind === 'head' && !/^[a-z0-9][a-z0-9-]{0,63}$/.test(id)) {
     return json({ ok: false, outcome: 'invalid', errors: ['id'] }, 400);
@@ -123,7 +127,8 @@ export async function handleMediaUpload(
       console.error(`cms: media transform unavailable kind=${kind}`);
       return json({ ok: false, outcome: 'transform-unavailable' }, 502);
     }
-    const base = `${kind === 'head' ? `heads/${id}` : `pages/${randomId(4)}`}-${await shortHash(jpeg)}`;
+    const folder = kind === 'head' ? `heads/${id}` : kind === 'profile' ? `profiles/${randomId(6)}` : `pages/${randomId(4)}`;
+    const base = `${folder}-${await shortHash(jpeg)}`;
     const cache = { httpMetadata: { cacheControl: 'public, max-age=31536000, immutable' } };
     await g.bucket.put(`media/${base}.jpg`, jpeg, { httpMetadata: { ...cache.httpMetadata, contentType: 'image/jpeg' } });
     await g.bucket.put(`media/${base}.webp`, webp, { httpMetadata: { ...cache.httpMetadata, contentType: 'image/webp' } });
@@ -144,7 +149,7 @@ export async function handleMediaUpload(
  */
 export async function serveMedia(request: Request, env: MediaEnv): Promise<Response | null> {
   const { pathname } = new URL(request.url);
-  const m = /^\/media\/((?:heads|pages|staging)\/[a-z0-9-]+\.(?:jpg|png|webp))$/.exec(pathname);
+  const m = /^\/media\/((?:heads|pages|profiles|staging)\/[a-z0-9-]+\.(?:jpg|png|webp))$/.exec(pathname);
   if (!m || !env.CMS) return null;
   if (request.method !== 'GET' && request.method !== 'HEAD') return null;
   const key = m[1];

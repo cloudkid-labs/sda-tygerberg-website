@@ -1856,4 +1856,36 @@ upload answers `transform-unavailable` rather than storing an uncropped photo.
 (C-36) rather than a CMS event, because the roster expires past drives on its
 own. `/blood-bank` moved onto the standard template as proof; its dates still
 come from the roster. The contact-form block picks a topic — `/api/contact`
-decides delivery; there is no editable recipient.
+decides delivery; a block has no recipient of its own (who is notified is
+Settings, C-71).
+
+### C-71 — Settings: admins edit who signs in, sends as, routes and is notified
+
+Admins edit, at `/members` → Settings, what used to need a deploy: the board
+members (who may sign in, their name — linked to their department-head entry,
+or typed in with an optional uploaded picture — and whether they are an
+admin), which role addresses each may send as (and so whose Board mail they
+see), per-address inbound routes, and who is notified of a website enquiry.
+
+**Storage and seam.** One document, `settings/mail.json` in the CMS bucket,
+versioned like every CMS write (rev + etag, `history/`, an audit line per
+save). `withSettings()` (`src/worker/settings.ts`) lays it over the wrangler
+vars it replaces — `BOARD_ALLOWED_EMAILS`, `BOARD_SEND_AS`, `MAIL_ROUTES`,
+`CONTACT_EMAIL_TO`, and widens `BOARD_ADMIN_EMAILS` — on every path that signs
+in, sends, routes or notifies, and on inbound mail. The rest of the Worker
+reads the env unchanged. Until the first save the vars are the settings; a
+failed read falls back to them.
+
+**What stays deploy config, on purpose.** The SuperAdmins (`BOARD_ADMIN_EMAILS`
+as deployed, kept as `BOARD_SUPER_ADMIN_EMAILS` once the overlay widens the
+admin list): no admin can demote or remove them, so nobody can lock everyone
+out. Only SuperAdmins use the admin-only identities (`BOARD_ADMIN_ONLY_EMAILS`:
+the archive and a SuperAdmin's own address) or see mail to or from them. And
+`MAIL_DESTINATIONS`, the verified destination addresses: Cloudflare delivers
+only to verified destinations and sends only to the fenced ones, so Settings
+picks from that list and cannot name a new one. A test keeps it equal to
+`send_email.allowed_destination_addresses`. Saved values the config no longer
+allows are dropped when laid over, not trusted.
+
+**Ordering.** A new destination is verified in Email Routing, added to
+`MAIL_DESTINATIONS` and the fence, and deployed — only then can Settings use it.

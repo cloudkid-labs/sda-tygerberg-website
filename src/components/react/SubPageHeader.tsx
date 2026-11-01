@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import { withBase } from '../../lib/base';
 import { Logo } from './Logo';
 import { LanguageToggle } from './LanguageToggle';
@@ -5,9 +6,10 @@ import { LanguageToggle } from './LanguageToggle';
 /**
  * Sticky header for the standalone pages. They are separate documents, so the
  * only navigation they need is back home. `backHome` is passed in because each
- * page keeps its own bilingual copy file.
+ * page keeps its own bilingual copy file. `account` is the members area's
+ * signed-in badge, beside the language toggle.
  */
-export function SubPageHeader({ backHome }: { backHome: string }) {
+export function SubPageHeader({ backHome, account }: { backHome: string; account?: ReactNode }) {
   return (
     <header className="sticky top-0 z-50 border-b border-subtle bg-cream/95 backdrop-blur">
       <div className="mx-auto flex max-w-content-narrow items-center justify-between gap-2 sm:gap-4 px-3 sm:px-7 py-2.5 sm:py-3.5">
@@ -26,7 +28,10 @@ export function SubPageHeader({ backHome }: { backHome: string }) {
         >
           {backHome}
         </a>
-        <LanguageToggle variant="light" />
+        <div className="flex shrink-0 items-center gap-2 sm:gap-3">
+          {account}
+          <LanguageToggle variant="light" />
+        </div>
       </div>
     </header>
   );

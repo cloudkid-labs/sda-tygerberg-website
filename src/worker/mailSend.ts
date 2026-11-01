@@ -1,6 +1,6 @@
 /// <reference types="@cloudflare/workers-types" />
 
-import { verifySession, allowedFrom, senders, isAdmin, isAdminOnlyEmail, type AuthEnv } from './auth';
+import { verifySession, allowedFrom, senders, isAdmin, isAdminOnlyEmail, type AuthEnv, isSuperAdmin } from './auth';
 import { mailHtml, LOGO_REMOTE_URL } from './signature';
 
 export type MailSendEnv = AuthEnv & {
@@ -104,6 +104,21 @@ export async function sendViaBrevo(
   text: string,
   html: string,
 ): Promise<boolean> {
+  return (await sendViaBrevoWithId(env, from, to, subject, text, html)).ok;
+}
+
+/**
+ * As sendViaBrevo, plus the Message-ID Brevo gave the mail, so a visitor's
+ * emailed answer (In-Reply-To / References) can be filed under its thread.
+ */
+export async function sendViaBrevoWithId(
+  env: MailSendEnv,
+  from: string,
+  to: string[],
+  subject: string,
+  text: string,
+  html: string,
+): Promise<{ ok: boolean; messageId?: string }> {
   const startedAt = Date.now();
   console.log(`mailsend: start from=${from} toCount=${to.length}`);
   try {
@@ -127,13 +142,20 @@ export async function sendViaBrevo(
     });
     if (!res.ok) {
       console.error(`mailsend: FAILED status=${res.status} from=${from}`);
-      return false;
+      return { ok: false };
     }
     console.log(`mailsend: ok in ${Date.now() - startedAt}ms from=${from}`);
-    return true;
+    let messageId: string | undefined;
+    try {
+      const data = (await res.json()) as { messageId?: unknown };
+      if (typeof data.messageId === 'string' && data.messageId.length <= 300) messageId = data.messageId.trim();
+    } catch {
+      // Sent is sent; without an id the answer can still be matched by sender.
+    }
+    return { ok: true, ...(messageId ? { messageId } : {}) };
   } catch {
     console.error(`mailsend: FAILED timeout-or-net from=${from}`);
-    return false;
+    return { ok: false };
   }
 }
 
@@ -210,7 +232,7 @@ export async function handleMailSend(request: Request, env: MailSendEnv): Promis
   if (errors.length > 0) return json({ ok: false, outcome: 'invalid', errors }, 400);
 
   // Admin-only addresses are restricted in both the From and recipient fields.
-  if (!isAdmin(env, session.email) && to.some((address) => isAdminOnlyEmail(env, address))) {
+  if (!isSuperAdmin(env, session.email) && to.some((address) => isAdminOnlyEmail(env, address))) {
     return json({ ok: false, outcome: 'not-allowed', errors: ['to'] }, 403);
   }
 

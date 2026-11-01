@@ -2,6 +2,7 @@
 
 import { seedEvents, seedHeads, seedPages } from '../lib/cms/seed';
 import type { ChurchEvent, DepartmentHead, Page } from '../lib/cms/types';
+import type { AuditChange } from '../lib/cms/auditDiff';
 
 /**
  * The CMS's storage, one R2 bucket (`CMS`, C-70):
@@ -151,7 +152,9 @@ export type AuditEntry = {
   by: string;
   action: string;
   target: string;
+  /** Older lines only: a free-text summary, before `changes` existed. */
   detail?: string;
+  changes?: AuditChange[];
 };
 
 /** Newest first under a plain ascending list: the key counts down. */

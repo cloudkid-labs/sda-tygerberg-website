@@ -110,11 +110,15 @@ describe('events', () => {
     assert.equal(again.data.items[0].order, 0, 'order is the list position');
     assert.ok(e.CMS.keys().some((k) => k.startsWith('history/events/')), 'previous version kept');
 
+    // Saving the same list again changes nothing and adds no audit line.
+    const noop = await call(e, 'PUT', '/api/cms/events', { cookie, body: { rev: 2, items } });
+    assert.equal(noop.status, 200);
+
     const audit = await call(e, 'GET', '/api/cms/audit', { cookie });
-    assert.equal(audit.data.items.length, 2);
+    assert.equal(audit.data.items.length, 2, 'a save that changed nothing is not audited');
     assert.equal(audit.data.items[0].by, BOARD);
-    assert.match(audit.data.items[0].detail, /reordered/, 'newest first');
-    assert.match(audit.data.items[1].detail, /changed biduur/);
+    assert.ok(audit.data.items[0].changes.every((c) => c.op === 'moved'), 'newest first: the reorder');
+    assert.deepEqual(audit.data.items[1].changes, [{ op: 'edited', label: 'Biduur (nuut)', fields: ['name'] }]);
   });
 
   test('invalid events are rejected with the failing fields', async () => {

@@ -22,6 +22,7 @@ import {
 import { handleMediaUpload, type MediaEnv } from './cmsMedia';
 import { STATIC_PAGE_SLUGS, validateEvents, validateHeads, validatePage, isValidSlug } from '../lib/cms/validate';
 import type { ChurchEvent, DepartmentHead, Page } from '../lib/cms/types';
+import { diffEvents, diffHeads, diffPage } from '../lib/cms/auditDiff';
 
 /**
  * /api/cms/* — the members area's content API (C-70).
@@ -124,18 +125,6 @@ export function stampItems<T extends Stamped>(
   return { items, added, changed, removed, reordered };
 }
 
-function describe(r: { added: string[]; changed: string[]; removed: string[]; reordered: boolean }, extra = ''): string {
-  return [
-    r.added.length ? `added ${r.added.join(', ')}` : '',
-    r.changed.length ? `changed ${r.changed.join(', ')}` : '',
-    r.removed.length ? `removed ${r.removed.join(', ')}` : '',
-    r.reordered ? 'reordered' : '',
-    extra,
-  ]
-    .filter(Boolean)
-    .join('; ');
-}
-
 // ---- Events -------------------------------------------------------------------
 
 async function eventsRoute(request: Request, env: CmsEnv, g: { email: string; bucket: R2Bucket }): Promise<Response> {
@@ -163,13 +152,9 @@ async function eventsRoute(request: Request, env: CmsEnv, g: { email: string; bu
   if (!(await writeCollection(g.bucket, EVENTS_KEY, doc, next, etag))) {
     return json({ ok: false, outcome: 'conflict', rev: doc.rev }, 409);
   }
-  const published = stamped.items.filter((e) => e.status === 'live' && [...stamped.added, ...stamped.changed].includes(e.id)).map((e) => e.id);
-  await audit(g.bucket, {
-    by: g.email,
-    action: 'events.save',
-    target: 'events',
-    detail: describe(stamped, published.length ? `live ${published.join(', ')}` : ''),
-  });
+  // The audit line names each change; a save that changed nothing is not one.
+  const changes = diffEvents(doc.items, next.items);
+  if (changes.length) await audit(g.bucket, { by: g.email, action: 'events.save', target: 'events', changes });
   return json({ ok: true, rev: next.rev, items: next.items }, 200);
 }
 
@@ -192,7 +177,8 @@ async function headsRoute(request: Request, env: CmsEnv, g: { email: string; buc
   if (!(await writeCollection(g.bucket, HEADS_KEY, doc, next, etag))) {
     return json({ ok: false, outcome: 'conflict', rev: doc.rev }, 409);
   }
-  await audit(g.bucket, { by: g.email, action: 'heads.publish', target: 'heads', detail: describe(stamped) });
+  const changes = diffHeads(doc.items, next.items);
+  if (changes.length) await audit(g.bucket, { by: g.email, action: 'heads.publish', target: 'heads', changes });
   return json({ ok: true, rev: next.rev, items: next.items }, 200);
 }
 
@@ -264,11 +250,17 @@ async function pagesRoute(request: Request, env: CmsEnv, g: { email: string; buc
     return json({ ok: false, outcome: 'conflict', rev: existing?.doc.rev ?? 0 }, 409);
   }
   if (publish) await writePageLive(g.bucket, page);
-  await audit(g.bucket, {
-    by: g.email,
-    action: publish ? 'page.publish' : existing ? 'page.save' : 'page.create',
-    target: `/${slug}/`,
-  });
+  // A publish reports what visitors will now see differently (against the
+  // live copy); a draft save reports what changed since the last draft.
+  const changes = publish ? diffPage(live, page) : diffPage(existing?.doc.page ?? null, page);
+  if (publish || !existing || changes.length) {
+    await audit(g.bucket, {
+      by: g.email,
+      action: publish ? 'page.publish' : existing ? 'page.save' : 'page.create',
+      target: `/${slug}/`,
+      ...(changes.length ? { changes } : {}),
+    });
+  }
   const nowLive = publish ? page : live;
   return json({ ok: true, rev: next.rev, page, live: nowLive, dirty: isDirty(page, nowLive) }, 200);
 }

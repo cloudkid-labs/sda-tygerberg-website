@@ -19,11 +19,6 @@ variable "github_repository" {
 variable "cloudflare_account_id" {
   description = "Cloudflare account that holds the zone and the Worker. Owns the CMS R2 buckets (r2.tf). An identifier, not a secret."
   type        = string
-
-  validation {
-    condition     = can(regex("^[0-9a-f]{32}$", var.cloudflare_account_id))
-    error_message = "Expected the 32-character hex account id from the Cloudflare dashboard."
-  }
 }
 
 # ---- Brevo ------------------------------------------------------------------

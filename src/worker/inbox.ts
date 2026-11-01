@@ -103,6 +103,24 @@ function isAdminOnlySentItem(env: InboxEnv, sessionEmail: string, item: SentItem
 }
 
 /**
+ * Each member sees only the mail of addresses they may send as
+ * (BOARD_SEND_AS): a thread when they may answer it, from its reply address.
+ * Admins see everything.
+ */
+function canSeeThread(env: InboxEnv, sessionEmail: string, item: Submission): boolean {
+  if (isAdmin(env, sessionEmail)) return true;
+  if (isAdminOnlySubmission(env, sessionEmail, item)) return false;
+  return allowedFrom(env, sessionEmail).includes(replyAddressFor(env, item));
+}
+
+/** A Sent item when they may send as its From. Admins see everything. */
+function canSeeSent(env: InboxEnv, sessionEmail: string, item: SentItem): boolean {
+  if (isAdmin(env, sessionEmail)) return true;
+  if (isAdminOnlySentItem(env, sessionEmail, item)) return false;
+  return allowedFrom(env, sessionEmail).includes((item.from ?? '').trim().toLowerCase());
+}
+
+/**
  * R2 keys carry an ISO timestamp prefix, so the stable thread id is the
  * suffix. One lookup for message, reply and delete — three copies already
  * disagreed once.
@@ -157,7 +175,7 @@ export async function handleInboxList(request: Request, env: InboxEnv): Promise<
       // Board mail is the website's enquiries; other mail is delivered to the
       // church's mailboxes and never listed here.
       if (!isWebsiteThread(s)) continue;
-      if (isAdminOnlySubmission(env, session.email, s)) continue;
+      if (!canSeeThread(env, session.email, s)) continue;
       items.push(summary);
     } catch {
       // A stray object is skipped, never fatal — the log says which key.
@@ -223,7 +241,7 @@ export async function handleInboxMessage(request: Request, env: InboxEnv): Promi
   const obj = await env.SUBMISSIONS!.get(key);
   if (!obj) return json({ ok: false, outcome: 'invalid', errors: ['id'] }, 404);
   const item = (await obj.json()) as Submission;
-  if (isAdminOnlySubmission(env, session.email, item) || !isWebsiteThread(item)) {
+  if (!isWebsiteThread(item) || !canSeeThread(env, session.email, item)) {
     return json({ ok: false, outcome: 'invalid', errors: ['id'] }, 404);
   }
   if (isUnread(item)) {
@@ -300,7 +318,7 @@ export async function handleInboxSent(request: Request, env: InboxEnv): Promise<
     const obj = await env.SUBMISSIONS.get(key);
     if (!obj) return json({ ok: false, outcome: 'invalid', errors: ['id'] }, 404);
     const item = (await obj.json()) as SentItem;
-    if (trashedOnly !== Boolean(item.trashedAt) || isAdminOnlySentItem(env, session.email, item)) {
+    if (trashedOnly !== Boolean(item.trashedAt) || !canSeeSent(env, session.email, item)) {
       return json({ ok: false, outcome: 'invalid', errors: ['id'] }, 404);
     }
     return json({ ok: true, item }, 200);
@@ -311,7 +329,7 @@ export async function handleInboxSent(request: Request, env: InboxEnv): Promise<
     if (!obj) continue;
     try {
       const s = (await obj.json()) as SentItem;
-      if (trashedOnly !== Boolean(s.trashedAt) || isAdminOnlySentItem(env, session.email, s)) continue;
+      if (trashedOnly !== Boolean(s.trashedAt) || !canSeeSent(env, session.email, s)) continue;
       const { body: _omitted, ...summary } = s;
       items.push(summary);
     } catch {
@@ -379,7 +397,7 @@ export async function handleInboxReply(request: Request, env: InboxEnv): Promise
   const obj = await env.SUBMISSIONS.get(key);
   if (!obj) return json({ ok: false, outcome: 'invalid', errors: ['id'] }, 404);
   const item = (await obj.json()) as Submission;
-  if (isAdminOnlySubmission(env, session.email, item) || !isWebsiteThread(item)) {
+  if (!isWebsiteThread(item) || !canSeeThread(env, session.email, item)) {
     return json({ ok: false, outcome: 'invalid', errors: ['id'] }, 404);
   }
   if (!item.email) {

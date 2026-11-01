@@ -189,7 +189,7 @@ describe('handleInboxReply', () => {
     assert.equal(brevoCalls.length, 0);
   });
 
-  test('a fenced sender cannot reply outside their address — 403', async () => {
+  test('a fenced sender cannot see, so cannot reply to, a thread outside their addresses — 404', async () => {
     mockBrevo();
     const { bucket } = r2({ [key]: JSON.stringify(item()) });
     const session = await signSession('boss@example.co.za', SECRET);
@@ -197,8 +197,7 @@ describe('handleInboxReply', () => {
       post({ id: 'abc-1', body: 'Hi' }, session),
       env(bucket, { BOARD_ADMIN_EMAILS: '', BOARD_SEND_AS: 'boss@example.co.za=kerk@sdatygerberg.co.za' }),
     );
-    assert.equal(res.status, 403);
-    assert.equal((await res.json()).outcome, 'not-allowed');
+    assert.equal(res.status, 404);
     assert.equal(brevoCalls.length, 0);
   });
 });
@@ -473,5 +472,39 @@ describe('threads: the board replies, the visitor answers by email', () => {
     assert.equal(stripQuoted('Ja\n\nOp So. 1 Nov. 2026 om 10:00 het Welkom geskryf:\n> Hallo'), 'Ja');
     assert.equal(stripQuoted('Ja\n-----Original Message-----\nFrom: x'), 'Ja');
     assert.equal(stripQuoted('> only a quote'), '> only a quote', 'never empties the message');
+  });
+});
+
+describe('each member sees only the mail of addresses they may send as', () => {
+  const sentKey = (id, from) => [`sent/2026/11/01/2026-11-01T10:00:00.000Z-${id}.json`, JSON.stringify({ id, at: '2026-11-01T10:00:00.000Z', by: 'x@example.co.za', from, to: ['v@example.co.za'], subject: 's', body: 'b', kind: 'compose', threadId: null })];
+  const fenced = {
+    BOARD_ADMIN_EMAILS: 'boss@example.co.za',
+    BOARD_SEND_AS: 'pa@example.co.za=tesourier@sdatygerberg.co.za,welkom@sdatygerberg.co.za;kerk@example.co.za=kerk@sdatygerberg.co.za',
+    BOARD_ALLOWED_EMAILS: 'boss@example.co.za,pa@example.co.za,kerk@example.co.za',
+  };
+  const seed = () =>
+    r2({
+      [key]: JSON.stringify(item()),
+      ...Object.fromEntries([sentKey('s-welkom', 'welkom@sdatygerberg.co.za'), sentKey('s-klerk', 'klerk@sdatygerberg.co.za'), sentKey('s-tes', 'tesourier@sdatygerberg.co.za')]),
+    }).bucket;
+
+  test('inbox: website enquiries (answered as welkom@) only for members who may send as welkom@', async () => {
+    const bucket = seed();
+    const list = async (email) => (await (await handleInboxList(get('/api/mail/inbox', await signSession(email, SECRET)), env(bucket, fenced))).json()).items.map((i) => i.id);
+    assert.deepEqual(await list('pa@example.co.za'), ['abc-1']);
+    assert.deepEqual(await list('kerk@example.co.za'), []);
+    assert.deepEqual(await list('boss@example.co.za'), ['abc-1']);
+    const read = await handleInboxMessage(get('/api/mail/message?id=abc-1', await signSession('kerk@example.co.za', SECRET)), env(bucket, fenced));
+    assert.equal(read.status, 404);
+  });
+
+  test('sent: only items from addresses the member may send as; admins see all', async () => {
+    const bucket = seed();
+    const sent = async (email) => (await (await handleInboxSent(get('/api/mail/sent', await signSession(email, SECRET)), env(bucket, fenced))).json()).items.map((i) => i.id).sort();
+    assert.deepEqual(await sent('pa@example.co.za'), ['s-tes', 's-welkom']);
+    assert.deepEqual(await sent('kerk@example.co.za'), []);
+    assert.deepEqual(await sent('boss@example.co.za'), ['s-klerk', 's-tes', 's-welkom']);
+    const one = await handleInboxSent(get('/api/mail/sent?id=s-klerk', await signSession('pa@example.co.za', SECRET)), env(bucket, fenced));
+    assert.equal(one.status, 404);
   });
 });

@@ -102,7 +102,9 @@
     // destination address that terminates in R2 storage — the loop-safe shape
     // C-65 describes. That archive expires after 7 years under the R2 lifecycle
     // rule on the email-notifications bucket; SETUP-INSTRUCTIONS §3.6.
-    "CONTACT_EMAIL_TO": "sdatygerbergklerk@gmail.com",
+    // Every enquiry notification goes to each of these, one send each: the
+    // clerk, the church account and the treasurer.
+    "CONTACT_EMAIL_TO": "sdatygerbergklerk@gmail.com,sdatygerbergkerk@gmail.com,muller31jp@gmail.com",
     "CONTACT_EMAIL_FROM": "welkom@sdatygerberg.co.za",
     // Archive copy: the same message BCC'd to archive@sdatygerberg.co.za,
     // whose literal routing rule hands it to the r2-explorer Worker and into
@@ -123,10 +125,13 @@
     // addresses are now readable to anyone with repo or Cloudflare access.
     // The repo is private; do not copy them onto the public site (C-20).
     "BOARD_ALLOWED_EMAILS": "muller31jp@gmail.com,sdatygerbergklerk@gmail.com,sdatygerbergkerk@gmail.com,rainiersvn1@gmail.com,johanemomberg@gmail.com",
-    // Who may send as what. `email=address[;email=address]`; unlisted
-    // non-admins may use regular MAIL_SEND_FROM addresses. The treasurer writes
-    // only as tesourier@ — enforced in the Worker, mirrored in the dropdown.
-    "BOARD_SEND_AS": "muller31jp@gmail.com=tesourier@sdatygerberg.co.za",
+    // Who may send as what, and so whose mail they see: Board mail shows each
+    // member only threads and Sent items on addresses they may send as.
+    // `email=address,address[;email=…]`; unlisted non-admins may use every
+    // regular MAIL_SEND_FROM address; admins use and see everything.
+    // Clerk (Sanet): klerk@, welkom@. Kerk: kerk@, welkom@. Treasurer:
+    // tesourier@, welkom@. Johan: klerk@, welkom@, kerk@.
+    "BOARD_SEND_AS": "sdatygerbergklerk@gmail.com=klerk@sdatygerberg.co.za,welkom@sdatygerberg.co.za;sdatygerbergkerk@gmail.com=kerk@sdatygerberg.co.za,welkom@sdatygerberg.co.za;muller31jp@gmail.com=tesourier@sdatygerberg.co.za,welkom@sdatygerberg.co.za;johanemomberg@gmail.com=klerk@sdatygerberg.co.za,welkom@sdatygerberg.co.za,kerk@sdatygerberg.co.za",
     // Board Mail admins can use every sender address, access all mail, and
     // delete inbox threads.
     "BOARD_ADMIN_EMAILS": "rainiersvn1@gmail.com",
@@ -152,7 +157,9 @@
     // must be a verified destination address. Inbound forwards are not fenced
     // by send_email below.
     "MAIL_ROUTES": {
-      "tesourier@sdatygerberg.co.za": "muller31jp@gmail.com"
+      "tesourier@sdatygerberg.co.za": "muller31jp@gmail.com",
+      // The admin's own address: not the clerk's Gmail.
+      "rainier@sdatygerberg.co.za": "rainiersvn1@gmail.com"
     }
   },
   // Lets /api/contact email the church directly.
@@ -172,7 +179,7 @@
   "send_email": [
     {
       "name": "EMAIL",
-      "allowed_destination_addresses": ["sdatygerbergklerk@gmail.com", "archive@sdatygerberg.co.za"],
+      "allowed_destination_addresses": ["sdatygerbergklerk@gmail.com", "sdatygerbergkerk@gmail.com", "muller31jp@gmail.com", "archive@sdatygerberg.co.za"],
       "allowed_sender_addresses": ["welkom@sdatygerberg.co.za"]
     }
   ],
@@ -271,7 +278,7 @@
         // members page hides the tab. (There is no MAIL_SEND_FROM or
         // BREVO_API_KEY either, so it could never send — C-61.) C-70
         "BOARD_ALLOWED_EMAILS": "muller31jp@gmail.com,sdatygerbergklerk@gmail.com,sdatygerbergkerk@gmail.com,rainiersvn1@gmail.com,johanemomberg@gmail.com",
-        "BOARD_SEND_AS": "muller31jp@gmail.com=tesourier@sdatygerberg.co.za",
+        "BOARD_SEND_AS": "sdatygerbergklerk@gmail.com=klerk@sdatygerberg.co.za,welkom@sdatygerberg.co.za;sdatygerbergkerk@gmail.com=kerk@sdatygerberg.co.za,welkom@sdatygerberg.co.za;muller31jp@gmail.com=tesourier@sdatygerberg.co.za,welkom@sdatygerberg.co.za;johanemomberg@gmail.com=klerk@sdatygerberg.co.za,welkom@sdatygerberg.co.za,kerk@sdatygerberg.co.za",
         "BOARD_ADMIN_EMAILS": "rainiersvn1@gmail.com",
         "BOARD_ADMIN_ONLY_EMAILS": "archive@sdatygerberg.co.za,rainier@sdatygerberg.co.za",
         "BOARD_MAIL": "off"

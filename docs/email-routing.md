@@ -34,6 +34,8 @@ flowchart LR
     HOOK["CONTACT_WEBHOOK_URL<br/>(Worker secret)"]
     KLERK["sdatygerbergklerk@gmail.com<br/>church clerk"]
     TREASURER["muller31jp@gmail.com<br/>treasurer"]
+    ADMIN["rainiersvn1@gmail.com<br/>Board mail admin"]
+    KERKACC["sdatygerbergkerk@gmail.com<br/>church account"]
     R2ARCHIVE[("R2 · mail archive")]
   end
 
@@ -41,7 +43,9 @@ flowchart LR
   FORM --> API
   API -->|"1 · consent record"| R2CONSENT
   API -.->|"only if the email send fails"| HOOK
-  API -->|"2 · To"| KLERK
+  API -->|"2 · To, one send each"| KLERK
+  API -->|"2 · To"| KERKACC
+  API -->|"2 · To"| TREASURER
   API -->|"BCC"| ARCHIVE
 
   %% Inbound mail
@@ -49,6 +53,7 @@ flowchart LR
   PUBLIC --> CATCHALL
   CATCHALL --> INBOUND
   INBOUND -->|"tesourier@ · MAIL_ROUTES"| TREASURER
+  INBOUND -->|"rainier@ · MAIL_ROUTES"| ADMIN
   INBOUND -->|"every other address · MAIL_FORWARD_TO"| KLERK
   INBOUND -.->|"copy of everything, best effort · MAIL_ARCHIVE_TO"| ARCHIVE
 
@@ -73,7 +78,7 @@ flowchart LR
   classDef store fill:#f1f5f9,stroke:#64748b,color:#0f172a
   class FORM,ZAPPER,PUBLIC,BOARD source
   class API,CATCHALL,INBOUND,ARCHIVE,R2X,KERKRAAD cloudflare
-  class KLERK,TREASURER inbox
+  class KLERK,TREASURER,ADMIN,KERKACC inbox
   class R2ARCHIVE,R2CONSENT,HOOK,BREVO,SUBS store
 ```
 
@@ -86,11 +91,13 @@ Solid arrows always happen. Dotted arrows are fallbacks or best-effort copies.
 | `welkom@sdatygerberg.co.za` | From on every form email. Not a mailbox: replies go to the visitor via Reply-To; mail sent *to* it goes to the clerk. Also a board send-as address | `CONTACT_EMAIL_FROM`, `allowed_sender_addresses`, `MAIL_SEND_FROM` |
 | `klerk@sdatygerberg.co.za` | Board send-as address | `MAIL_SEND_FROM` |
 | `kerk@sdatygerberg.co.za` | Board send-as address | `MAIL_SEND_FROM` |
-| `sdatygerbergklerk@gmail.com` | Receives every form email (To) and all inbound mail with no route | `CONTACT_EMAIL_TO`, `MAIL_FORWARD_TO` |
+| `sdatygerbergklerk@gmail.com` | Clerk (Sanet). Receives every form notification (To) and all inbound mail with no route; sends as `klerk@` and `welkom@` | `CONTACT_EMAIL_TO`, `MAIL_FORWARD_TO` |
 | `tesourier@sdatygerberg.co.za` | Zapper's merchant notification address. Not a mailbox. Also a board send-as address | `MAIL_ROUTES` key, `MAIL_SEND_FROM` |
-| `muller31jp@gmail.com` | Treasurer. Receives everything sent to `tesourier@`; sends and is notified as treasurer only | `MAIL_ROUTES` value, `BOARD_SEND_AS` |
+| `muller31jp@gmail.com` | Treasurer. Receives everything sent to `tesourier@` and every form notification; sends as `tesourier@` and `welkom@` | `MAIL_ROUTES` value, `CONTACT_EMAIL_TO`, `BOARD_SEND_AS` |
+| `sdatygerbergkerk@gmail.com` | Church account. Receives every form notification; sends as `kerk@` and `welkom@` | `CONTACT_EMAIL_TO`, `BOARD_SEND_AS` |
 | `archive@sdatygerberg.co.za` | R2 archive. Admins may also use it as a Board Mail From address and recipient; other members cannot | `CONTACT_EMAIL_BCC`, `MAIL_ARCHIVE_TO`, `BOARD_ADMIN_ONLY_EMAILS` |
-| `rainier@sdatygerberg.co.za` | Admin-only Board Mail identity for From and To | `BOARD_ADMIN_ONLY_EMAILS` |
+| `rainier@sdatygerberg.co.za` | Admin-only Board Mail identity for From and To; inbound mail goes to the admin | `BOARD_ADMIN_ONLY_EMAILS`, `MAIL_ROUTES` key |
+| `rainiersvn1@gmail.com` | Board mail admin: sends as every address, sees all Board mail; receives everything sent to `rainier@` | `MAIL_ROUTES` value, `BOARD_ADMIN_EMAILS` |
 
 Every form-email recipient must also be in `send_email.allowed_destination_addresses`,
 or the whole send is rejected (C-31).
@@ -98,8 +105,13 @@ or the whole send is rejected (C-31).
 ## Board mail
 
 Board members sign in with Google on the private `/members` page (Board mail
-tab; the old `/kerkraad` address redirects there) and send as
-one of the four role addresses through the Brevo API. Admins also get
+tab; the old `/kerkraad` address redirects there) and send through the Brevo
+API as the role addresses `BOARD_SEND_AS` gives them — the clerk (Sanet)
+`klerk@` and `welkom@`; the church account `kerk@` and `welkom@`; the treasurer
+`tesourier@` and `welkom@`; Johan `klerk@`, `welkom@` and `kerk@` (exact sign-in
+addresses in `BOARD_SEND_AS`). Each member sees only the Board mail they may send as:
+a thread when they may send as its reply address, a Sent item when they may
+send as its From. Admins also get
 `archive@` and `rainier@` as From addresses and recipients. The Worker rejects
 non-admin sends that use either address as From or To, and hides Inbox and Sent
 messages involving those addresses from non-admins. The archive's automatic BCC remains system-controlled

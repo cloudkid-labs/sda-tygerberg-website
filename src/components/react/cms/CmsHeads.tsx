@@ -1,9 +1,10 @@
-import { useEffect, useRef, useState, type ChangeEvent } from 'react';
+import { useEffect, useRef, useState, type ChangeEvent, type PointerEvent } from 'react';
 import { useLanguage } from '../../../context/LanguageContext';
 import { cmsCopy, fill } from '../../../data/cmsCopy';
 import type { DepartmentHead, PublicHead } from '../../../lib/cms/types';
 import { cdnImageUrl, headshotFallbackFor } from '../../../lib/cdnImage';
 import { Card } from '../AboutCarousel';
+import { cropGeometry, MAX_ZOOM, panAfterDrag } from '../../../lib/cms/crop';
 import {
   Alert,
   ArrowDown,
@@ -27,7 +28,11 @@ type Head = DepartmentHead;
 type Unstamped = Omit<Head, 'updatedBy' | 'updatedAt'>;
 
 const MAX_BYTES = 5 * 1024 * 1024;
-const DEFAULT_FOCUS = 0.3;
+/** Faces sit high in most portraits, so the frame starts a little above centre. */
+const DEFAULT_PAN = { x: 0.5, y: 0.3 };
+/** What the canvas writes: the stored headshot size (MEDIA_SIZES.head). */
+const OUT_W = 1280;
+const OUT_H = 1600;
 
 /** A small thumbnail: the edge transformer when it answers, the plain file when not. */
 function Thumb({ src, alt, className }: { src: string; alt: string; className: string }) {
@@ -61,7 +66,12 @@ export function CmsHeads() {
   const [confirming, setConfirming] = useState(false);
   const [busy, setBusy] = useState(false);
   const [pending, setPending] = useState<{ file: File; url: string } | null>(null);
-  const [focus, setFocus] = useState(DEFAULT_FOCUS);
+  const [zoom, setZoom] = useState(1);
+  const [pan, setPan] = useState(DEFAULT_PAN);
+  const [natural, setNatural] = useState<{ w: number; h: number } | null>(null);
+  const imgRef = useRef<HTMLImageElement>(null);
+  const frameRef = useRef<HTMLDivElement>(null);
+  const drag = useRef<{ x: number; y: number } | null>(null);
   const [uploadError, setUploadError] = useState('');
 
   useEffect(() => {
@@ -151,7 +161,9 @@ export function CmsHeads() {
     const reader = new FileReader();
     reader.onload = () => {
       if (seq !== readSeq.current || typeof reader.result !== 'string') return;
-      setFocus(DEFAULT_FOCUS);
+      setZoom(1);
+      setPan(DEFAULT_PAN);
+      setNatural(null);
       setPending({ file, url: reader.result });
     };
     reader.onerror = () => {
@@ -160,15 +172,59 @@ export function CmsHeads() {
     reader.readAsDataURL(file);
   }
 
+  const geometry = natural ? cropGeometry({ naturalWidth: natural.w, naturalHeight: natural.h, zoom, panX: pan.x, panY: pan.y }) : null;
+
+  function onDragStart(e: PointerEvent<HTMLDivElement>) {
+    if (!pending || busy) return;
+    e.currentTarget.setPointerCapture(e.pointerId);
+    drag.current = { x: e.clientX, y: e.clientY };
+  }
+  function onDragMove(e: PointerEvent<HTMLDivElement>) {
+    if (!drag.current || !geometry || !frameRef.current) return;
+    const dx = e.clientX - drag.current.x;
+    const dy = e.clientY - drag.current.y;
+    drag.current = { x: e.clientX, y: e.clientY };
+    setPan((p) => panAfterDrag(geometry, p, dx, dy, frameRef.current!.getBoundingClientRect().width));
+  }
+  function onDragEnd() {
+    drag.current = null;
+  }
+
+  /**
+   * The crop happens here, on a canvas: exactly the frame the editor sees, at
+   * the stored size. The browser has already applied any EXIF rotation to the
+   * <img>, so a phone photo lands the right way up, and the canvas carries no
+   * metadata. The server still sniffs, strips and transcodes it.
+   */
+  async function croppedJpeg(): Promise<Blob | null> {
+    const img = imgRef.current;
+    if (!img || !geometry) return null;
+    const canvas = document.createElement('canvas');
+    canvas.width = OUT_W;
+    canvas.height = OUT_H;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return null;
+    ctx.fillStyle = '#ffffff'; // a transparent PNG gets white, not black
+    ctx.fillRect(0, 0, OUT_W, OUT_H);
+    ctx.imageSmoothingQuality = 'high';
+    ctx.drawImage(img, geometry.sx, geometry.sy, geometry.sw, geometry.sh, 0, 0, OUT_W, OUT_H);
+    return new Promise((resolve) => canvas.toBlob(resolve, 'image/jpeg', 0.92));
+  }
+
   async function upload() {
     if (!pending || !current) return;
     setBusy(true);
     setUploadError('');
     try {
-      const res = await fetch(`/api/cms/media?kind=head&id=${encodeURIComponent(current.id)}&focus=${focus.toFixed(2)}`, {
+      const jpeg = await croppedJpeg();
+      if (!jpeg) {
+        setUploadError(t.hdErrTransform);
+        return;
+      }
+      const res = await fetch(`/api/cms/media?kind=head&id=${encodeURIComponent(current.id)}&focus=0.5`, {
         method: 'POST',
-        headers: { 'Content-Type': pending.file.type },
-        body: pending.file,
+        headers: { 'Content-Type': 'image/jpeg' },
+        body: jpeg,
       });
       const data = (await res.json().catch(() => ({}))) as { ok?: boolean; src?: string; errors?: string[] };
       if (!res.ok || !data.ok || !data.src) {
@@ -296,11 +352,28 @@ export function CmsHeads() {
               <span className={labelClass}>{t.hdHeadshot}</span>
               {/* The crop guide: the 4:5 frame the server cuts, and an oval for the face. */}
               <div
-                className="relative aspect-[4/5] w-full max-w-[200px] overflow-hidden rounded-xl"
+                ref={frameRef}
+                className={`relative aspect-[4/5] w-full max-w-[200px] touch-none select-none overflow-hidden rounded-xl ${pending ? 'cursor-grab active:cursor-grabbing' : ''}`}
                 style={{ backgroundImage: 'repeating-linear-gradient(45deg, var(--color-tan) 0 10px, var(--color-tan-border) 10px 20px)' }}
+                onPointerDown={onDragStart}
+                onPointerMove={onDragMove}
+                onPointerUp={onDragEnd}
+                onPointerCancel={onDragEnd}
               >
                 {pending ? (
-                  <img src={pending.url} alt="" className="h-full w-full object-cover" style={{ objectPosition: `50% ${focus * 100}%` }} />
+                  <img
+                    ref={imgRef}
+                    src={pending.url}
+                    alt=""
+                    draggable={false}
+                    onLoad={(e) => setNatural({ w: e.currentTarget.naturalWidth, h: e.currentTarget.naturalHeight })}
+                    className="absolute max-w-none"
+                    style={
+                      geometry
+                        ? { width: `${geometry.widthPct}%`, height: `${geometry.heightPct}%`, left: `${geometry.leftPct}%`, top: `${geometry.topPct}%` }
+                        : { width: '100%', height: '100%', objectFit: 'cover', left: 0, top: 0 }
+                    }
+                  />
                 ) : current.photo ? (
                   <Thumb src={current.photo.src} alt={fill(t.hdEditAria, { name: current.name })} className="h-full w-full object-cover object-top" />
                 ) : (
@@ -310,10 +383,19 @@ export function CmsHeads() {
               </div>
               {pending ? (
                 <div className="mt-3 grid gap-2">
-                  <label className="text-[12.5px] font-bold text-navy" htmlFor="hd-focus">
-                    {t.hdFocus}
+                  <p className="text-[12px] text-slate-muted">{t.hdDragHint}</p>
+                  <label className="text-[12.5px] font-bold text-navy" htmlFor="hd-zoom">
+                    {t.hdZoom}
                   </label>
-                  <input id="hd-focus" type="range" min={0} max={1} step={0.05} value={focus} onChange={(e) => setFocus(Number(e.target.value))} className="min-h-11 w-full accent-navy" />
+                  <input id="hd-zoom" type="range" min={1} max={MAX_ZOOM} step={0.05} value={zoom} onChange={(e) => setZoom(Number(e.target.value))} className="min-h-11 w-full accent-navy" />
+                  <label className="text-[12.5px] font-bold text-navy" htmlFor="hd-pan-x">
+                    {t.hdPanX}
+                  </label>
+                  <input id="hd-pan-x" type="range" min={0} max={1} step={0.01} value={pan.x} disabled={!geometry || geometry.roomX === 0} onChange={(e) => setPan((p) => ({ ...p, x: Number(e.target.value) }))} className="min-h-11 w-full accent-navy disabled:opacity-40" />
+                  <label className="text-[12.5px] font-bold text-navy" htmlFor="hd-pan-y">
+                    {t.hdPanY}
+                  </label>
+                  <input id="hd-pan-y" type="range" min={0} max={1} step={0.01} value={pan.y} disabled={!geometry || geometry.roomY === 0} onChange={(e) => setPan((p) => ({ ...p, y: Number(e.target.value) }))} className="min-h-11 w-full accent-navy disabled:opacity-40" />
                   <button type="button" className={buttonPrimary} onClick={upload} disabled={busy}>
                     {busy ? t.hdUploading : t.hdUsePhoto}
                   </button>

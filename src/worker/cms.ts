@@ -23,7 +23,7 @@ import {
 import { handleMediaUpload, type MediaEnv } from './cmsMedia';
 import { STATIC_PAGE_SLUGS, validateEvents, validateHeads, validatePage, isValidSlug } from '../lib/cms/validate';
 import type { ChurchEvent, DepartmentHead, Page } from '../lib/cms/types';
-import { diffEvents, diffHeads, diffPage } from '../lib/cms/auditDiff';
+import { diffEvents, diffHeads, diffPage, eventsOrder, headsOrder, isMoveOnly, pageOrder } from '../lib/cms/auditDiff';
 
 /**
  * /api/cms/* — the members area's content API (C-70).
@@ -155,7 +155,10 @@ async function eventsRoute(request: Request, env: CmsEnv, g: { email: string; bu
   }
   // The audit line names each change; a save that changed nothing is not one.
   const changes = diffEvents(doc.items, next.items);
-  if (changes.length) await audit(g.bucket, { by: g.email, action: 'events.save', target: 'events', changes });
+  if (changes.length) {
+    const order = isMoveOnly(changes) ? { order: eventsOrder(doc.items, next.items) } : {};
+    await audit(g.bucket, { by: g.email, action: 'events.save', target: 'events', changes, ...order });
+  }
   return json({ ok: true, rev: next.rev, items: next.items }, 200);
 }
 
@@ -179,7 +182,10 @@ async function headsRoute(request: Request, env: CmsEnv, g: { email: string; buc
     return json({ ok: false, outcome: 'conflict', rev: doc.rev }, 409);
   }
   const changes = diffHeads(doc.items, next.items);
-  if (changes.length) await audit(g.bucket, { by: g.email, action: 'heads.publish', target: 'heads', changes });
+  if (changes.length) {
+    const order = isMoveOnly(changes) ? { order: headsOrder(doc.items, next.items) } : {};
+    await audit(g.bucket, { by: g.email, action: 'heads.publish', target: 'heads', changes, ...order });
+  }
   return json({ ok: true, rev: next.rev, items: next.items }, 200);
 }
 
@@ -263,13 +269,15 @@ async function pagesRoute(request: Request, env: CmsEnv, g: { email: string; buc
   }
   // A publish reports what visitors will now see differently (against the
   // live copy); a draft save reports what changed since the last draft.
-  const changes = publish ? diffPage(live, page) : diffPage(existing?.doc.page ?? null, page);
+  const was = publish ? live : (existing?.doc.page ?? null);
+  const changes = diffPage(was, page);
   if (publish || !existing || changes.length) {
     await audit(g.bucket, {
       by: g.email,
       action: publish ? 'page.publish' : existing ? 'page.save' : 'page.create',
       target: `/${slug}/`,
       ...(changes.length ? { changes } : {}),
+      ...(was && isMoveOnly(changes) ? { order: pageOrder(was, page) } : {}),
     });
   }
   const nowLive = publish ? page : live;

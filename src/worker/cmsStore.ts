@@ -2,7 +2,7 @@
 
 import { seedEvents, seedHeads, seedPages } from '../lib/cms/seed';
 import type { ChurchEvent, DepartmentHead, Page } from '../lib/cms/types';
-import type { AuditChange } from '../lib/cms/auditDiff';
+import type { AuditChange, AuditOrder } from '../lib/cms/auditDiff';
 import type { PublicEventPage } from '../lib/cms/types';
 import { eventPageSummary } from '../lib/cms/public';
 
@@ -179,6 +179,8 @@ export type AuditEntry = {
   /** Older lines only: a free-text summary, before `changes` existed. */
   detail?: string;
   changes?: AuditChange[];
+  /** Move-only saves: the order before and after, to merge back-to-back moves. */
+  order?: AuditOrder;
 };
 
 /** Newest first under a plain ascending list: the key counts down. */

@@ -3,6 +3,7 @@ import { LanguageProvider, useLanguage } from '../../context/LanguageContext';
 import { boardCopy } from '../../data/boardCopy';
 import { membersCopy } from '../../data/membersCopy';
 import { MEMBERS_SITES } from '../../data/site';
+import { buttonPrimary, buttonSecondary, cardClass } from './cms/ui';
 import { SubPageHeader } from './SubPageHeader';
 import { SubPageFooter } from './SubPageFooter';
 import { BoardMail } from './BoardMail';
@@ -11,7 +12,7 @@ import { CmsHeads } from './cms/CmsHeads';
 import { CmsPages } from './cms/CmsPages';
 import { RecentChanges } from './cms/RecentChanges';
 
-type Tab = 'mail' | 'content';
+type Tab = 'mail' | 'content' | 'test';
 type Section = 'events' | 'heads' | 'pages';
 type Phase = 'loading' | 'ready' | 'not-configured' | 'error';
 
@@ -21,7 +22,8 @@ function readLocation(): { tab: Tab; section: Section } {
   if (typeof window === 'undefined') return { tab: 'mail', section: 'events' };
   const params = new URLSearchParams(window.location.search);
   const section = SECTIONS.find((s) => s === params.get('section')) ?? 'events';
-  return { tab: params.get('tab') === 'content' ? 'content' : 'mail', section };
+  const tab = params.get('tab');
+  return { tab: tab === 'content' || tab === 'test' ? tab : 'mail', section };
 }
 
 /** Writes the tab into the URL so a refresh or a shared link lands in place. */
@@ -31,6 +33,7 @@ function writeLocation(tab: Tab, section: Section, extra?: Record<string, string
     params.set('tab', 'content');
     params.set('section', section);
   }
+  if (tab === 'test') params.set('tab', 'test');
   for (const [k, v] of Object.entries(extra ?? {})) params.set(k, v);
   const query = params.toString();
   window.history.replaceState(null, '', `${window.location.pathname}${query ? `?${query}` : ''}`);
@@ -120,7 +123,7 @@ function MembersContent() {
 
   const topTab = (id: Tab, label: string, badge?: ReactNode) => (
     <a
-      href={id === 'mail' ? '?' : `?tab=content&section=${section}`}
+      href={id === 'mail' ? '?' : id === 'test' ? '?tab=test' : `?tab=content&section=${section}`}
       aria-current={tab === id ? 'page' : undefined}
       onClick={(e: MouseEvent) => {
         e.preventDefault();
@@ -184,13 +187,19 @@ function MembersContent() {
             <nav aria-label={t.areaNav} className="mt-4 flex flex-wrap gap-1 border-b border-ink/15">
               {topTab('mail', t.tabMail, <Badge count={unread} label={b.unreadSuffix} />)}
               {topTab('content', t.tabContent)}
-              <SiteSwitch />
+              {topTab('test', t.tabTestSite)}
             </nav>
 
             {tab === 'mail' && (
               <div className="mt-[18px]">
                 <p className="mb-3.5 text-[14px] text-slate-muted">{t.mailIntro}</p>
                 <BoardMail onUnread={setUnread} />
+              </div>
+            )}
+
+            {tab === 'test' && (
+              <div className="mt-[18px]">
+                <TestSitePanel />
               </div>
             )}
 
@@ -233,28 +242,44 @@ function MembersContent() {
 }
 
 /**
- * "Test site": opens the devtest copy of the members area in a new tab. On
- * devtest itself it becomes "Live site" and points back. Which one is decided
- * after mount, so the first render matches the build.
+ * The Test site tab: what the devtest copy is for, and a Sign in button that
+ * starts Google sign-in on devtest itself, whose callback lands on its
+ * /members/. On devtest the tab says so and points back to the real site.
+ * Which of the two shows is decided after mount, so the first render matches
+ * the build.
  */
-function SiteSwitch() {
+function TestSitePanel() {
   const { lang } = useLanguage();
   const t = membersCopy[lang];
   const [onTest, setOnTest] = useState(false);
-  useEffect(() => setOnTest(window.location.host === new URL(MEMBERS_SITES.test).host), []);
-  const href = onTest ? MEMBERS_SITES.live : MEMBERS_SITES.test;
+  useEffect(() => setOnTest(window.location.origin === MEMBERS_SITES.test), []);
+
+  if (onTest) {
+    return (
+      <section aria-labelledby="ts-h" className={cardClass}>
+        <h2 id="ts-h" className="font-serif text-[26px] font-medium text-ink">{t.onTestHeading}</h2>
+        <p className="mt-2 max-w-[620px] text-[15px] leading-relaxed text-slate">{t.onTestIntro}</p>
+        <a href={`${MEMBERS_SITES.live}/members/`} className={`${buttonSecondary} mt-5`}>
+          {t.onTestLive}
+        </a>
+      </section>
+    );
+  }
   return (
-    <a
-      href={href}
-      target="_blank"
-      rel="noopener"
-      title={onTest ? t.liveSiteHint : t.testSiteHint}
-      className="-mb-px ml-auto inline-flex min-h-11 items-center gap-1.5 border-b-[3px] border-transparent px-[18px] text-[16px] font-semibold text-slate hover:text-navy"
-    >
-      {onTest ? t.tabLiveSite : t.tabTestSite}
-      <span aria-hidden="true" className="text-orange">↗</span>
-      <span className="sr-only">{onTest ? t.liveSiteHint : t.testSiteHint}</span>
-    </a>
+    <section aria-labelledby="ts-h" className={cardClass}>
+      <h2 id="ts-h" className="font-serif text-[26px] font-medium text-ink">{t.testHeading}</h2>
+      <p className="mt-2 max-w-[620px] text-[15px] leading-relaxed text-slate">{t.testIntro}</p>
+      <ul className="mt-4 grid max-w-[620px] list-disc gap-1.5 pl-5 text-[14.5px] leading-relaxed text-ink">
+        {t.testPoints.map((point) => (
+          <li key={point}>{point}</li>
+        ))}
+      </ul>
+      <p className="mt-5 max-w-[620px] rounded-[10px] bg-tan px-4 py-3 text-[14.5px] font-bold text-navy">{t.testRecommend}</p>
+      <a href={`${MEMBERS_SITES.test}/auth/login`} className={`${buttonPrimary} mt-5`}>
+        {t.testSignIn}
+      </a>
+      <p className="mt-2 text-[12.5px] text-slate-muted">{t.testSignInNote}</p>
+    </section>
   );
 }
 

@@ -90,7 +90,7 @@ describe('/kerkraad is the old address', () => {
   });
 });
 
-describe('the Test site / Live site tab', async () => {
+describe('the Test site tab', async () => {
   const { MEMBERS_SITES } = await import('../src/data/site.ts');
   const { readFileSync } = await import('node:fs');
   const wrangler = readFileSync(new URL('../wrangler.jsonc', import.meta.url), 'utf8');
@@ -99,10 +99,18 @@ describe('the Test site / Live site tab', async () => {
   test('points at the hosts the two Workers actually serve', () => {
     const test = new URL(MEMBERS_SITES.test);
     const live = new URL(MEMBERS_SITES.live);
+    assert.equal(test.origin, MEMBERS_SITES.test, 'an origin, no path');
+    assert.equal(live.origin, MEMBERS_SITES.live, 'an origin, no path');
     assert.match(wrangler, new RegExp(`"pattern": "${test.host.replace(/\./g, '\\.')}"`), 'devtest route');
     assert.match(wrangler, new RegExp(`"pattern": "${live.host.replace(/\./g, '\\.')}"`), 'production route');
     assert.match(tfVars, new RegExp(`default\\s*=\\s*"${test.origin.replace(/\./g, '\\.')}"`), 'OAuth client lists the test origin');
-    assert.equal(test.pathname, '/members/');
-    assert.equal(live.pathname, '/members/');
+  });
+
+  test('its Sign in target starts Google sign-in and lands on /members/', async () => {
+    const res = await worker.fetch(new Request(`${MEMBERS_SITES.test}/auth/login`), env(), ctx);
+    assert.equal(res.status, 302);
+    const to = new URL(res.headers.get('location'));
+    assert.equal(to.host, 'accounts.google.com');
+    assert.equal(to.searchParams.get('redirect_uri'), `${MEMBERS_SITES.test}/auth/callback`);
   });
 });

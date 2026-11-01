@@ -23,12 +23,12 @@ const ADDRESS = {
 } as const;
 
 /**
- * The members area's "Test site" tab and its way back. The test origin must
- * match terraform/ `devtest_origin` (the OAuth client lists it).
+ * Origins for the members area's "Test site" tab. The test origin must match
+ * terraform/ `devtest_origin` (the OAuth client lists it).
  */
 export const MEMBERS_SITES = {
-  test: 'https://tygerberg-sda.cloudkid.link/members/',
-  live: 'https://sdatygerberg.co.za/members/',
+  test: 'https://tygerberg-sda.cloudkid.link',
+  live: 'https://sdatygerberg.co.za',
 } as const;
 
 export const SITE = {

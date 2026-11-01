@@ -8,7 +8,7 @@ import {
   handleAuthCallback,
   handleAuthLogin,
   handleAuthLogout,
-  handleMailSession,
+  boardMailEnabled, handleMailSession,
   type AuthEnv,
 } from './auth';
 import { handleMailSend, type MailSendEnv } from './mailSend';
@@ -20,7 +20,7 @@ import { isLegacyBoardPath, isMembersPath, legacyBoardRedirect, membersGate, noA
 import { handleCms, type CmsEnv } from './cms';
 import { serveMedia } from './cmsMedia';
 import { serveCmsPage, serveHome, serveSitemap } from './cmsPublic';
-import { renderAboutSection, renderPageRoot, renderWeekSection } from './cmsRender';
+import { renderAboutSection, renderEventsSection, renderPageRoot, renderWeekSection } from './cmsRender';
 
 export type Env = LiveStatusEnv &
   LatestVideoEnv &
@@ -34,7 +34,7 @@ export type Env = LiveStatusEnv &
   };
 
 /** The React renders the Worker writes into built pages — C-70. */
-const RENDER = { week: renderWeekSection, about: renderAboutSection, page: renderPageRoot };
+const RENDER = { week: renderWeekSection, events: renderEventsSection, about: renderAboutSection, page: renderPageRoot };
 
 /**
  * A headshot master, but not one of the pre-resized copies under `fallback/`.
@@ -148,6 +148,11 @@ async function route(request: Request, env: Env, ctx: ExecutionContext): Promise
 
   if (pathname === '/api/mail/session') {
     return handleMailSession(request, env);
+  }
+
+  // Board mail switched off (devtest): no inbox, no send, whatever the caller.
+  if (pathname.startsWith('/api/mail/') && !boardMailEnabled(env)) {
+    return Response.json({ ok: false, outcome: 'disabled' }, { status: 404, headers: { 'Cache-Control': 'no-store' } });
   }
 
   if (pathname === '/api/mail/send') {

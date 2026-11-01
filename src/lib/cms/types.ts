@@ -101,6 +101,8 @@ export type Page = {
   eyebrow: L10n;
   intro: L10n;
   blocks: Block[];
+  /** Listed in the homepage's Events section (#geleenthede) while live. */
+  showInEvents?: boolean;
   status: 'draft' | 'live';
   updatedBy: string;
   updatedAt: string;
@@ -119,11 +121,15 @@ export type PublicPage = Omit<Page, 'status' | 'updatedBy' | 'updatedAt'>;
  * `build` is read back by the Worker so its render uses the same flags the
  * static build did — the Worker cannot see build-time env.
  */
+/** A live page as the homepage's Events section lists it. */
+export type PublicEventPage = { slug: string; title: L10n; eyebrow: L10n; intro: L10n };
+
 export type HomePayload = {
   asOf: string;
   build: { imageCdn: boolean };
   events: PublicEvent[];
   heads: PublicHead[];
+  eventPages: PublicEventPage[];
 };
 
 export type PagePayload = { page: PublicPage };

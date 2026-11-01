@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * The Worker re-renders parts of built pages with live CMS content (C-70):
- * #week and #oor on the homepage, and the root of /page-shell/. Hydration only
+ * #week, #geleenthede and #oor on the homepage, and the root of /page-shell/. Hydration only
  * stays clean if the Worker's render of a payload is byte-for-byte what Astro
  * rendered inside the island for the same payload.
  *
@@ -15,7 +15,7 @@
  * Runs in CI after `npm run build`.
  */
 import { readFileSync } from 'node:fs';
-import { renderAboutSection, renderPageRoot, renderWeekSection } from '../src/worker/cmsRender.tsx';
+import { renderAboutSection, renderEventsSection, renderPageRoot, renderWeekSection } from '../src/worker/cmsRender.tsx';
 import { findElement } from '../src/worker/cmsPublic.ts';
 
 const read = (path) => readFileSync(new URL(`../dist/${path}`, import.meta.url), 'utf8');
@@ -47,6 +47,7 @@ function check(name, built, rendered) {
 const home = read('index.html');
 const payload = payloadOf(home, 'cms-home');
 check('homepage #week', slice(home, /<section id="week"/, 'section'), renderWeekSection(payload));
+check('homepage #geleenthede', slice(home, /<section id="geleenthede"/, 'section'), renderEventsSection(payload));
 check('homepage #oor', slice(home, /<section id="oor"/, 'section'), renderAboutSection(payload));
 
 const shell = read('page-shell/index.html');

@@ -9,6 +9,7 @@ import {
   listPageDrafts,
   liveSlugs,
   readEvents,
+  rebuildEventPages,
   readHeads,
   readPageDraft,
   readPageLive,
@@ -22,6 +23,7 @@ import {
 import { handleMediaUpload, type MediaEnv } from './cmsMedia';
 import { STATIC_PAGE_SLUGS, validateEvents, validateHeads, validatePage, isValidSlug } from '../lib/cms/validate';
 import type { ChurchEvent, DepartmentHead, Page } from '../lib/cms/types';
+import { diffEvents, diffHeads, diffPage } from '../lib/cms/auditDiff';
 
 /**
  * /api/cms/* — the members area's content API (C-70).
@@ -124,18 +126,6 @@ export function stampItems<T extends Stamped>(
   return { items, added, changed, removed, reordered };
 }
 
-function describe(r: { added: string[]; changed: string[]; removed: string[]; reordered: boolean }, extra = ''): string {
-  return [
-    r.added.length ? `added ${r.added.join(', ')}` : '',
-    r.changed.length ? `changed ${r.changed.join(', ')}` : '',
-    r.removed.length ? `removed ${r.removed.join(', ')}` : '',
-    r.reordered ? 'reordered' : '',
-    extra,
-  ]
-    .filter(Boolean)
-    .join('; ');
-}
-
 // ---- Events -------------------------------------------------------------------
 
 async function eventsRoute(request: Request, env: CmsEnv, g: { email: string; bucket: R2Bucket }): Promise<Response> {
@@ -163,13 +153,9 @@ async function eventsRoute(request: Request, env: CmsEnv, g: { email: string; bu
   if (!(await writeCollection(g.bucket, EVENTS_KEY, doc, next, etag))) {
     return json({ ok: false, outcome: 'conflict', rev: doc.rev }, 409);
   }
-  const published = stamped.items.filter((e) => e.status === 'live' && [...stamped.added, ...stamped.changed].includes(e.id)).map((e) => e.id);
-  await audit(g.bucket, {
-    by: g.email,
-    action: 'events.save',
-    target: 'events',
-    detail: describe(stamped, published.length ? `live ${published.join(', ')}` : ''),
-  });
+  // The audit line names each change; a save that changed nothing is not one.
+  const changes = diffEvents(doc.items, next.items);
+  if (changes.length) await audit(g.bucket, { by: g.email, action: 'events.save', target: 'events', changes });
   return json({ ok: true, rev: next.rev, items: next.items }, 200);
 }
 
@@ -192,7 +178,8 @@ async function headsRoute(request: Request, env: CmsEnv, g: { email: string; buc
   if (!(await writeCollection(g.bucket, HEADS_KEY, doc, next, etag))) {
     return json({ ok: false, outcome: 'conflict', rev: doc.rev }, 409);
   }
-  await audit(g.bucket, { by: g.email, action: 'heads.publish', target: 'heads', detail: describe(stamped) });
+  const changes = diffHeads(doc.items, next.items);
+  if (changes.length) await audit(g.bucket, { by: g.email, action: 'heads.publish', target: 'heads', changes });
   return json({ ok: true, rev: next.rev, items: next.items }, 200);
 }
 
@@ -233,7 +220,14 @@ async function pagesRoute(request: Request, env: CmsEnv, g: { email: string; buc
     if (!isValidSlug(slug)) return json({ ok: false, outcome: 'invalid', errors: ['slug'] }, 400);
     const draft = await readPageDraft(g.bucket, slug);
     if (!draft) return json({ ok: false, outcome: 'invalid', errors: ['slug'] }, 404);
+    // A live This week card pointing here would link to a 404 — the same rule
+    // the events route enforces from the other side.
+    const { doc: events } = await readEvents(g.bucket);
+    if (events.items.some((e) => e.status === 'live' && e.link?.pageSlug === slug)) {
+      return json({ ok: false, outcome: 'invalid', errors: ['linked'] }, 409);
+    }
     await deletePageLive(g.bucket, slug);
+    await rebuildEventPages(g.bucket);
     const page: Page = { ...draft.doc.page, status: 'draft', updatedBy: g.email, updatedAt: new Date().toISOString() };
     await writePageDraft(g.bucket, draft.doc, { rev: draft.doc.rev + 1, page }, draft.etag);
     await audit(g.bucket, { by: g.email, action: 'page.unpublish', target: `/${slug}/` });
@@ -263,15 +257,27 @@ async function pagesRoute(request: Request, env: CmsEnv, g: { email: string; buc
   if (!(await writePageDraft(g.bucket, existing?.doc ?? null, next, existing?.etag ?? null))) {
     return json({ ok: false, outcome: 'conflict', rev: existing?.doc.rev ?? 0 }, 409);
   }
-  if (publish) await writePageLive(g.bucket, page);
-  await audit(g.bucket, {
-    by: g.email,
-    action: publish ? 'page.publish' : existing ? 'page.save' : 'page.create',
-    target: `/${slug}/`,
-  });
+  if (publish) {
+    await writePageLive(g.bucket, page);
+    await rebuildEventPages(g.bucket);
+  }
+  // A publish reports what visitors will now see differently (against the
+  // live copy); a draft save reports what changed since the last draft.
+  const changes = publish ? diffPage(live, page) : diffPage(existing?.doc.page ?? null, page);
+  if (publish || !existing || changes.length) {
+    await audit(g.bucket, {
+      by: g.email,
+      action: publish ? 'page.publish' : existing ? 'page.save' : 'page.create',
+      target: `/${slug}/`,
+      ...(changes.length ? { changes } : {}),
+    });
+  }
   const nowLive = publish ? page : live;
   return json({ ok: true, rev: next.rev, page, live: nowLive, dirty: isDirty(page, nowLive) }, 200);
 }
+
+/** Page sizes the Recent changes list offers; anything else gets the first. */
+export const AUDIT_PAGE_SIZES = [10, 25, 50];
 
 /** Every /api/cms/* request. */
 export async function handleCms(request: Request, env: CmsEnv): Promise<Response> {
@@ -288,8 +294,15 @@ export async function handleCms(request: Request, env: CmsEnv): Promise<Response
     case '/api/cms/media':
       return handleMediaUpload(request, env, g);
     case '/api/cms/audit':
+    {
       if (request.method !== 'GET') return json({ ok: false, outcome: 'invalid', errors: ['method'] }, 405);
-      return json({ ok: true, items: await recentAudit(g.bucket) }, 200);
+      const params = new URL(request.url).searchParams;
+      const size = Number(params.get('limit'));
+      const limit = AUDIT_PAGE_SIZES.includes(size) ? size : AUDIT_PAGE_SIZES[0];
+      const cursor = params.get('cursor') ?? undefined;
+      if (cursor !== undefined && (cursor === '' || cursor.length > 1024)) return json({ ok: false, outcome: 'invalid', errors: ['cursor'] }, 400);
+      return json({ ok: true, ...(await recentAudit(g.bucket, limit, cursor)) }, 200);
+    }
     default:
       return json({ ok: false, outcome: 'invalid', errors: ['path'] }, 404);
   }

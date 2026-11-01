@@ -5,12 +5,13 @@ import { Logo } from './Logo';
 import { LanguageToggle } from './LanguageToggle';
 import { withBase } from '../../lib/base';
 
-type NavKey = 'navAbout' | 'navBeliefs' | 'navMinistries' | 'navVisit' | 'navConnect' | 'navResources';
+type NavKey = 'navAbout' | 'navBeliefs' | 'navMinistries' | 'navEvents' | 'navVisit' | 'navConnect' | 'navResources';
 
 const navLinks: { key: NavKey; href: string }[] = [
   { key: 'navAbout', href: '#oor' },
   { key: 'navBeliefs', href: '#glo' },
   { key: 'navMinistries', href: '#week' },
+  { key: 'navEvents', href: '#geleenthede' },
   { key: 'navVisit', href: '#besoek' },
   { key: 'navConnect', href: '#betrokke' },
   { key: 'navResources', href: '#hulpbronne' },

@@ -312,6 +312,7 @@ export function validatePage(input: unknown): Result<Omit<Page, 'status' | 'upda
     eyebrow: c.l10n(o.eyebrow, 'eyebrow', LIMITS.short, false),
     intro: c.l10n(o.intro, 'intro', 400, false),
     blocks,
+    ...(o.showInEvents === true ? { showInEvents: true } : {}),
   };
   return c.errors.length ? { ok: false, errors: c.errors } : { ok: true, value: page };
 }

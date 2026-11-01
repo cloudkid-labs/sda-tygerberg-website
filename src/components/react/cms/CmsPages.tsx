@@ -3,6 +3,7 @@ import { useLanguage } from '../../../context/LanguageContext';
 import { cmsCopy, fill } from '../../../data/cmsCopy';
 import { BLOCK_TYPES, type Block, type BlockType, type L10n, type Page } from '../../../lib/cms/types';
 import { isValidSlug } from '../../../lib/cms/validate';
+import { PageEventLinks } from './PageEventLinks';
 import {
   Alert,
   ArrowDown,
@@ -341,6 +342,8 @@ export function CmsPages({ initialSlug }: { initialSlug?: string | null }) {
   const [note, setNote] = useState('');
   const [error, setError] = useState('');
   const [fieldErrors, setFieldErrors] = useState<Set<string>>(new Set());
+  // Live This week cards that link here; the page cannot be unpublished under them.
+  const [liveLinks, setLiveLinks] = useState(0);
 
   async function openPage(s: string) {
     const res = await cmsApi<Loaded>('GET', `/api/cms/pages?slug=${encodeURIComponent(s)}`);
@@ -437,7 +440,7 @@ export function CmsPages({ initialSlug }: { initialSlug?: string | null }) {
     setBusy(true);
     const res = await cmsApi<Loaded>('PUT', '/api/cms/pages', { action: 'unpublish', slug });
     setBusy(false);
-    if (!res.ok) return setError(t.errSave);
+    if (!res.ok) return setError(res.errors.includes('linked') ? t.pgErrLinked : t.errSave);
     setLoaded(res.data);
     setList((l) => l.map((p) => (p.slug === slug ? { ...p, status: 'draft' } : p)));
     setNote(t.draftSaved);
@@ -550,7 +553,21 @@ export function CmsPages({ initialSlug }: { initialSlug?: string | null }) {
               <p className="mt-1.5 text-[12.5px] text-slate-muted">{t.pgSlugHelp}</p>
             </div>
             <Pair id="pg-intro" label={t.pgIntro} value={content.intro} multiline onChange={(v) => edit((c) => ({ ...c, intro: v }))} />
+            <div>
+              <label className="flex min-h-11 items-center gap-3 text-[14px] font-bold text-ink">
+                <input
+                  type="checkbox"
+                  checked={Boolean(content.showInEvents)}
+                  onChange={(e) => edit((c) => ({ ...c, showInEvents: e.target.checked }))}
+                  className="h-5 w-5 accent-navy"
+                />
+                {t.pgShowInEvents}
+              </label>
+              <p className="text-[12.5px] text-slate-muted">{t.pgShowInEventsHelp}</p>
+            </div>
           </fieldset>
+
+          {loaded && slug ? <PageEventLinks slug={slug} pageLive={isLive} onLinkedChange={setLiveLinks} /> : null}
 
           <div className="mb-2 flex items-baseline justify-between">
             <span className="text-[12px] font-bold uppercase tracking-[.1em] text-slate-muted">{t.pgBlocks}</span>
@@ -623,9 +640,10 @@ export function CmsPages({ initialSlug }: { initialSlug?: string | null }) {
 
           {isLive && (
             <div className="mt-6 border-t border-subtle pt-4">
-              <button type="button" className="min-h-11 text-[13.5px] font-bold text-[#9a4f0f] underline" disabled={busy} onClick={unpublish}>
+              <button type="button" className="min-h-11 text-[13.5px] font-bold text-[#9a4f0f] underline disabled:opacity-50" disabled={busy || liveLinks > 0} onClick={unpublish}>
                 {t.pgUnpublish}
               </button>
+              {liveLinks > 0 && <p className="mt-1 text-[12.5px] text-slate-muted">{t.pgErrLinked}</p>}
             </div>
           )}
         </section>

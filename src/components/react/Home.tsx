@@ -7,6 +7,7 @@ import { Header } from './Header';
 import { Hero } from './Hero';
 import { ServiceTimesStrip } from './ServiceTimesStrip';
 import { ThisWeek } from './ThisWeek';
+import { EventPages } from './EventPages';
 import { AboutCarousel } from './AboutCarousel';
 import { BeliefsSummary } from './BeliefsSummary';
 import { GetInvolved } from './GetInvolved';
@@ -32,6 +33,7 @@ export function Home({ latestVideo = null }: { latestVideo?: LatestVideo | null 
           <Hero latestVideo={latestVideo} />
           <ServiceTimesStrip />
           <ThisWeek data={cms} />
+          <EventPages data={cms} />
           <AboutCarousel heads={cms.heads} cdnEnabled={cms.build.imageCdn} />
           <BeliefsSummary />
           <GetInvolved />

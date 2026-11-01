@@ -1,7 +1,7 @@
 /// <reference types="@cloudflare/workers-types" />
 
 import { imageSize, sniffImage, stripImageMetadata, type Bytes, type ImageType } from '../lib/cms/imageMeta';
-import { audit, randomId } from './cmsStore';
+import { audit, randomId, readHeads } from './cmsStore';
 
 /**
  * CMS image uploads and their public URLs (C-70).
@@ -127,7 +127,10 @@ export async function handleMediaUpload(
     const cache = { httpMetadata: { cacheControl: 'public, max-age=31536000, immutable' } };
     await g.bucket.put(`media/${base}.jpg`, jpeg, { httpMetadata: { ...cache.httpMetadata, contentType: 'image/jpeg' } });
     await g.bucket.put(`media/${base}.webp`, webp, { httpMetadata: { ...cache.httpMetadata, contentType: 'image/webp' } });
-    await audit(g.bucket, { by: g.email, action: 'media.upload', target: `/media/${base}.jpg` });
+    // Name the person the photo is for; a head not yet published has no name
+    // on record, so its id stands in.
+    const who = kind === 'head' ? (await readHeads(g.bucket)).doc.items.find((h) => h.id === id)?.name || id : '';
+    await audit(g.bucket, { by: g.email, action: 'media.upload', target: who || `/media/${base}.jpg` });
     const { width, height } = MEDIA_SIZES[kind];
     return json({ ok: true, src: `/media/${base}.jpg`, webp: `/media/${base}.webp`, width, height }, 200);
   } finally {

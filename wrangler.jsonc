@@ -266,12 +266,15 @@
         // GOOGLE_CLIENT_SECRET and SESSION_SECRET, which the devtest workflow
         // uploads; SESSION_SECRET is the preview's own (DEVTEST_SESSION_SECRET,
         // terraform/), so a preview session never verifies on production.
-        // No MAIL_SEND_FROM or BREVO_API_KEY: board mail can read the devtest
-        // inbox but never sends (C-61). C-70
+        // Board mail is switched off here entirely: BOARD_MAIL "off" makes
+        // every /api/mail/* route but the session check answer 404, and the
+        // members page hides the tab. (There is no MAIL_SEND_FROM or
+        // BREVO_API_KEY either, so it could never send — C-61.) C-70
         "BOARD_ALLOWED_EMAILS": "muller31jp@gmail.com,sdatygerbergklerk@gmail.com,sdatygerbergkerk@gmail.com,rainiersvn1@gmail.com,johanemomberg@gmail.com",
         "BOARD_SEND_AS": "muller31jp@gmail.com=tesourier@sdatygerberg.co.za",
         "BOARD_ADMIN_EMAILS": "rainiersvn1@gmail.com",
-        "BOARD_ADMIN_ONLY_EMAILS": "archive@sdatygerberg.co.za,rainier@sdatygerberg.co.za"
+        "BOARD_ADMIN_ONLY_EMAILS": "archive@sdatygerberg.co.za,rainier@sdatygerberg.co.za",
+        "BOARD_MAIL": "off"
       },
       // Devtest reads and writes its own submissions bucket, so trialling the
       // inbox never touches the production queue. Create with:

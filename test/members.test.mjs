@@ -89,3 +89,63 @@ describe('/kerkraad is the old address', () => {
     assert.equal(res.headers.get('location'), '/members/');
   });
 });
+
+describe('the Test site tab', async () => {
+  const { MEMBERS_SITES } = await import('../src/data/site.ts');
+  const { readFileSync } = await import('node:fs');
+  const wrangler = readFileSync(new URL('../wrangler.jsonc', import.meta.url), 'utf8');
+  const tfVars = readFileSync(new URL('../terraform/variables.tf', import.meta.url), 'utf8');
+
+  test('points at the hosts the two Workers actually serve', () => {
+    const test = new URL(MEMBERS_SITES.test);
+    const live = new URL(MEMBERS_SITES.live);
+    assert.equal(test.origin, MEMBERS_SITES.test, 'an origin, no path');
+    assert.equal(live.origin, MEMBERS_SITES.live, 'an origin, no path');
+    assert.match(wrangler, new RegExp(`"pattern": "${test.host.replace(/\./g, '\\.')}"`), 'devtest route');
+    assert.match(wrangler, new RegExp(`"pattern": "${live.host.replace(/\./g, '\\.')}"`), 'production route');
+    assert.match(tfVars, new RegExp(`default\\s*=\\s*"${test.origin.replace(/\./g, '\\.')}"`), 'OAuth client lists the test origin');
+  });
+
+  test('its Sign in target starts Google sign-in and lands on /members/', async () => {
+    const res = await worker.fetch(new Request(`${MEMBERS_SITES.test}/auth/login`), env(), ctx);
+    assert.equal(res.status, 302);
+    const to = new URL(res.headers.get('location'));
+    assert.equal(to.host, 'accounts.google.com');
+    assert.equal(to.searchParams.get('redirect_uri'), `${MEMBERS_SITES.test}/auth/callback`);
+  });
+});
+
+describe('Board mail switched off (devtest: BOARD_MAIL "off")', () => {
+  const off = env({ BOARD_MAIL: 'off' });
+
+  test('the session check still answers, and says mail is off', async () => {
+    const res = await get('/api/mail/session', await sessionFor(BOARD), off);
+    assert.equal(res.status, 200);
+    const body = await res.json();
+    assert.equal(body.email, BOARD);
+    assert.equal(body.mail, false);
+    assert.ok(!('allowedFrom' in body), 'no sender identities offered');
+  });
+
+  for (const path of ['/api/mail/inbox', '/api/mail/sent', '/api/mail/trash', '/api/mail/message?id=x']) {
+    test(`${path} is refused even for a board member`, async () => {
+      const res = await get(path, await sessionFor(BOARD), off);
+      assert.equal(res.status, 404);
+      assert.equal((await res.json()).outcome, 'disabled');
+    });
+  }
+
+  test('a send is refused before anything else runs', async () => {
+    const res = await worker.fetch(
+      new Request('https://x/api/mail/send', { method: 'POST', headers: { cookie: await sessionFor(BOARD), origin: 'https://x', 'content-type': 'application/json' }, body: '{}' }),
+      off,
+      ctx,
+    );
+    assert.equal(res.status, 404);
+  });
+
+  test('on production (unset) the session reports mail on', async () => {
+    const body = await (await get('/api/mail/session', await sessionFor(BOARD))).json();
+    assert.equal(body.mail, true);
+  });
+});

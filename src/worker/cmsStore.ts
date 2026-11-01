@@ -2,6 +2,9 @@
 
 import { seedEvents, seedHeads, seedPages } from '../lib/cms/seed';
 import type { ChurchEvent, DepartmentHead, Page } from '../lib/cms/types';
+import type { AuditChange } from '../lib/cms/auditDiff';
+import type { PublicEventPage } from '../lib/cms/types';
+import { eventPageSummary } from '../lib/cms/public';
 
 /**
  * The CMS's storage, one R2 bucket (`CMS`, C-70):
@@ -125,6 +128,28 @@ export async function liveSlugs(bucket: R2Bucket): Promise<string[]> {
 }
 
 /**
+ * The homepage's Events list, kept as one object so a homepage request reads
+ * one key instead of every live page. Rebuilt from the live pages after each
+ * publish and unpublish — a rebuild, not a patch, so a missed write heals on
+ * the next one. Newest publish first.
+ */
+export const EVENT_PAGES_KEY = 'index/event-pages.json';
+
+export async function readEventPages(bucket: R2Bucket): Promise<PublicEventPage[]> {
+  return (await readJson<PublicEventPage[]>(bucket, EVENT_PAGES_KEY))?.value ?? [];
+}
+
+export async function rebuildEventPages(bucket: R2Bucket): Promise<PublicEventPage[]> {
+  const pages = (await Promise.all((await liveSlugs(bucket)).map((s) => readPageLive(bucket, s)))).filter(
+    (p): p is Page => Boolean(p?.showInEvents),
+  );
+  pages.sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
+  const list = pages.map(eventPageSummary);
+  await bucket.put(EVENT_PAGES_KEY, JSON.stringify(list), JSON_META);
+  return list;
+}
+
+/**
  * Every page's working copy. The seed pages are written once, the first time
  * anyone lists pages, so they are ordinary drafts from then on — deleting one
  * does not bring it back.
@@ -151,7 +176,9 @@ export type AuditEntry = {
   by: string;
   action: string;
   target: string;
+  /** Older lines only: a free-text summary, before `changes` existed. */
   detail?: string;
+  changes?: AuditChange[];
 };
 
 /** Newest first under a plain ascending list: the key counts down. */
@@ -172,12 +199,18 @@ export async function audit(bucket: R2Bucket, entry: Omit<AuditEntry, 'at'>): Pr
   console.log(`cms: ${entry.action} ${entry.target} by=${entry.by}`);
 }
 
-export async function recentAudit(bucket: R2Bucket, limit = 50): Promise<AuditEntry[]> {
-  const page = await bucket.list({ prefix: 'audit/', limit });
-  const out: AuditEntry[] = [];
-  for (const obj of page.objects) {
-    const hit = await readJson<AuditEntry>(bucket, obj.key);
-    if (hit) out.push(hit.value);
-  }
-  return out;
+/**
+ * One page of the audit log, newest first (the keys count down). `next` is
+ * R2's own list cursor, passed back as is for the following page; null when
+ * there is no more.
+ */
+export async function recentAudit(
+  bucket: R2Bucket,
+  limit = 10,
+  cursor?: string,
+): Promise<{ items: AuditEntry[]; next: string | null }> {
+  const page = await bucket.list({ prefix: 'audit/', limit, ...(cursor ? { cursor } : {}) });
+  const hits = await Promise.all(page.objects.map((obj) => readJson<AuditEntry>(bucket, obj.key)));
+  const items = hits.filter((h): h is { value: AuditEntry; etag: string } => h !== null).map((h) => h.value);
+  return { items, next: page.truncated && page.cursor ? page.cursor : null };
 }

@@ -30,3 +30,8 @@ PR — see RELEASE.md.
 ```sh
 git checkout -B <branch> origin/dev
 ```
+
+## Attribution
+
+No AI attribution in commits, PRs or GitHub comments: no `Co-Authored-By`
+trailer, no session links, no "Generated with …" footer or 🤖 line.

@@ -2,6 +2,8 @@ import { useCallback, useEffect, useState, type MouseEvent, type ReactNode } fro
 import { LanguageProvider, useLanguage } from '../../context/LanguageContext';
 import { boardCopy } from '../../data/boardCopy';
 import { membersCopy } from '../../data/membersCopy';
+import { MEMBERS_SITES } from '../../data/site';
+import { buttonPrimary, buttonSecondary, cardClass } from './cms/ui';
 import { SubPageHeader } from './SubPageHeader';
 import { SubPageFooter } from './SubPageFooter';
 import { BoardMail } from './BoardMail';
@@ -10,7 +12,7 @@ import { CmsHeads } from './cms/CmsHeads';
 import { CmsPages } from './cms/CmsPages';
 import { RecentChanges } from './cms/RecentChanges';
 
-type Tab = 'mail' | 'content';
+type Tab = 'mail' | 'content' | 'test';
 type Section = 'events' | 'heads' | 'pages';
 type Phase = 'loading' | 'ready' | 'not-configured' | 'error';
 
@@ -20,7 +22,8 @@ function readLocation(): { tab: Tab; section: Section } {
   if (typeof window === 'undefined') return { tab: 'mail', section: 'events' };
   const params = new URLSearchParams(window.location.search);
   const section = SECTIONS.find((s) => s === params.get('section')) ?? 'events';
-  return { tab: params.get('tab') === 'content' ? 'content' : 'mail', section };
+  const tab = params.get('tab');
+  return { tab: tab === 'content' || tab === 'test' ? tab : 'mail', section };
 }
 
 /** Writes the tab into the URL so a refresh or a shared link lands in place. */
@@ -30,6 +33,7 @@ function writeLocation(tab: Tab, section: Section, extra?: Record<string, string
     params.set('tab', 'content');
     params.set('section', section);
   }
+  if (tab === 'test') params.set('tab', 'test');
   for (const [k, v] of Object.entries(extra ?? {})) params.set(k, v);
   const query = params.toString();
   window.history.replaceState(null, '', `${window.location.pathname}${query ? `?${query}` : ''}`);
@@ -63,6 +67,8 @@ function MembersContent() {
     section: 'events',
   });
   const [unread, setUnread] = useState(0);
+  /** False where the Worker has Board mail switched off (devtest). */
+  const [mailOn, setMailOn] = useState(true);
   /** A page the events editor asked to open (New page from template). */
   const [openPage, setOpenPage] = useState<string | null>(null);
 
@@ -84,8 +90,16 @@ function MembersContent() {
           return;
         }
         if (!res.ok) throw new Error(String(res.status));
-        const data = (await res.json()) as { email?: string };
+        const data = (await res.json()) as { email?: string; mail?: boolean };
         setEmail(data.email ?? '');
+        if (data.mail === false) {
+          // No Board mail here: open on Website content instead.
+          setMailOn(false);
+          setLocation((loc) => (loc.tab === 'mail' ? { ...loc, tab: 'content' } : loc));
+          if (initial.tab === 'mail') writeLocation('content', initial.section);
+          setPhase('ready');
+          return;
+        }
         setPhase('ready');
         // The badge must be right before Board mail is ever opened.
         const inbox = await fetch('/api/mail/inbox', { cache: 'no-store', headers: { Accept: 'application/json' } });
@@ -119,7 +133,7 @@ function MembersContent() {
 
   const topTab = (id: Tab, label: string, badge?: ReactNode) => (
     <a
-      href={id === 'mail' ? '?' : `?tab=content&section=${section}`}
+      href={id === 'mail' ? '?' : id === 'test' ? '?tab=test' : `?tab=content&section=${section}`}
       aria-current={tab === id ? 'page' : undefined}
       onClick={(e: MouseEvent) => {
         e.preventDefault();
@@ -181,14 +195,21 @@ function MembersContent() {
             </div>
 
             <nav aria-label={t.areaNav} className="mt-4 flex flex-wrap gap-1 border-b border-ink/15">
-              {topTab('mail', t.tabMail, <Badge count={unread} label={b.unreadSuffix} />)}
+              {mailOn && topTab('mail', t.tabMail, <Badge count={unread} label={b.unreadSuffix} />)}
               {topTab('content', t.tabContent)}
+              {topTab('test', t.tabTestSite)}
             </nav>
 
-            {tab === 'mail' && (
+            {tab === 'mail' && mailOn && (
               <div className="mt-[18px]">
                 <p className="mb-3.5 text-[14px] text-slate-muted">{t.mailIntro}</p>
                 <BoardMail onUnread={setUnread} />
+              </div>
+            )}
+
+            {tab === 'test' && (
+              <div className="mt-[18px]">
+                <TestSitePanel />
               </div>
             )}
 
@@ -227,6 +248,48 @@ function MembersContent() {
 
       <SubPageFooter backHome={b.backHome} />
     </div>
+  );
+}
+
+/**
+ * The Test site tab: what the devtest copy is for, and a Sign in button that
+ * starts Google sign-in on devtest itself, whose callback lands on its
+ * /members/. On devtest the tab says so and points back to the real site.
+ * Which of the two shows is decided after mount, so the first render matches
+ * the build.
+ */
+function TestSitePanel() {
+  const { lang } = useLanguage();
+  const t = membersCopy[lang];
+  const [onTest, setOnTest] = useState(false);
+  useEffect(() => setOnTest(window.location.origin === MEMBERS_SITES.test), []);
+
+  if (onTest) {
+    return (
+      <section aria-labelledby="ts-h" className={cardClass}>
+        <h2 id="ts-h" className="font-serif text-[26px] font-medium text-ink">{t.onTestHeading}</h2>
+        <p className="mt-2 max-w-[620px] text-[15px] leading-relaxed text-slate">{t.onTestIntro}</p>
+        <a href={`${MEMBERS_SITES.live}/members/`} className={`${buttonSecondary} mt-5`}>
+          {t.onTestLive}
+        </a>
+      </section>
+    );
+  }
+  return (
+    <section aria-labelledby="ts-h" className={cardClass}>
+      <h2 id="ts-h" className="font-serif text-[26px] font-medium text-ink">{t.testHeading}</h2>
+      <p className="mt-2 max-w-[620px] text-[15px] leading-relaxed text-slate">{t.testIntro}</p>
+      <ul className="mt-4 grid max-w-[620px] list-disc gap-1.5 pl-5 text-[14.5px] leading-relaxed text-ink">
+        {t.testPoints.map((point) => (
+          <li key={point}>{point}</li>
+        ))}
+      </ul>
+      <p className="mt-5 max-w-[620px] rounded-[10px] bg-tan px-4 py-3 text-[14.5px] font-bold text-navy">{t.testRecommend}</p>
+      <a href={`${MEMBERS_SITES.test}/auth/login`} className={`${buttonPrimary} mt-5`}>
+        {t.testSignIn}
+      </a>
+      <p className="mt-2 text-[12.5px] text-slate-muted">{t.testSignInNote}</p>
+    </section>
   );
 }
 

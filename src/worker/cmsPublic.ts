@@ -3,8 +3,8 @@
 import { homePayload, publicPage, scriptJson } from '../lib/cms/public';
 import { johannesburgDate } from '../lib/cms/time';
 import { HOME_PAYLOAD_ID, PAGE_PAYLOAD_ID } from '../lib/cms/ids';
-import type { ChurchEvent, DepartmentHead, HomePayload, Page, PublicPage } from '../lib/cms/types';
-import { liveSlugs, readEvents, readHeads, readPageLive, type CmsStoreEnv } from './cmsStore';
+import type { ChurchEvent, DepartmentHead, HomePayload, Page, PublicEventPage, PublicPage } from '../lib/cms/types';
+import { liveSlugs, readEventPages, readEvents, readHeads, readPageLive, type CmsStoreEnv } from './cmsStore';
 
 /**
  * Where live CMS content meets the static build (C-70).
@@ -27,6 +27,7 @@ import { liveSlugs, readEvents, readHeads, readPageLive, type CmsStoreEnv } from
 
 export type Renderers = {
   week: (p: HomePayload) => string;
+  events: (p: HomePayload) => string;
   about: (p: HomePayload) => string;
   page: (p: PublicPage) => string;
 };
@@ -66,9 +67,9 @@ function payloadRange(html: string, id: string): { open: [number, number]; body:
  */
 export function rewriteHome(
   html: string,
-  live: { events: ChurchEvent[]; heads: DepartmentHead[] },
+  live: { events: ChurchEvent[]; heads: DepartmentHead[]; eventPages?: PublicEventPage[] },
   asOf: string,
-  render: Pick<Renderers, 'week' | 'about'>,
+  render: Pick<Renderers, 'week' | 'events' | 'about'>,
 ): string | null {
   const script = payloadRange(html, HOME_PAYLOAD_ID);
   if (!script) return null;
@@ -78,18 +79,21 @@ export function rewriteHome(
   } catch {
     return null;
   }
-  const payload = homePayload(live.events, live.heads, asOf, built.build);
+  const payload = homePayload(live.events, live.heads, asOf, built.build, live.eventPages ?? []);
 
   const week = findElement(html, /<section id="week"/, 'section');
+  const events = findElement(html, /<section id="geleenthede"/, 'section');
   const about = findElement(html, /<section id="oor"/, 'section');
-  if (!week || !about) return null;
+  if (!week || !events || !about) return null;
   const weekHtml = render.week(payload);
+  const eventsHtml = render.events(payload);
   const aboutHtml = render.about(payload);
 
   // Back to front, so earlier offsets stay valid.
   const edits: [[number, number], string][] = [
     [script.body, scriptJson(payload)],
     [week, weekHtml],
+    [events, eventsHtml],
     [about, aboutHtml],
   ];
   edits.sort((a, b) => b[0][0] - a[0][0]);
@@ -162,15 +166,15 @@ export type PublicEnv = CmsStoreEnv & { ASSETS: Fetcher };
 export async function serveHome(
   request: Request,
   env: PublicEnv,
-  render: Pick<Renderers, 'week' | 'about'>,
+  render: Pick<Renderers, 'week' | 'events' | 'about'>,
   now = new Date(),
 ): Promise<Response> {
   const asset = await env.ASSETS.fetch(env.CMS ? unconditional(request, '/') : request);
   if (!env.CMS || request.method !== 'GET' || asset.status !== 200) return asset;
   try {
-    const [{ doc: events }, { doc: heads }] = await Promise.all([readEvents(env.CMS), readHeads(env.CMS)]);
+    const [{ doc: events }, { doc: heads }, eventPages] = await Promise.all([readEvents(env.CMS), readHeads(env.CMS), readEventPages(env.CMS)]);
     const html = await asset.clone().text();
-    const out = rewriteHome(html, { events: events.items, heads: heads.items }, johannesburgDate(now), render);
+    const out = rewriteHome(html, { events: events.items, heads: heads.items, eventPages }, johannesburgDate(now), render);
     if (out === null) {
       console.error('cms: homepage markers missing — serving the build');
       return asset;

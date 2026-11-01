@@ -22,6 +22,15 @@ const ADDRESS = {
   country: 'ZA',
 } as const;
 
+/**
+ * Origins for the members area's "Test site" tab. The test origin must match
+ * terraform/ `devtest_origin` (the OAuth client lists it).
+ */
+export const MEMBERS_SITES = {
+  test: 'https://tygerberg-sda.cloudkid.link',
+  live: 'https://sdatygerberg.co.za',
+} as const;
+
 export const SITE = {
   name: 'Tygerberg SDA',
   /** The congregation's full name, for the map popup and the page titles. */

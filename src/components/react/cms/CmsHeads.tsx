@@ -1,4 +1,4 @@
-import { useEffect, useState, type ChangeEvent } from 'react';
+import { useEffect, useRef, useState, type ChangeEvent } from 'react';
 import { useLanguage } from '../../../context/LanguageContext';
 import { cmsCopy, fill } from '../../../data/cmsCopy';
 import type { DepartmentHead, PublicHead } from '../../../lib/cms/types';
@@ -89,9 +89,10 @@ export function CmsHeads() {
     return () => window.removeEventListener('beforeunload', warn);
   }, [dirty]);
 
-  useEffect(() => () => {
-    if (pending) URL.revokeObjectURL(pending.url);
-  }, [pending]);
+  // The preview is a data: URL, not URL.createObjectURL(): the site CSP's
+  // img-src allows data: but not blob:, and widening it for one preview is
+  // not worth it. A later pick or a head switch supersedes a read in flight.
+  const readSeq = useRef(0);
 
   const current = items[sel];
 
@@ -104,6 +105,7 @@ export function CmsHeads() {
   function select(i: number) {
     setSel(i);
     setConfirming(false);
+    readSeq.current += 1;
     setPending(null);
     setUploadError('');
     setFieldErrors(new Set());
@@ -145,8 +147,17 @@ export function CmsHeads() {
     if (!file) return;
     if (file.type !== 'image/jpeg' && file.type !== 'image/png') return setUploadError(t.hdErrType);
     if (file.size > MAX_BYTES) return setUploadError(t.hdErrSize);
-    setFocus(DEFAULT_FOCUS);
-    setPending({ file, url: URL.createObjectURL(file) });
+    const seq = ++readSeq.current;
+    const reader = new FileReader();
+    reader.onload = () => {
+      if (seq !== readSeq.current || typeof reader.result !== 'string') return;
+      setFocus(DEFAULT_FOCUS);
+      setPending({ file, url: reader.result });
+    };
+    reader.onerror = () => {
+      if (seq === readSeq.current) setUploadError(t.hdErrType);
+    };
+    reader.readAsDataURL(file);
   }
 
   async function upload() {
@@ -306,7 +317,7 @@ export function CmsHeads() {
                   <button type="button" className={buttonPrimary} onClick={upload} disabled={busy}>
                     {busy ? t.hdUploading : t.hdUsePhoto}
                   </button>
-                  <button type="button" className={buttonSecondary} onClick={() => setPending(null)} disabled={busy}>
+                  <button type="button" className={buttonSecondary} onClick={() => { readSeq.current += 1; setPending(null); }} disabled={busy}>
                     {t.cancel}
                   </button>
                 </div>

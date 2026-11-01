@@ -98,7 +98,7 @@ function Show-InputStatus {
   Write-Host ''
   Write-Host 'Inputs Terraform needs this run (values never printed):'
   Write-Host ("  [required] terraform.tfvars present: " + $(if ($tfvars) { 'SET' } else { 'MISSING — cp terraform.tfvars.example terraform.tfvars and fill it in' }))
-  foreach ($name in @('brevo_code', 'brevo_dkim_records', 'google_project_id', 'google_oauth_client_id')) {
+  foreach ($name in @('brevo_code', 'brevo_dkim_records', 'google_project_id', 'google_oauth_client_id', 'cloudflare_account_id')) {
     $present = $false
     if ($tfvars) {
       $present = (Get-Content (Join-Path $PSScriptRoot 'terraform.tfvars') -Raw) -match "(?m)^\s*#?\s*$name\s*="
@@ -108,7 +108,7 @@ function Show-InputStatus {
   $envStatus = @(
     @{ Name = 'TF_VAR_brevo_api_key'; How = 'Brevo -> Senders, domains & dedicated IPs -> top-right menu -> API Keys' },
     @{ Name = 'TF_VAR_google_oauth_client_secret'; How = 'Google Auth Platform -> Clients -> the Web client -> Client secret (only after the client exists)' },
-    @{ Name = 'CLOUDFLARE_API_TOKEN'; How = 'Cloudflare dashboard -> My Profile -> API Tokens (Zone:Read + DNS:Edit on sdatygerberg.co.za only)' },
+    @{ Name = 'CLOUDFLARE_API_TOKEN'; How = 'Cloudflare dashboard -> My Profile -> API Tokens (Zone:Read + DNS:Edit on sdatygerberg.co.za, plus Account: Workers R2 Storage:Edit for the CMS buckets)' },
     @{ Name = 'GITHUB_TOKEN'; How = 'GitHub fine-grained PAT, Secrets read/write on cloudkid-labs/sda-tygerberg-website only' }
   )
   foreach ($e in $envStatus) {
@@ -134,7 +134,7 @@ if ($needReconfigure) {
 } else {
   & terraform init -backend-config backend.hcl -input=false
 }
-if ($LASTEXITCODE -ne 0) { throw 'terraform init failed.' }
+if ($LASTEXITCODE -ne 0) { throw "terraform init failed — Terraform's own error is above, and in $logFile." }
 
 switch ($Action) {
   'init' { Write-Host 'Init done.' }

@@ -8,7 +8,7 @@
   apply and destroy always stop at an approval gate after the plan: the
   script counts what the saved plan creates, changes and destroys, names every
   resource it would destroy, and applies that exact plan only after you type
-  the confirmation word — YES for a plan that destroys nothing, DESTROY for a
+  the confirmation word — yes (any case) for a plan that destroys nothing, DESTROY (exact) for a
   destroy or any plan that deletes a resource.
 
 .EXAMPLE
@@ -277,8 +277,12 @@ try {
       Write-Host 'Approved by -AutoApprove (no deletions in this plan).'
       return
     }
-    $answer = Read-Host "Type $word to continue, anything else cancels"
-    if ($answer -cne $word) { throw 'Not approved — nothing changed.' }
+    # Apply accepts yes in any case; a destroy (or any deletion) still needs
+    # DESTROY exactly, so a reflexive 'yes' never removes resources.
+    $prompt = if ($needsDestroyWord) { "Type $word to continue, anything else cancels" } else { 'Type yes to continue, anything else cancels' }
+    $answer = ([string](Read-Host $prompt)).Trim()
+    $approved = if ($needsDestroyWord) { $answer -ceq $word } else { $answer -ieq 'yes' }
+    if (-not $approved) { throw 'Not approved — nothing changed.' }
     Write-Host 'Approved.'
   }
 

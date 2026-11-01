@@ -11,6 +11,7 @@ import { CmsEvents } from './cms/CmsEvents';
 import { CmsHeads } from './cms/CmsHeads';
 import { CmsPages } from './cms/CmsPages';
 import { RecentChanges } from './cms/RecentChanges';
+import { isUnread, type ThreadLike } from '../../lib/mailUnread';
 
 type Tab = 'mail' | 'content' | 'test';
 type Section = 'events' | 'heads' | 'pages';
@@ -104,8 +105,8 @@ function MembersContent() {
         // The badge must be right before Board mail is ever opened.
         const inbox = await fetch('/api/mail/inbox', { cache: 'no-store', headers: { Accept: 'application/json' } });
         if (inbox.ok) {
-          const list = (await inbox.json()) as { items?: { replies?: unknown[] }[] };
-          setUnread((list.items ?? []).filter((x) => (x.replies ?? []).length === 0).length);
+          const list = (await inbox.json()) as { items?: ThreadLike[] };
+          setUnread((list.items ?? []).filter(isUnread).length);
         }
       } catch {
         setPhase('error');

@@ -1,6 +1,7 @@
 /// <reference types="@cloudflare/workers-types" />
 
 import PostalMime from 'postal-mime';
+import { fileInboundAnswer } from './inbox';
 import { decodeHtmlEntities } from './htmlEntities';
 
 /**
@@ -715,8 +716,10 @@ export async function handleInboundEmail(
     await attempt(message, archiveTo);
   }
 
-  // The normal delivery above remains authoritative. Board Mail storage is a
-  // best-effort copy so a parser or R2 failure cannot bounce mail already delivered.
+  // The normal delivery above remains authoritative. Board mail shows only
+  // the website's enquiries, so mail is kept there only when it answers one
+  // (a reply to a reply we sent) — filed under that thread. Best effort: a
+  // parser or R2 failure cannot bounce mail already delivered.
   if (env.SUBMISSIONS && message.raw) {
     try {
       const raw = await readBounded(message.raw);
@@ -724,23 +727,18 @@ export async function handleInboundEmail(
       const sender = parsed.from?.address?.trim().toLowerCase();
       const text = (await emailBodyText(parsed)).slice(0, MAX_STORED_BODY_CHARS);
       if (!sender || !text) throw new Error('missing sender or text body');
-      const at = new Date().toISOString();
-      const [date] = at.split('T');
-      const id = `${Date.now().toString(36)}${[...crypto.getRandomValues(new Uint8Array(6))].map((b) => b.toString(16).padStart(2, '0')).join('')}`;
-      const topic = 'email';
-      await env.SUBMISSIONS.put(
-        `submissions/${date.replaceAll('-', '/')}/${at}-${id}.json`,
-        JSON.stringify({
-          id, submittedAt: at, topic, name: parsed.from?.name?.trim() || sender,
-          email: sender, phone: null, lang: 'en', message: text,
-          subject: (parsed.subject?.replace(/[\r\n\t]/g, ' ').trim().slice(0, 150)) || '(no subject)', replyFrom: message.to.trim().toLowerCase(),
-          replies: [],
-        }),
-      );
-      console.log(`inbound mail: inbox stored id=${id}`);
+      const id = await fileInboundAnswer(env.SUBMISSIONS, {
+        sender,
+        subject: parsed.subject?.replace(/[\r\n\t]/g, ' ').trim().slice(0, 300) ?? '',
+        text,
+        messageId: parsed.messageId,
+        inReplyTo: parsed.inReplyTo,
+        references: parsed.references,
+      });
+      console.log(id ? `inbound mail: filed under thread id=${id}` : 'inbound mail: answers no Board mail thread; not kept');
     } catch (error) {
       const detail = error instanceof Error ? error.message : String(error);
-      console.error(`inbound mail: inbox store failed: ${detail}`);
+      console.error(`inbound mail: thread filing failed: ${detail}`);
     }
   }
 }

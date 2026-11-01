@@ -90,7 +90,7 @@ Solid arrows always happen. Dotted arrows are fallbacks or best-effort copies.
 | `tesourier@sdatygerberg.co.za` | Zapper's merchant notification address. Not a mailbox. Also a board send-as address | `MAIL_ROUTES` key, `MAIL_SEND_FROM` |
 | `muller31jp@gmail.com` | Treasurer. Receives everything sent to `tesourier@`; sends and is notified as treasurer only | `MAIL_ROUTES` value, `BOARD_SEND_AS` |
 | `archive@sdatygerberg.co.za` | R2 archive. Admins may also use it as a Board Mail From address and recipient; other members cannot | `CONTACT_EMAIL_BCC`, `MAIL_ARCHIVE_TO`, `BOARD_ADMIN_ONLY_EMAILS` |
-| `rainier@sdatygerberg.co.za` | Admin-only Board Mail identity for From, To, and incoming messages routed through the catch-all | `BOARD_ADMIN_ONLY_EMAILS` |
+| `rainier@sdatygerberg.co.za` | Admin-only Board Mail identity for From and To | `BOARD_ADMIN_ONLY_EMAILS` |
 
 Every form-email recipient must also be in `send_email.allowed_destination_addresses`,
 or the whole send is rejected (C-31).
@@ -102,8 +102,7 @@ tab; the old `/kerkraad` address redirects there) and send as
 one of the four role addresses through the Brevo API. Admins also get
 `archive@` and `rainier@` as From addresses and recipients. The Worker rejects
 non-admin sends that use either address as From or To, and hides Inbox and Sent
-messages involving those addresses from non-admins. Messages sent directly to
-`rainier@` arrive through the catch-all and appear only to admins in the Inbox. The archive's automatic BCC remains system-controlled
+messages involving those addresses from non-admins. The archive's automatic BCC remains system-controlled
 for retention. The Worker holds the Brevo key; replies to role addresses return
 through Email Routing to the church inbox. The allow-list of board members is a
 plain-text `BOARD_ALLOWED_EMAILS` var in `wrangler.jsonc` (not a secret, so the
@@ -123,11 +122,18 @@ what topic and when plus the login link — never the message or contact
 details — while the full enquiry files to the archive address (then R2) and
 the inbox copy in `SUBMISSIONS`. Reading means signing in.
 
-Board mail is also an inbox: every connect and bible-study submission is
-stored as JSON in the `SUBMISSIONS` bucket (`tygerberg-submissions` in
-production, `tygerberg-submissions-devtest` on devtest) and the page lists,
-reads and replies from there. Replies go through Brevo from the topic's role
-address and are appended to the stored thread. The stored copy holds the full
+Board mail is also an inbox, of the website's enquiries only: every connect
+and bible-study submission is stored as JSON in the `SUBMISSIONS` bucket
+(`tygerberg-submissions` in production, `tygerberg-submissions-devtest` on
+devtest) and the page lists, reads and replies from there. Other inbound mail
+is delivered by the routing above and never listed. Replies go through Brevo
+from the topic's role address (`welkom@`) and are appended to the stored
+thread with the Message-ID Brevo gave them; when the visitor answers by email,
+the catch-all hands it to the Worker, which delivers it as usual and files it
+under the same thread (matched by In-Reply-To / References, else by the
+visitor's address and the reply subject), so the conversation stays together.
+A thread is unread until someone on the board opens it after the visitor last
+wrote; the read state is shared. The stored copy holds the full
 message text, kept 7 years like consent (C-69). The Sent box next to the inbox
 lists every outbound mail — compose sends and thread replies, each filed under
 `sent/` at send time — so the page sees all mail received and sent in one

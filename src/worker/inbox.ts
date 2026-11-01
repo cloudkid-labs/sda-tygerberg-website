@@ -1,7 +1,8 @@
 /// <reference types="@cloudflare/workers-types" />
 
 import { verifySession, isAdmin, isAdminOnlyEmail, allowedFrom, senders, type AuthEnv } from './auth';
-import { sendViaBrevo, storeSent, type MailSendEnv, type SentItem } from './mailSend';
+import { sendViaBrevoWithId, storeSent, type MailSendEnv, type SentItem } from './mailSend';
+import { isUnread, isWebsiteThread } from '../lib/mailUnread';
 import { mailHtml, LOGO_REMOTE_URL } from './signature';
 
 export type InboxEnv = AuthEnv &
@@ -9,7 +10,12 @@ export type InboxEnv = AuthEnv &
     SUBMISSIONS?: R2Bucket;
   };
 
-export type SubmissionReply = { by: string; at: string; body?: string };
+/**
+ * One message after the enquiry: the board's reply (`by` a board address,
+ * `messageId` as Brevo sent it) or the visitor's emailed answer (`inbound`,
+ * `by` their address, `messageId` from its header).
+ */
+export type SubmissionReply = { by: string; at: string; body?: string; messageId?: string; inbound?: boolean };
 export type Submission = {
   id: string;
   submittedAt: string;
@@ -23,6 +29,9 @@ export type Submission = {
   replyFrom?: string;
   replies: SubmissionReply[];
   trashedAt?: string;
+  /** First opened by anyone on the board — the inbox is shared, so is this. */
+  readAt?: string;
+  readBy?: string;
 };
 
 /** Visitor-facing enquiries always answer as the public role address. */
@@ -30,6 +39,46 @@ const TOPIC_FROM: Record<string, string> = {
   connect: 'welkom@sdatygerberg.co.za',
   'bible-study': 'welkom@sdatygerberg.co.za',
 };
+
+/** The subject every reply on a thread carries, so the visitor's mail app threads it. */
+const TOPIC_SUBJECT: Record<string, string> = {
+  connect: 'Jou boodskap aan Tygerberg SDA',
+  'bible-study': 'Bybelstudie-versoek',
+};
+
+/**
+ * The address a thread is answered from: its own, when that is one the
+ * Worker can send as, else the topic's role address. A stored address that
+ * is not a configured sender would otherwise block every reply, an
+ * administrator's included.
+ */
+export function replyAddressFor(env: InboxEnv, item: Pick<Submission, 'replyFrom' | 'topic'>): string {
+  const own = item.replyFrom?.trim().toLowerCase();
+  if (own && senders(env).has(own)) return own;
+  return TOPIC_FROM[item.topic] ?? 'welkom@sdatygerberg.co.za';
+}
+
+/**
+ * Read, change, write back — only if nothing wrote the thread in between, so
+ * a reply and the visitor's answer landing together both keep. Retries on a
+ * race; null when the thread is gone or `change` declines (returns false).
+ */
+async function updateThread(
+  bucket: R2Bucket,
+  key: string,
+  change: (item: Submission) => boolean,
+  attempts = 3,
+): Promise<Submission | null> {
+  for (let i = 0; i < attempts; i++) {
+    const obj = await bucket.get(key);
+    if (!obj) return null;
+    const item = (await obj.json()) as Submission;
+    if (!change(item)) return null;
+    if (await bucket.put(key, JSON.stringify(item), { onlyIf: { etagMatches: obj.etag } })) return item;
+  }
+  console.error(`inbox: thread write lost a race ${attempts} times key=${key}`);
+  return null;
+}
 
 const MAX_BODY_BYTES = 16 * 1024;
 const MAX_LIST = 100;
@@ -105,6 +154,9 @@ export async function handleInboxList(request: Request, env: InboxEnv): Promise<
       const s = (await obj.json()) as Submission;
       const { message: _omitted, ...summary } = s;
       if (trashedOnly !== Boolean(s.trashedAt)) continue;
+      // Board mail is the website's enquiries; other mail is delivered to the
+      // church's mailboxes and never listed here.
+      if (!isWebsiteThread(s)) continue;
       if (isAdminOnlySubmission(env, session.email, s)) continue;
       items.push(summary);
     } catch {
@@ -171,11 +223,24 @@ export async function handleInboxMessage(request: Request, env: InboxEnv): Promi
   const obj = await env.SUBMISSIONS!.get(key);
   if (!obj) return json({ ok: false, outcome: 'invalid', errors: ['id'] }, 404);
   const item = (await obj.json()) as Submission;
-  if (isAdminOnlySubmission(env, session.email, item)) {
+  if (isAdminOnlySubmission(env, session.email, item) || !isWebsiteThread(item)) {
     return json({ ok: false, outcome: 'invalid', errors: ['id'] }, 404);
   }
+  if (isUnread(item)) {
+    // Opening it is reading it — again after each emailed answer. Only if
+    // nothing wrote the thread since this read (a reply landing now must never
+    // be overwritten); a lost stamp leaves it unread, never fails the open.
+    const stamped: Submission = { ...item, readAt: new Date().toISOString(), readBy: session.email };
+    try {
+      if (await env.SUBMISSIONS.put(key, JSON.stringify(stamped), { onlyIf: { etagMatches: obj.etag } })) {
+        Object.assign(item, { readAt: stamped.readAt, readBy: stamped.readBy });
+      }
+    } catch {
+      console.error(`inbox: read stamp FAILED key=${key}`);
+    }
+  }
   console.log(`inbox: read by=${session.email}`);
-  return json({ ok: true, item }, 200);
+  return json({ ok: true, item: { ...item, replyAs: replyAddressFor(env, item) } }, 200);
 }
 
 /**
@@ -314,23 +379,21 @@ export async function handleInboxReply(request: Request, env: InboxEnv): Promise
   const obj = await env.SUBMISSIONS.get(key);
   if (!obj) return json({ ok: false, outcome: 'invalid', errors: ['id'] }, 404);
   const item = (await obj.json()) as Submission;
-  if (isAdminOnlySubmission(env, session.email, item)) {
+  if (isAdminOnlySubmission(env, session.email, item) || !isWebsiteThread(item)) {
     return json({ ok: false, outcome: 'invalid', errors: ['id'] }, 404);
   }
   if (!item.email) {
     return json({ ok: false, outcome: 'invalid', errors: ['to'] }, 400);
   }
 
-  const from = item.replyFrom?.toLowerCase() ?? TOPIC_FROM[item.topic] ?? 'welkom@sdatygerberg.co.za';
+  const from = replyAddressFor(env, item);
   if (!senders(env).has(from)) return json({ ok: false, outcome: 'not-configured' }, 503);
   if (!allowedFrom(env, session.email).includes(from)) {
     return json({ ok: false, outcome: 'not-allowed', errors: ['from'] }, 403);
   }
 
-  const subject = item.topic === 'email'
-    ? `Re: ${(item.subject ?? 'Email').replace(/^Re:\s*/i, '')}`
-    : `Re: ${item.topic === 'bible-study' ? 'Bybelstudie-versoek' : 'Jou boodskap aan Tygerberg SDA'}`;
-  const ok = await sendViaBrevo(
+  const subject = `Re: ${TOPIC_SUBJECT[item.topic] ?? TOPIC_SUBJECT.connect}`;
+  const { ok, messageId } = await sendViaBrevoWithId(
     env,
     from,
     [item.email],
@@ -343,8 +406,13 @@ export async function handleInboxReply(request: Request, env: InboxEnv): Promise
     return json({ ok: false, outcome: 'send-error' }, 502);
   }
 
-  item.replies = [...(item.replies ?? []), { by: session.email, at: new Date().toISOString(), body: text }];
-  await env.SUBMISSIONS.put(key, JSON.stringify(item));
+  const sentReply: SubmissionReply = { by: session.email, at: new Date().toISOString(), body: text, ...(messageId ? { messageId } : {}) };
+  // The mail is out; the thread must show it even if an answer landed meanwhile.
+  const kept = await updateThread(env.SUBMISSIONS, key, (t) => {
+    t.replies = [...(t.replies ?? []), sentReply];
+    return true;
+  });
+  if (!kept) console.error(`inbox: reply sent but not filed key=${key}`);
   await storeSent(env, {
     by: session.email,
     from,
@@ -356,4 +424,95 @@ export async function handleInboxReply(request: Request, env: InboxEnv): Promise
   });
   console.log(`inbox: reply sent by=${session.email}`);
   return json({ ok: true, outcome: 'sent' }, 200);
+}
+
+// ---- The visitor's emailed answers ------------------------------------------
+
+export type InboundAnswer = {
+  sender: string;
+  subject: string;
+  text: string;
+  /** Its own Message-ID, and the ids it answers (In-Reply-To, References). */
+  messageId?: string;
+  inReplyTo?: string;
+  references?: string;
+};
+
+const MESSAGE_ID = /<[^<>\s]+>/g;
+const ids = (...headers: (string | undefined)[]) =>
+  new Set(headers.flatMap((h) => (h ?? '').match(MESSAGE_ID) ?? []).map((id) => id.toLowerCase()));
+const bare = (id: string) => id.trim().toLowerCase().replace(/^<|>$/g, '');
+
+/**
+ * A reply quotes what it answers; keep only what the visitor wrote. Cut at
+ * the first quote header or quoted line — and keep the whole text when that
+ * would leave nothing.
+ */
+export function stripQuoted(text: string): string {
+  const lines = text.replace(/\r\n?/g, '\n').split('\n');
+  const cut = lines.findIndex(
+    (l, i) =>
+      /^\s*>/.test(l) ||
+      /^-{2,}\s*(original message|oorspronklike boodskap)\s*-{2,}/i.test(l.trim()) ||
+      /^(on|op)\s.+(wrote|geskryf|het geskryf):\s*$/i.test(l.trim()) ||
+      // "On … wrote:" folded over two lines by the sender's mail app.
+      (/^(on|op)\s/i.test(l.trim()) && /(wrote|geskryf):\s*$/i.test(lines[i + 1]?.trim() ?? '')),
+  );
+  const kept = (cut < 0 ? lines : lines.slice(0, cut)).join('\n').trim();
+  return kept || text.trim();
+}
+
+/**
+ * Files an emailed answer under the website thread it answers, as an inbound
+ * message; the thread turns unread and back under New. Matched by the
+ * Message-ID of a reply we sent (In-Reply-To / References); failing that, by
+ * the visitor's address on a thread we answered, under our reply subject.
+ * Returns the thread id, or null when it answers none — such mail is only
+ * delivered to the church's mailbox, never shown in Board mail.
+ */
+export async function fileInboundAnswer(bucket: R2Bucket, answer: InboundAnswer): Promise<string | null> {
+  const sender = answer.sender.trim().toLowerCase();
+  const answers = ids(answer.inReplyTo, answer.references);
+  const subject = answer.subject.toLowerCase();
+  const listed = await bucket.list({ prefix: 'submissions/', limit: 1000 });
+  let byId: { key: string; id: string } | null = null;
+  let bySender: { key: string; id: string; at: string } | null = null;
+  for (const { key } of listed.objects) {
+    const obj = await bucket.get(key);
+    if (!obj) continue;
+    let item: Submission;
+    try {
+      item = (await obj.json()) as Submission;
+    } catch {
+      continue;
+    }
+    if (!isWebsiteThread(item) || item.trashedAt) continue;
+    const ours = (item.replies ?? []).filter((r) => !r.inbound);
+    if (ours.some((r) => r.messageId && answers.has(`<${bare(r.messageId)}>`))) {
+      byId = { key, id: item.id };
+      break;
+    }
+    const base = (TOPIC_SUBJECT[item.topic] ?? '').toLowerCase();
+    const last = ours[ours.length - 1];
+    if (last && item.email?.toLowerCase() === sender && base && subject.includes(base) && (!bySender || last.at > bySender.at)) {
+      bySender = { key, id: item.id, at: last.at };
+    }
+  }
+  const hit = byId ?? bySender;
+  if (!hit) return null;
+  const messageId = answer.messageId ? `<${bare(answer.messageId)}>` : undefined;
+  const entry: SubmissionReply = {
+    by: sender,
+    at: new Date().toISOString(),
+    body: stripQuoted(answer.text),
+    inbound: true,
+    ...(messageId ? { messageId } : {}),
+  };
+  const kept = await updateThread(bucket, hit.key, (t) => {
+    // The same mail delivered twice is filed once.
+    if (messageId && (t.replies ?? []).some((r) => r.inbound && r.messageId === messageId)) return false;
+    t.replies = [...(t.replies ?? []), entry];
+    return true;
+  });
+  return kept ? hit.id : null;
 }

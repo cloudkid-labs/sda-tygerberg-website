@@ -26,6 +26,10 @@ export type BoardCopy = {
   loginEyebrow: string;
   /** Screen-reader suffix on the unread count badge. */
   unreadSuffix: string;
+  /** Screen-reader note on a thread nobody has opened yet. */
+  unreadRow: string;
+  /** Label on the visitor's emailed answer inside a thread. */
+  theirAnswer: string;
   inboxTabs: string;
   tabInbox: string;
   tabSent: string;
@@ -125,6 +129,8 @@ export const boardCopy: Record<Lang, BoardCopy> = {
     signedInAs: 'Aangemeld as',
     loginEyebrow: 'Net vir lede',
     unreadSuffix: 'nuwe boodskappe',
+    unreadRow: 'ongelees',
+    theirAnswer: 'Hul antwoord',
     inboxTabs: 'Kies inkassie, gestuurde boodskappe of nuwe boodskap',
     tabInbox: 'Inkassie',
     tabSent: 'Gestuur',
@@ -152,7 +158,7 @@ export const boardCopy: Record<Lang, BoardCopy> = {
     retry: 'Probeer weer',
     backToInbox: 'Terug na die inkassie',
     theirMessage: 'Hul boodskap',
-    earlierReplies: 'Vroeër geantwoord',
+    earlierReplies: 'Gesprek',
     trashEmpty: 'Die vuilbak is leeg.',
     trashInbox: 'Deleted from Inbox.',
     trashSent: 'Deleted from Sent.',
@@ -215,6 +221,8 @@ export const boardCopy: Record<Lang, BoardCopy> = {
     signedInAs: 'Signed in as',
     loginEyebrow: 'Members only',
     unreadSuffix: 'new messages',
+    unreadRow: 'unread',
+    theirAnswer: 'Their answer',
     inboxTabs: 'Choose inbox, sent mail or new message',
     tabInbox: 'Inbox',
     tabSent: 'Sent',
@@ -242,7 +250,7 @@ export const boardCopy: Record<Lang, BoardCopy> = {
     retry: 'Try again',
     backToInbox: 'Back to the inbox',
     theirMessage: 'Their message',
-    earlierReplies: 'Answered before',
+    earlierReplies: 'Conversation',
     trashEmpty: 'The trash is empty.',
     trashInbox: 'Deleted from Inbox.',
     trashSent: 'Deleted from Sent.',

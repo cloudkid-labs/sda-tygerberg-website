@@ -101,6 +101,45 @@ describe('a page from the template', () => {
     assert.equal((await get('/somerkamp/')).status, 404);
   });
 
+  test('a This week card links to a page; the page cannot be unpublished under a live card', async () => {
+    const slug = 'kampvuur';
+    const req = (method, path, body) =>
+      worker.fetch(
+        new Request(`https://x${path}`, {
+          method,
+          headers: { cookie, origin: 'https://x', 'content-type': 'application/json' },
+          ...(body ? { body: JSON.stringify(body) } : {}),
+        }),
+        env,
+        ctx,
+      );
+    const strip = (items) => items.map(({ updatedBy, updatedAt, ...rest }) => rest);
+    await put({ rev: 0, page: { ...page, slug } });
+    const ev = await (await req('GET', '/api/cms/events')).json();
+    const items = strip(ev.items);
+    const live = items.findIndex((e) => e.status === 'live');
+    items[live] = { ...items[live], link: { pageSlug: slug, label: L('Sien meer', 'See more') } };
+
+    // Live card → draft page: refused, as the Pages panel tells the editor.
+    const early = await req('PUT', '/api/cms/events', { rev: ev.rev, items });
+    assert.equal(early.status, 400);
+
+    await put({ rev: 1, page: { ...page, slug }, publish: true });
+    const linked = await req('PUT', '/api/cms/events', { rev: ev.rev, items });
+    assert.equal(linked.status, 200);
+    const after = await linked.json();
+    assert.equal(after.items[live].link.pageSlug, slug);
+
+    const blocked = await put({ action: 'unpublish', slug });
+    assert.equal(blocked.status, 409);
+    assert.deepEqual((await blocked.json()).errors, ['linked']);
+    assert.equal((await get(`/${slug}/`)).status, 200, 'still live');
+
+    const unlinked = strip(after.items).map((e) => (e.link?.pageSlug === slug ? (({ link, ...rest }) => rest)(e) : e));
+    assert.equal((await req('PUT', '/api/cms/events', { rev: after.rev, items: unlinked })).status, 200);
+    assert.equal((await put({ action: 'unpublish', slug })).status, 200);
+  });
+
   test('the shell itself is never served', async () => {
     assert.equal((await get('/page-shell/')).status, 404);
   });

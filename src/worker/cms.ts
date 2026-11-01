@@ -219,6 +219,12 @@ async function pagesRoute(request: Request, env: CmsEnv, g: { email: string; buc
     if (!isValidSlug(slug)) return json({ ok: false, outcome: 'invalid', errors: ['slug'] }, 400);
     const draft = await readPageDraft(g.bucket, slug);
     if (!draft) return json({ ok: false, outcome: 'invalid', errors: ['slug'] }, 404);
+    // A live This week card pointing here would link to a 404 — the same rule
+    // the events route enforces from the other side.
+    const { doc: events } = await readEvents(g.bucket);
+    if (events.items.some((e) => e.status === 'live' && e.link?.pageSlug === slug)) {
+      return json({ ok: false, outcome: 'invalid', errors: ['linked'] }, 409);
+    }
     await deletePageLive(g.bucket, slug);
     const page: Page = { ...draft.doc.page, status: 'draft', updatedBy: g.email, updatedAt: new Date().toISOString() };
     await writePageDraft(g.bucket, draft.doc, { rev: draft.doc.rev + 1, page }, draft.etag);

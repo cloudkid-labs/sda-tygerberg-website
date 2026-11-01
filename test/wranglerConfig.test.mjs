@@ -157,3 +157,25 @@ describe('the CMS bucket and its producer — C-70', () => {
     }
   });
 });
+
+/*
+ * wrangler-action uploads `secrets:` with `wrangler secret bulk`, adding
+ * `--env` only from its own `environment` input — never from `command`. A
+ * step that deploys `--env devtest` without `environment: devtest` uploads its
+ * secrets to the top-level Worker, which is production (C-70).
+ */
+describe('wrangler-action secrets reach the Worker the step deploys', () => {
+  const workflowDir = new URL('../.github/workflows/', import.meta.url);
+  for (const file of ['deploy-devtest-cloudflare.yml', 'deploy-production-cloudflare.yml']) {
+    const yml = readFileSync(new URL(file, workflowDir), 'utf8');
+    const steps = yml.split(/\n\s*- name: /).filter((s) => s.includes('cloudflare/wrangler-action'));
+    test(`${file}: secrets upload targets the deployed env`, () => {
+      assert.ok(steps.length > 0, 'no wrangler-action step found');
+      for (const step of steps) {
+        const cmdEnv = step.match(/^\s*command:.*--env[ =](\S+)/m)?.[1] ?? null;
+        const inputEnv = step.match(/^\s*environment:\s*(\S+)/m)?.[1] ?? null;
+        if (/^\s*secrets:/m.test(step)) assert.equal(inputEnv, cmdEnv, 'environment: must equal the --env in command');
+      }
+    });
+  }
+});

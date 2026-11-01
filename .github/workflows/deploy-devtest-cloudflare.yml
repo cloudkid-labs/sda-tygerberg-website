@@ -86,6 +86,11 @@ jobs:
           # a distinct Worker on tygerberg-sda.cloudkid.link with no email or
           # consent bindings.
           command: deploy --env devtest
+          # Required as well as the --env above: the action uploads `secrets:`
+          # with `wrangler secret bulk`, adding --env only from this input, never
+          # from `command`. Without it the secrets land on the top-level Worker,
+          # which is production (C-70; pinned by test/wranglerConfig.test.mjs).
+          environment: devtest
           # Names only; the action runs `wrangler secret put` for each, reading
           # the value from this step's env. See the header for why the session
           # key is the preview's own.

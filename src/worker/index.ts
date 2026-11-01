@@ -8,7 +8,7 @@ import {
   handleAuthCallback,
   handleAuthLogin,
   handleAuthLogout,
-  handleMailSession,
+  boardMailEnabled, handleMailSession,
   type AuthEnv,
 } from './auth';
 import { handleMailSend, type MailSendEnv } from './mailSend';
@@ -148,6 +148,11 @@ async function route(request: Request, env: Env, ctx: ExecutionContext): Promise
 
   if (pathname === '/api/mail/session') {
     return handleMailSession(request, env);
+  }
+
+  // Board mail switched off (devtest): no inbox, no send, whatever the caller.
+  if (pathname.startsWith('/api/mail/') && !boardMailEnabled(env)) {
+    return Response.json({ ok: false, outcome: 'disabled' }, { status: 404, headers: { 'Cache-Control': 'no-store' } });
   }
 
   if (pathname === '/api/mail/send') {

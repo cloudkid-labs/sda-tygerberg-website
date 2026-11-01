@@ -28,7 +28,17 @@ export type AuthEnv = {
    * Admin-only addresses stay reserved for admins.
    */
   BOARD_SEND_AS?: string;
+  /**
+   * "off" switches Board mail off on this Worker (devtest): every
+   * /api/mail/* route but the session check answers 404 `disabled`, and the
+   * members page hides the tab. Anything else, or unset, leaves it on.
+   */
+  BOARD_MAIL?: string;
 };
+
+export function boardMailEnabled(env: Pick<AuthEnv, 'BOARD_MAIL'>): boolean {
+  return env.BOARD_MAIL !== 'off';
+}
 
 export type SessionCheck = { ok: true; email: string } | { ok: false; outcome: 'unauthorised' | 'not-configured' };
 
@@ -366,5 +376,6 @@ export async function handleAuthLogout(request: Request): Promise<Response> {
 export async function handleMailSession(request: Request, env: AuthEnv): Promise<Response> {
   const check = await verifySession(request, env);
   if (!check.ok) return json({ ok: false, outcome: check.outcome }, check.outcome === 'not-configured' ? 503 : 401);
-  return json({ ok: true, email: check.email, admin: isAdmin(env, check.email), allowedFrom: allowedFrom(env, check.email) }, 200);
+  if (!boardMailEnabled(env)) return json({ ok: true, email: check.email, mail: false }, 200);
+  return json({ ok: true, email: check.email, mail: true, admin: isAdmin(env, check.email), allowedFrom: allowedFrom(env, check.email) }, 200);
 }

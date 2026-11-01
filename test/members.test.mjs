@@ -114,3 +114,38 @@ describe('the Test site tab', async () => {
     assert.equal(to.searchParams.get('redirect_uri'), `${MEMBERS_SITES.test}/auth/callback`);
   });
 });
+
+describe('Board mail switched off (devtest: BOARD_MAIL "off")', () => {
+  const off = env({ BOARD_MAIL: 'off' });
+
+  test('the session check still answers, and says mail is off', async () => {
+    const res = await get('/api/mail/session', await sessionFor(BOARD), off);
+    assert.equal(res.status, 200);
+    const body = await res.json();
+    assert.equal(body.email, BOARD);
+    assert.equal(body.mail, false);
+    assert.ok(!('allowedFrom' in body), 'no sender identities offered');
+  });
+
+  for (const path of ['/api/mail/inbox', '/api/mail/sent', '/api/mail/trash', '/api/mail/message?id=x']) {
+    test(`${path} is refused even for a board member`, async () => {
+      const res = await get(path, await sessionFor(BOARD), off);
+      assert.equal(res.status, 404);
+      assert.equal((await res.json()).outcome, 'disabled');
+    });
+  }
+
+  test('a send is refused before anything else runs', async () => {
+    const res = await worker.fetch(
+      new Request('https://x/api/mail/send', { method: 'POST', headers: { cookie: await sessionFor(BOARD), origin: 'https://x', 'content-type': 'application/json' }, body: '{}' }),
+      off,
+      ctx,
+    );
+    assert.equal(res.status, 404);
+  });
+
+  test('on production (unset) the session reports mail on', async () => {
+    const body = await (await get('/api/mail/session', await sessionFor(BOARD))).json();
+    assert.equal(body.mail, true);
+  });
+});

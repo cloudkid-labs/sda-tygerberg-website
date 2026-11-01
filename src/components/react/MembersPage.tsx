@@ -67,6 +67,8 @@ function MembersContent() {
     section: 'events',
   });
   const [unread, setUnread] = useState(0);
+  /** False where the Worker has Board mail switched off (devtest). */
+  const [mailOn, setMailOn] = useState(true);
   /** A page the events editor asked to open (New page from template). */
   const [openPage, setOpenPage] = useState<string | null>(null);
 
@@ -88,8 +90,16 @@ function MembersContent() {
           return;
         }
         if (!res.ok) throw new Error(String(res.status));
-        const data = (await res.json()) as { email?: string };
+        const data = (await res.json()) as { email?: string; mail?: boolean };
         setEmail(data.email ?? '');
+        if (data.mail === false) {
+          // No Board mail here: open on Website content instead.
+          setMailOn(false);
+          setLocation((loc) => (loc.tab === 'mail' ? { ...loc, tab: 'content' } : loc));
+          if (initial.tab === 'mail') writeLocation('content', initial.section);
+          setPhase('ready');
+          return;
+        }
         setPhase('ready');
         // The badge must be right before Board mail is ever opened.
         const inbox = await fetch('/api/mail/inbox', { cache: 'no-store', headers: { Accept: 'application/json' } });
@@ -185,12 +195,12 @@ function MembersContent() {
             </div>
 
             <nav aria-label={t.areaNav} className="mt-4 flex flex-wrap gap-1 border-b border-ink/15">
-              {topTab('mail', t.tabMail, <Badge count={unread} label={b.unreadSuffix} />)}
+              {mailOn && topTab('mail', t.tabMail, <Badge count={unread} label={b.unreadSuffix} />)}
               {topTab('content', t.tabContent)}
               {topTab('test', t.tabTestSite)}
             </nav>
 
-            {tab === 'mail' && (
+            {tab === 'mail' && mailOn && (
               <div className="mt-[18px]">
                 <p className="mb-3.5 text-[14px] text-slate-muted">{t.mailIntro}</p>
                 <BoardMail onUnread={setUnread} />

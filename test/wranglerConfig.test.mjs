@@ -134,6 +134,11 @@ describe('wrangler routes and bindings', () => {
       assert.equal(config.env.devtest.vars[key], config.vars[key], `${key} differs between production and devtest`);
     }
   });
+
+  test('devtest switches Board mail off; production leaves it on', () => {
+    assert.equal(config.env.devtest.vars.BOARD_MAIL, 'off');
+    assert.ok(!('BOARD_MAIL' in config.vars) || config.vars.BOARD_MAIL !== 'off', 'production must keep Board mail');
+  });
 });
 
 describe('the CMS bucket and its producer — C-70', () => {

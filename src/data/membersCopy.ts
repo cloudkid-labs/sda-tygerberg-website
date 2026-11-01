@@ -44,7 +44,7 @@ export const membersCopy: Record<Lang, MembersCopy> = {
     testPoints: [
       'Voeg geleenthede, bladsye en foto’s by, wysig en publiseer soos op die regte webwerf.',
       'Besoekers sien niks daarvan nie: die toetswerf is van soekenjins af weggesteek en raak nie die regte webwerf nie.',
-      'Kerkraadpos stuur van daar af geen e-pos nie.',
+      'Kerkraadpos is daar afgeskakel.',
       'Wat jy daar doen, word nie oorgedra nie. Doen dit weer hier sodra jy tevrede is.',
     ],
     testRecommend: 'Ons beveel aan dat jy enigiets nuuts eers op die toetswerf probeer voordat jy dit hier publiseer.',
@@ -78,7 +78,7 @@ export const membersCopy: Record<Lang, MembersCopy> = {
     testPoints: [
       'Add, edit and publish events, pages and photos exactly as on the real site.',
       'Visitors never see any of it: the test site is hidden from search engines and does not touch the real site.',
-      'Board mail sends no email from there.',
+      'Board mail is switched off there.',
       'Nothing you do there is copied across. Do it again here once you are happy with it.',
     ],
     testRecommend: 'We recommend trying anything new on the test site before you publish it here.',

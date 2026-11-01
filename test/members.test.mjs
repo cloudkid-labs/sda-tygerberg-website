@@ -89,3 +89,20 @@ describe('/kerkraad is the old address', () => {
     assert.equal(res.headers.get('location'), '/members/');
   });
 });
+
+describe('the Test site / Live site tab', async () => {
+  const { MEMBERS_SITES } = await import('../src/data/site.ts');
+  const { readFileSync } = await import('node:fs');
+  const wrangler = readFileSync(new URL('../wrangler.jsonc', import.meta.url), 'utf8');
+  const tfVars = readFileSync(new URL('../terraform/variables.tf', import.meta.url), 'utf8');
+
+  test('points at the hosts the two Workers actually serve', () => {
+    const test = new URL(MEMBERS_SITES.test);
+    const live = new URL(MEMBERS_SITES.live);
+    assert.match(wrangler, new RegExp(`"pattern": "${test.host.replace(/\./g, '\\.')}"`), 'devtest route');
+    assert.match(wrangler, new RegExp(`"pattern": "${live.host.replace(/\./g, '\\.')}"`), 'production route');
+    assert.match(tfVars, new RegExp(`default\\s*=\\s*"${test.origin.replace(/\./g, '\\.')}"`), 'OAuth client lists the test origin');
+    assert.equal(test.pathname, '/members/');
+    assert.equal(live.pathname, '/members/');
+  });
+});

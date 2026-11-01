@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState, type MouseEvent, type ReactNode } fro
 import { LanguageProvider, useLanguage } from '../../context/LanguageContext';
 import { boardCopy } from '../../data/boardCopy';
 import { membersCopy } from '../../data/membersCopy';
+import { MEMBERS_SITES } from '../../data/site';
 import { SubPageHeader } from './SubPageHeader';
 import { SubPageFooter } from './SubPageFooter';
 import { BoardMail } from './BoardMail';
@@ -183,6 +184,7 @@ function MembersContent() {
             <nav aria-label={t.areaNav} className="mt-4 flex flex-wrap gap-1 border-b border-ink/15">
               {topTab('mail', t.tabMail, <Badge count={unread} label={b.unreadSuffix} />)}
               {topTab('content', t.tabContent)}
+              <SiteSwitch />
             </nav>
 
             {tab === 'mail' && (
@@ -227,6 +229,32 @@ function MembersContent() {
 
       <SubPageFooter backHome={b.backHome} />
     </div>
+  );
+}
+
+/**
+ * "Test site": opens the devtest copy of the members area in a new tab. On
+ * devtest itself it becomes "Live site" and points back. Which one is decided
+ * after mount, so the first render matches the build.
+ */
+function SiteSwitch() {
+  const { lang } = useLanguage();
+  const t = membersCopy[lang];
+  const [onTest, setOnTest] = useState(false);
+  useEffect(() => setOnTest(window.location.host === new URL(MEMBERS_SITES.test).host), []);
+  const href = onTest ? MEMBERS_SITES.live : MEMBERS_SITES.test;
+  return (
+    <a
+      href={href}
+      target="_blank"
+      rel="noopener"
+      title={onTest ? t.liveSiteHint : t.testSiteHint}
+      className="-mb-px ml-auto inline-flex min-h-11 items-center gap-1.5 border-b-[3px] border-transparent px-[18px] text-[16px] font-semibold text-slate hover:text-navy"
+    >
+      {onTest ? t.tabLiveSite : t.tabTestSite}
+      <span aria-hidden="true" className="text-orange">↗</span>
+      <span className="sr-only">{onTest ? t.liveSiteHint : t.testSiteHint}</span>
+    </a>
   );
 }
 

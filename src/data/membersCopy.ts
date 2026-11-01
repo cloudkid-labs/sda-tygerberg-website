@@ -8,6 +8,10 @@ export type MembersCopy = {
   areaNav: string;
   tabMail: string;
   tabContent: string;
+  tabTestSite: string;
+  tabLiveSite: string;
+  testSiteHint: string;
+  liveSiteHint: string;
   mailIntro: string;
   contentIntro: string;
   contentNav: string;
@@ -28,6 +32,10 @@ export const membersCopy: Record<Lang, MembersCopy> = {
     areaNav: 'Lede-area',
     tabMail: 'Kerkraadpos',
     tabContent: 'Webwerf-inhoud',
+    tabTestSite: 'Toetswerf',
+    tabLiveSite: 'Regstreekse werf',
+    testSiteHint: 'Maak die toetsweergawe van die webwerf in ’n nuwe oortjie oop. Teken daar apart in; niks wat jy daar doen, raak die regte webwerf nie.',
+    liveSiteHint: 'Jy is op die toetswerf. Maak die regte webwerf in ’n nuwe oortjie oop.',
     mailIntro: 'Lees boodskappe van besoekers, en skryf as die kerk se amptelike adresse.',
     contentIntro: 'Werk by wat besoekers sien. Veranderinge gaan regstreeks wanneer jy Publiseer druk.',
     contentNav: 'Webwerf-inhoud',
@@ -47,6 +55,10 @@ export const membersCopy: Record<Lang, MembersCopy> = {
     areaNav: 'Members area',
     tabMail: 'Board mail',
     tabContent: 'Website content',
+    tabTestSite: 'Test site',
+    tabLiveSite: 'Live site',
+    testSiteHint: 'Opens the test copy of the site in a new tab. Sign in there separately; nothing you do there touches the real site.',
+    liveSiteHint: 'You are on the test site. Opens the real site in a new tab.',
     mailIntro: 'Read messages from visitors, and write as the church’s official addresses.',
     contentIntro: 'Update what visitors see. Changes go live when you press Publish.',
     contentNav: 'Website content',

@@ -32,7 +32,7 @@ locals {
   brevo_code_txt = "\"${var.brevo_code}\""
 }
 
-data "cloudflare_zone" "this" {
+data "cloudflare_zone" "ck_labs" {
   filter = {
     name = var.domain
   }
@@ -43,7 +43,7 @@ data "cloudflare_zone" "this" {
 # church mail and Brevo's guide does not require editing either one.
 
 resource "cloudflare_dns_record" "brevo_code" {
-  zone_id = data.cloudflare_zone.this.zone_id
+  zone_id = data.cloudflare_zone.ck_labs.zone_id
   name    = var.domain
   type    = "TXT"
   content = local.brevo_code_txt
@@ -54,7 +54,7 @@ resource "cloudflare_dns_record" "brevo_code" {
 resource "cloudflare_dns_record" "brevo_dkim" {
   for_each = var.brevo_dkim_records
 
-  zone_id = data.cloudflare_zone.this.zone_id
+  zone_id = data.cloudflare_zone.ck_labs.zone_id
   name    = each.value.name
   type    = each.value.type
   content = each.value.type == "TXT" ? "\"${each.value.content}\"" : each.value.content
@@ -69,7 +69,7 @@ resource "cloudflare_dns_record" "brevo_dkim" {
 resource "cloudflare_dns_record" "brevo_branding" {
   for_each = var.brevo_branding_cnames
 
-  zone_id = data.cloudflare_zone.this.zone_id
+  zone_id = data.cloudflare_zone.ck_labs.zone_id
   name    = each.value.name
   type    = "CNAME"
   content = each.value.target

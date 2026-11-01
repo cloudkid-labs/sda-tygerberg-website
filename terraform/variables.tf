@@ -19,6 +19,7 @@ variable "github_repository" {
 variable "cloudflare_account_id" {
   description = "Cloudflare account that holds the zone and the Worker. Owns the CMS R2 buckets (r2.tf). An identifier, not a secret."
   type        = string
+  default     = "30d372cb1916315abe405f2cefe128b7"
 }
 
 # ---- Brevo ------------------------------------------------------------------

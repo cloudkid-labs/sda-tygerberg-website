@@ -4,6 +4,7 @@ import { requestFormCopy, requestTopics, type RequestTopic } from '../../data/re
 import { SubPageHeader } from './SubPageHeader';
 import { SubPageFooter } from './SubPageFooter';
 import { RequestForm } from './RequestForm';
+import { SocialLinks } from './SocialLinks';
 
 /**
  * Shell for the two request pages. /connect and /bible-studies are the same
@@ -86,6 +87,14 @@ function RequestContent({ topic }: { topic: RequestTopic }) {
               </dd>
             </div>
           </dl>
+
+          {/* /connect only: /bible-studies shares this card, and the brief
+              places the channels on the Verbind page. */}
+          {topic === 'connect' && (
+            <div className="mb-5">
+              <SocialLinks label={t.followUs} newTab={t.opensNewTab} variant="light" />
+            </div>
+          )}
 
           <a
             href={SITE.directionsUrl}

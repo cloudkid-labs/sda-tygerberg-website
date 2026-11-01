@@ -37,6 +37,17 @@ export const headshotSource = (file: string) => `${HEADSHOT_DIR}/${file}`;
 /** The pre-resized copy, as a URL a browser can use directly. */
 export const headshotFallbackUrl = (file: string) => withBase(`${HEADSHOT_FALLBACK_DIR}/${file}`);
 
+/**
+ * The URL a browser may load directly for a head's photo `src`. A roster
+ * master under /images/hod/ has a 1400px copy in fallback/ (C-02); a CMS
+ * upload under /media/heads/ is already the resized, metadata-free copy and is
+ * its own fallback (C-70).
+ */
+export function headshotFallbackFor(src: string): string {
+  const master = /^\/images\/hod\/([^/]+)$/.exec(src);
+  return master ? headshotFallbackUrl(master[1]) : withBase(src);
+}
+
 /** Build-time "there is no transformer here" — C-22. */
 export const IMAGE_CDN_ENABLED = import.meta.env.PUBLIC_IMAGE_CDN !== 'false';
 

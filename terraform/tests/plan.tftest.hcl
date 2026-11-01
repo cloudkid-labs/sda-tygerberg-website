@@ -16,6 +16,7 @@ variables {
   }
   google_oauth_client_id     = "123456789012-abcdefghij.apps.googleusercontent.com"
   google_oauth_client_secret = "GOCSPX-0000000000000000000000000000"
+  cloudflare_account_id      = "0123456789abcdef0123456789abcdef"
 }
 
 run "creates_brevo_dns_and_all_four_secrets" {
@@ -156,4 +157,42 @@ run "rejects_bad_google_project_id" {
   }
 
   expect_failures = [var.google_project_id]
+}
+
+run "creates_the_cms_buckets_wrangler_binds" {
+  command = plan
+
+  assert {
+    condition     = cloudflare_r2_bucket.cms.name == "tygerberg-cms" && cloudflare_r2_bucket.cms_devtest.name == "tygerberg-cms-devtest"
+    error_message = "Bucket names must match the CMS bindings in wrangler.jsonc (C-70)."
+  }
+
+  assert {
+    condition     = cloudflare_r2_bucket.cms.account_id == var.cloudflare_account_id
+    error_message = "The CMS bucket must live in the site's own Cloudflare account."
+  }
+}
+
+run "devtest_signs_in_with_its_own_session_key" {
+  command = plan
+
+  assert {
+    condition     = contains(output.google_oauth_client_setup.authorized_redirect_uris, "https://tygerberg-sda.cloudkid.link/auth/callback")
+    error_message = "The devtest callback must be registered on the OAuth client."
+  }
+
+  assert {
+    condition     = contains(output.google_oauth_client_setup.authorized_javascript_origins, "https://tygerberg-sda.cloudkid.link")
+    error_message = "The devtest origin must be registered on the OAuth client."
+  }
+
+  assert {
+    condition     = github_actions_secret.devtest_session.secret_name == "DEVTEST_SESSION_SECRET"
+    error_message = "The devtest workflow reads DEVTEST_SESSION_SECRET."
+  }
+
+  assert {
+    condition     = !contains(keys(github_actions_secret.worker), "DEVTEST_SESSION_SECRET")
+    error_message = "The preview's session key is its own secret, never one of production's."
+  }
 }

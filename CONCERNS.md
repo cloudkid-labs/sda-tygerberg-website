@@ -1774,3 +1774,86 @@ consent, gated by the same session and allow-list as sending, and never in
 logs. Creating the buckets (`tygerberg-submissions`,
 `tygerberg-submissions-devtest`) and their lifecycle rules is a dashboard step,
 outside Terraform like every other Worker binding.
+
+## Members area and CMS
+
+### C-70 — The CMS stores content in R2 and the Worker renders it into static pages
+
+Board members edit the "Hierdie week" cards, the department heads and
+template-based pages at `/members` → Website content. Publish is live on the
+next request (model A, chosen over committing content to git and rebuilding).
+
+**Storage.** One R2 bucket, bound as `CMS` (`tygerberg-cms`; devtest's
+`tygerberg-cms-devtest` is created but not yet bound). Layout in
+`src/worker/cmsStore.ts`. Every write carries the `rev` it was based on and an
+R2 etag precondition, so two members editing at once get a conflict, never a
+silent overwrite. Each write keeps the version it replaced under `history/`, and
+appends who/what/when under `audit/` — the audit trail, readable in the members
+area. An empty or unbound bucket reads as the seed (`src/lib/cms/seed.ts`): the
+hand-coded homepage, read from `homeCopy.ts` and `departmentHeads.ts`, so the
+first render after the switch is byte-identical to the last one before it.
+
+**The bucket must exist before the Worker deploy that binds it.** `wrangler
+deploy` refuses a binding to a missing bucket — production's and devtest's
+alike. `terraform/r2.tf` is the producer; apply it first.
+
+**Rendering into a static site.** The site stays `output: 'static'`. The build
+bakes a JSON payload (the seed) into the page, and the homepage and
+CMS-page islands read it on hydration rather than taking it as a prop — an
+Astro prop would freeze build-time content into the island. Per request the
+Worker swaps in a live payload and re-renders exactly the sections it drives
+(`#week`, `#oor`, the `/<slug>/` page root) with the same React components and
+`react-dom/server` (`src/worker/cmsRender.tsx`). Same input, same component,
+same markup, so hydration matches. Three things keep that true:
+
+- Anything a component reads that the Worker cannot see must travel in the
+  payload. Build flags do (`build.imageCdn`); the clock does (`asOf`, with the
+  visitor's own date applied after mount, as C-36); `import.meta.env.BASE_URL`
+  comes from a wrangler `define`, which is why `ASTRO_BASE` is not supported
+  alongside the CMS. No `useId` in these trees — Astro hydrates with an
+  island-specific prefix the Worker does not know.
+- React 19 hoists `<link rel="preload">` for eager images to the front of
+  `renderToString` output; Astro drops them, so the Worker strips them too.
+- `scripts/check-cms-render.mjs` (CI, after the build) renders the build's own
+  payload through the Worker's renderers and requires byte equality with
+  `dist/`. A component change that breaks the rule fails there, not in a
+  visitor's console.
+
+If anything fails at request time the Worker serves the build untouched — the
+seed, which is self-consistent. String surgery rather than HTMLRewriter, so the
+transform is a pure function the tests run.
+
+**What never reaches a visitor.** Drafts, hidden heads and the audit fields
+(`updatedBy` is a personal Google address) are dropped in `src/lib/cms/public.ts`
+before a payload exists. Draft pages are never read on a public path; an
+unknown or draft slug gets the normal 404. The built `/page-shell/` is answered
+404 itself.
+
+**The preview signs in too.** Devtest uses the production OAuth client, with
+its own callback registered on it, and its own session key
+(`DEVTEST_SESSION_SECRET`, terraform/), so a cookie minted on a preview running
+unreleased code never verifies on production. Its `BOARD_*` vars repeat
+production's (vars do not inherit; a test keeps them equal). It reads its own
+submissions and CMS buckets and never sends mail.
+
+**Access.** The Worker gates the `/members` HTML as well as every
+`/api/cms/*` route, reads included, through `verifySession` (session and
+allow-list, C-68). No cookie → `/login/`; a cookie that fails → 403
+`/no-access/`. `/kerkraad` 301s to `/members/` with its query, so links in mail
+already sent keep working.
+
+**Images.** Uploads are sniffed by bytes (JPG/PNG, ≤ 5 MB), stripped of
+EXIF/XMP/IPTC/comments in the Worker before they are staged, cropped by the
+zone's existing Image Transformations to exactly 1280×1600 (headshots, 4:5 —
+not 800×1000, because C-04 needs the source at least as wide as the 1280
+srcset candidate) or 1600×900 (page images), checked, stripped again, and the
+staged original deleted. The transformer reaches the staged file through the
+Worker, which serves `staging/` only to its `image-resizing` Via marker (the
+C-51 pattern). Under `wrangler dev --local` there is no transformer, so an
+upload answers `transform-unavailable` rather than storing an uncropped photo.
+
+**Scope kept out.** The blood bank card stays derived from `BLOOD_DRIVES`
+(C-36) rather than a CMS event, because the roster expires past drives on its
+own. `/blood-bank` moved onto the standard template as proof; its dates still
+come from the roster. The contact-form block picks a topic — `/api/contact`
+decides delivery; there is no editable recipient.

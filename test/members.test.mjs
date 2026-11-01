@@ -1,0 +1,151 @@
+import { strict as assert } from 'node:assert';
+import { test, describe } from 'node:test';
+import { signSession } from '../src/worker/auth.ts';
+
+/*
+ * The members area is reachable only by a signed-in board member (C-70). The
+ * HTML is gated in the Worker as well as every API behind it.
+ */
+
+globalThis.caches ??= { default: { async match() {}, async put() {} } };
+const { default: worker } = await import('../src/worker/index.ts');
+
+const SECRET = 'test-session-secret';
+const BOARD = 'boss@example.co.za';
+
+const env = (over = {}) => ({
+  GOOGLE_CLIENT_ID: '123-test.apps.googleusercontent.com',
+  GOOGLE_CLIENT_SECRET: 'test-client-secret',
+  SESSION_SECRET: SECRET,
+  BOARD_ALLOWED_EMAILS: BOARD,
+  ASSETS: {
+    async fetch(req) {
+      const { pathname } = new URL(req.url);
+      return new Response(`page:${pathname}`, { headers: { 'Content-Type': 'text/html' } });
+    },
+  },
+  ...over,
+});
+const ctx = { waitUntil() {} };
+
+const get = async (path, cookie, e = env()) =>
+  worker.fetch(new Request(`https://x${path}`, { headers: cookie ? { cookie } : {} }), e, ctx);
+
+const sessionFor = async (email) => `__Host-kerkraad=${await signSession(email, SECRET)}`;
+
+describe('/members gate', () => {
+  for (const path of ['/members', '/members/', '/members/?tab=content&section=pages']) {
+    test(`${path}: a board member gets the page, uncached`, async () => {
+      const res = await get(path, await sessionFor(BOARD));
+      assert.equal(res.status, 200);
+      assert.match(await res.text(), /^page:\/members/);
+      assert.match(res.headers.get('cache-control') ?? '', /no-store/);
+    });
+
+    test(`${path}: a signed-in non-member gets 403, never the page`, async () => {
+      const res = await get(path, await sessionFor('stranger@example.co.za'));
+      assert.equal(res.status, 403);
+      assert.equal(await res.text(), 'page:/no-access/');
+    });
+
+    test(`${path}: no session goes to /login/`, async () => {
+      const res = await get(path);
+      assert.equal(res.status, 302);
+      assert.equal(res.headers.get('location'), '/login/');
+    });
+  }
+
+  test('a member removed from the list loses the page at once', async () => {
+    const cookie = await sessionFor(BOARD);
+    const res = await get('/members/', cookie, env({ BOARD_ALLOWED_EMAILS: 'someone@else.co.za' }));
+    assert.equal(res.status, 403);
+  });
+
+  test('a tampered cookie is a 403', async () => {
+    const res = await get('/members/', `__Host-kerkraad=${(await signSession(BOARD, 'other-secret'))}`);
+    assert.equal(res.status, 403);
+  });
+
+  test('without sign-in configured, /members sends to /login/', async () => {
+    const res = await get('/members/', await sessionFor(BOARD), env({ SESSION_SECRET: undefined }));
+    assert.equal(res.status, 302);
+  });
+
+  test('/no-access/ answers 403', async () => {
+    const res = await get('/no-access/');
+    assert.equal(res.status, 403);
+  });
+});
+
+describe('/kerkraad is the old address', () => {
+  test('redirects permanently to /members/, keeping the message link', async () => {
+    const res = await get('/kerkraad/?msg=abc123');
+    assert.equal(res.status, 301);
+    assert.equal(res.headers.get('location'), '/members/?msg=abc123');
+  });
+
+  test('without a trailing slash too', async () => {
+    const res = await get('/kerkraad');
+    assert.equal(res.headers.get('location'), '/members/');
+  });
+});
+
+describe('the Test site tab', async () => {
+  const { MEMBERS_SITES } = await import('../src/data/site.ts');
+  const { readFileSync } = await import('node:fs');
+  const wrangler = readFileSync(new URL('../wrangler.jsonc', import.meta.url), 'utf8');
+  const tfVars = readFileSync(new URL('../terraform/variables.tf', import.meta.url), 'utf8');
+
+  test('points at the hosts the two Workers actually serve', () => {
+    const test = new URL(MEMBERS_SITES.test);
+    const live = new URL(MEMBERS_SITES.live);
+    assert.equal(test.origin, MEMBERS_SITES.test, 'an origin, no path');
+    assert.equal(live.origin, MEMBERS_SITES.live, 'an origin, no path');
+    assert.match(wrangler, new RegExp(`"pattern": "${test.host.replace(/\./g, '\\.')}"`), 'devtest route');
+    assert.match(wrangler, new RegExp(`"pattern": "${live.host.replace(/\./g, '\\.')}"`), 'production route');
+    assert.match(tfVars, new RegExp(`default\\s*=\\s*"${test.origin.replace(/\./g, '\\.')}"`), 'OAuth client lists the test origin');
+  });
+
+  test('its Sign in target starts Google sign-in and lands on /members/', async () => {
+    const res = await worker.fetch(new Request(`${MEMBERS_SITES.test}/auth/login`), env(), ctx);
+    assert.equal(res.status, 302);
+    const to = new URL(res.headers.get('location'));
+    assert.equal(to.host, 'accounts.google.com');
+    assert.equal(to.searchParams.get('redirect_uri'), `${MEMBERS_SITES.test}/auth/callback`);
+  });
+});
+
+describe('Board mail switched off (devtest: BOARD_MAIL "off")', () => {
+  const off = env({ BOARD_MAIL: 'off' });
+
+  test('the session check still answers, and says mail is off', async () => {
+    const res = await get('/api/mail/session', await sessionFor(BOARD), off);
+    assert.equal(res.status, 200);
+    const body = await res.json();
+    assert.equal(body.email, BOARD);
+    assert.equal(body.mail, false);
+    assert.ok(!('allowedFrom' in body), 'no sender identities offered');
+  });
+
+  for (const path of ['/api/mail/inbox', '/api/mail/sent', '/api/mail/trash', '/api/mail/message?id=x']) {
+    test(`${path} is refused even for a board member`, async () => {
+      const res = await get(path, await sessionFor(BOARD), off);
+      assert.equal(res.status, 404);
+      assert.equal((await res.json()).outcome, 'disabled');
+    });
+  }
+
+  test('a send is refused before anything else runs', async () => {
+    const res = await worker.fetch(
+      new Request('https://x/api/mail/send', { method: 'POST', headers: { cookie: await sessionFor(BOARD), origin: 'https://x', 'content-type': 'application/json' }, body: '{}' }),
+      off,
+      ctx,
+    );
+    assert.equal(res.status, 404);
+  });
+
+  test('on production (unset) the session reports mail on', async () => {
+    const body = await (await get('/api/mail/session', await sessionFor(BOARD))).json();
+    assert.equal(body.mail, true);
+  });
+});

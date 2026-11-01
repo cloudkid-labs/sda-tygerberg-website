@@ -10,7 +10,7 @@ flowchart LR
   subgraph SRC["Where mail starts"]
     direction TB
     FORM["Connect & Bible study forms<br/>/connect · /bible-studies"]
-    BOARD["Board member<br/>/kerkraad"]
+    BOARD["Board member<br/>/members"]
     ZAPPER["Zapper<br/>payment notifications"]
     PUBLIC["Anyone emailing<br/>any@sdatygerberg.co.za"]
   end
@@ -97,7 +97,8 @@ or the whole send is rejected (C-31).
 
 ## Board mail
 
-Board members sign in with Google on the private `/kerkraad` page and send as
+Board members sign in with Google on the private `/members` page (Board mail
+tab; the old `/kerkraad` address redirects there) and send as
 one of the four role addresses through the Brevo API. Admins also get
 `archive@` and `rainier@` as From addresses and recipients. The Worker rejects
 non-admin sends that use either address as From or To, and hides Inbox and Sent
@@ -122,7 +123,7 @@ what topic and when plus the login link — never the message or contact
 details — while the full enquiry files to the archive address (then R2) and
 the inbox copy in `SUBMISSIONS`. Reading means signing in.
 
-`/kerkraad` is also an inbox: every connect and bible-study submission is
+Board mail is also an inbox: every connect and bible-study submission is
 stored as JSON in the `SUBMISSIONS` bucket (`tygerberg-submissions` in
 production, `tygerberg-submissions-devtest` on devtest) and the page lists,
 reads and replies from there. Replies go through Brevo from the topic's role

@@ -124,14 +124,16 @@
     // the value instead of a hidden secret — the trade is that these personal
     // addresses are now readable to anyone with repo or Cloudflare access.
     // The repo is private; do not copy them onto the public site (C-20).
-    "BOARD_ALLOWED_EMAILS": "muller31jp@gmail.com,sdatygerbergklerk@gmail.com,sdatygerbergkerk@gmail.com,rainiersvn1@gmail.com,johanemomberg@gmail.com",
+    "BOARD_ALLOWED_EMAILS": "muller31jp@gmail.com,sdatygerbergklerk@gmail.com,sdatygerbergkerk@gmail.com,rainiersvn1@gmail.com,johanemomberg@gmail.com,laurahoffman51@gmail.com",
     // Who may send as what, and so whose mail they see: Board mail shows each
     // member only threads and Sent items on addresses they may send as.
     // `email=address,address[;email=…]`; unlisted non-admins may use every
     // regular MAIL_SEND_FROM address; admins use and see everything.
     // Clerk (Sanet): klerk@, welkom@. Kerk: kerk@, welkom@. Treasurer:
-    // tesourier@, welkom@. Johan: klerk@, welkom@, kerk@.
-    "BOARD_SEND_AS": "sdatygerbergklerk@gmail.com=klerk@sdatygerberg.co.za,welkom@sdatygerberg.co.za;sdatygerbergkerk@gmail.com=kerk@sdatygerberg.co.za,welkom@sdatygerberg.co.za;muller31jp@gmail.com=tesourier@sdatygerberg.co.za,welkom@sdatygerberg.co.za;johanemomberg@gmail.com=klerk@sdatygerberg.co.za,welkom@sdatygerberg.co.za,kerk@sdatygerberg.co.za",
+    // tesourier@, welkom@. Johan: klerk@, welkom@, kerk@. Laura: welkom@.
+    // The Settings tab (admins, C-71) overrides these two and MAIL_ROUTES and
+    // CONTACT_EMAIL_TO once saved; until then they are the settings.
+    "BOARD_SEND_AS": "sdatygerbergklerk@gmail.com=klerk@sdatygerberg.co.za,welkom@sdatygerberg.co.za;sdatygerbergkerk@gmail.com=kerk@sdatygerberg.co.za,welkom@sdatygerberg.co.za;muller31jp@gmail.com=tesourier@sdatygerberg.co.za,welkom@sdatygerberg.co.za;johanemomberg@gmail.com=klerk@sdatygerberg.co.za,welkom@sdatygerberg.co.za,kerk@sdatygerberg.co.za;laurahoffman51@gmail.com=welkom@sdatygerberg.co.za",
     // Board Mail admins can use every sender address, access all mail, and
     // delete inbox threads.
     "BOARD_ADMIN_EMAILS": "rainiersvn1@gmail.com",
@@ -150,6 +152,11 @@
     // so the sender learns. MAIL_ARCHIVE_TO is best-effort — by the time it is
     // attempted the church copy has already gone.
     "MAIL_FORWARD_TO": "sdatygerbergklerk@gmail.com",
+    // Verified destination addresses on the Cloudflare account — the only
+    // addresses the Settings tab may route mail or send notifications to.
+    // Adding one: verify it in Email Routing first, then list it here and in
+    // send_email.allowed_destination_addresses (a test keeps the two equal).
+    "MAIL_DESTINATIONS": "sdatygerbergklerk@gmail.com,sdatygerbergkerk@gmail.com,muller31jp@gmail.com,rainiersvn1@gmail.com,archive@sdatygerberg.co.za",
     "MAIL_ARCHIVE_TO": "archive@sdatygerberg.co.za",
     // Per-address exceptions to MAIL_FORWARD_TO, archived and rejected on
     // failure the same way. tesourier@ is the address on the Zapper merchant
@@ -179,7 +186,7 @@
   "send_email": [
     {
       "name": "EMAIL",
-      "allowed_destination_addresses": ["sdatygerbergklerk@gmail.com", "sdatygerbergkerk@gmail.com", "muller31jp@gmail.com", "archive@sdatygerberg.co.za"],
+      "allowed_destination_addresses": ["sdatygerbergklerk@gmail.com", "sdatygerbergkerk@gmail.com", "muller31jp@gmail.com", "rainiersvn1@gmail.com", "archive@sdatygerberg.co.za"],
       "allowed_sender_addresses": ["welkom@sdatygerberg.co.za"]
     }
   ],
@@ -277,8 +284,8 @@
         // every /api/mail/* route but the session check answer 404, and the
         // members page hides the tab. (There is no MAIL_SEND_FROM or
         // BREVO_API_KEY either, so it could never send — C-61.) C-70
-        "BOARD_ALLOWED_EMAILS": "muller31jp@gmail.com,sdatygerbergklerk@gmail.com,sdatygerbergkerk@gmail.com,rainiersvn1@gmail.com,johanemomberg@gmail.com",
-        "BOARD_SEND_AS": "sdatygerbergklerk@gmail.com=klerk@sdatygerberg.co.za,welkom@sdatygerberg.co.za;sdatygerbergkerk@gmail.com=kerk@sdatygerberg.co.za,welkom@sdatygerberg.co.za;muller31jp@gmail.com=tesourier@sdatygerberg.co.za,welkom@sdatygerberg.co.za;johanemomberg@gmail.com=klerk@sdatygerberg.co.za,welkom@sdatygerberg.co.za,kerk@sdatygerberg.co.za",
+        "BOARD_ALLOWED_EMAILS": "muller31jp@gmail.com,sdatygerbergklerk@gmail.com,sdatygerbergkerk@gmail.com,rainiersvn1@gmail.com,johanemomberg@gmail.com,laurahoffman51@gmail.com",
+        "BOARD_SEND_AS": "sdatygerbergklerk@gmail.com=klerk@sdatygerberg.co.za,welkom@sdatygerberg.co.za;sdatygerbergkerk@gmail.com=kerk@sdatygerberg.co.za,welkom@sdatygerberg.co.za;muller31jp@gmail.com=tesourier@sdatygerberg.co.za,welkom@sdatygerberg.co.za;johanemomberg@gmail.com=klerk@sdatygerberg.co.za,welkom@sdatygerberg.co.za,kerk@sdatygerberg.co.za;laurahoffman51@gmail.com=welkom@sdatygerberg.co.za",
         "BOARD_ADMIN_EMAILS": "rainiersvn1@gmail.com",
         "BOARD_ADMIN_ONLY_EMAILS": "archive@sdatygerberg.co.za,rainier@sdatygerberg.co.za",
         "BOARD_MAIL": "off"

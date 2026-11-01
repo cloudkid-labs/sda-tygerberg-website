@@ -21,6 +21,7 @@ import { handleCms, type CmsEnv } from './cms';
 import { serveMedia } from './cmsMedia';
 import { serveCmsPage, serveHome, serveSitemap } from './cmsPublic';
 import { renderAboutSection, renderEventsSection, renderPageRoot, renderWeekSection } from './cmsRender';
+import { withSettings } from './settings';
 
 export type Env = LiveStatusEnv &
   LatestVideoEnv &
@@ -55,7 +56,9 @@ const HEADSHOT_MASTER = /^\/images\/hod\/([^/]+\.jpe?g)$/i;
 export default {
   async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
     const started = Date.now();
-    const response = await route(request, env, ctx);
+    // Saved Settings (C-71) stand in for their wrangler vars on every path that
+    // signs in, sends, routes or notifies; pages and assets skip the read.
+    const response = await route(request, usesSettings(new URL(request.url).pathname) ? await withSettings(env) : env, ctx);
     console.log(requestLogEntry(requestFacts(request, response.status, Date.now() - started)));
     return response;
   },
@@ -68,9 +71,21 @@ export default {
    * depends on, none of which is visible from this code.
    */
   async email(message: ForwardableEmailMessage, env: Env): Promise<void> {
-    await handleInboundEmail(message, env);
+    await handleInboundEmail(message, await withSettings(env));
   },
 };
+
+/** Paths whose handlers read sign-in, send-as, routing or notification config. */
+export function usesSettings(pathname: string): boolean {
+  return (
+    pathname.startsWith('/api/') ||
+    pathname.startsWith('/auth/') ||
+    isMembersPath(pathname) ||
+    isLegacyBoardPath(pathname) ||
+    pathname === '/no-access' ||
+    pathname === '/no-access/'
+  );
+}
 
 /**
  * The routes themselves. Add a branch here and add its path to `run_worker_first`

@@ -194,6 +194,7 @@ describe('Board mail send-as — who sends as, and sees, what', () => {
     'sdatygerbergkerk@gmail.com': ['kerk@sdatygerberg.co.za', 'welkom@sdatygerberg.co.za'],
     'muller31jp@gmail.com': ['tesourier@sdatygerberg.co.za', 'welkom@sdatygerberg.co.za'],
     'johanemomberg@gmail.com': ['kerk@sdatygerberg.co.za', 'klerk@sdatygerberg.co.za', 'welkom@sdatygerberg.co.za'],
+    'laurahoffman51@gmail.com': ['welkom@sdatygerberg.co.za'],
   };
   test('production and devtest give each member exactly their addresses', () => {
     assert.deepEqual(parse(config.vars.BOARD_SEND_AS), want);
@@ -207,5 +208,14 @@ describe('Board mail send-as — who sends as, and sees, what', () => {
   });
   test('rainier@ goes to the admin, not the clerk', () => {
     assert.equal(config.vars.MAIL_ROUTES['rainier@sdatygerberg.co.za'], 'rainiersvn1@gmail.com');
+  });
+});
+
+describe('Settings tab destinations (C-71)', () => {
+  test('MAIL_DESTINATIONS is exactly the send fence, and covers every route and notification', () => {
+    const dest = String(config.vars.MAIL_DESTINATIONS).split(',').map((a) => a.trim()).sort();
+    assert.deepEqual(dest, [...config.send_email[0].allowed_destination_addresses].sort());
+    for (const to of Object.values(config.vars.MAIL_ROUTES)) assert.ok(dest.includes(to), `${to} is routed to but not a destination`);
+    for (const to of String(config.vars.CONTACT_EMAIL_TO).split(',')) assert.ok(dest.includes(to.trim()), `${to} is notified but not a destination`);
   });
 });

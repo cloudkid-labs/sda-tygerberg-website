@@ -38,7 +38,7 @@ export function randomId(bytes = 6): string {
   return [...crypto.getRandomValues(new Uint8Array(bytes))].map((b) => b.toString(16).padStart(2, '0')).join('');
 }
 
-async function readJson<T>(bucket: R2Bucket, key: string): Promise<{ value: T; etag: string } | null> {
+export async function readJson<T>(bucket: R2Bucket, key: string): Promise<{ value: T; etag: string } | null> {
   const obj = await bucket.get(key);
   if (!obj) return null;
   return { value: (await obj.json()) as T, etag: obj.etag };
@@ -48,7 +48,7 @@ async function readJson<T>(bucket: R2Bucket, key: string): Promise<{ value: T; e
  * Writes `value`, failing (false) if someone else wrote since `etag` was read.
  * Two board members editing at once get a conflict, not a silent overwrite.
  */
-async function writeJson(bucket: R2Bucket, key: string, value: unknown, etag: string | null): Promise<boolean> {
+export async function writeJson(bucket: R2Bucket, key: string, value: unknown, etag: string | null): Promise<boolean> {
   const result = await bucket.put(key, JSON.stringify(value), {
     ...JSON_META,
     ...(etag ? { onlyIf: { etagMatches: etag } } : {}),
@@ -67,7 +67,7 @@ export async function readHeads(bucket: R2Bucket): Promise<{ doc: Doc<Department
 }
 
 /** Keeps the version being replaced, so any publish can be rolled back by hand. */
-async function keepHistory(bucket: R2Bucket, name: string, previous: unknown): Promise<void> {
+export async function keepHistory(bucket: R2Bucket, name: string, previous: unknown): Promise<void> {
   await bucket.put(`history/${name}/${new Date().toISOString()}-${randomId(3)}.json`, JSON.stringify(previous), JSON_META);
 }
 

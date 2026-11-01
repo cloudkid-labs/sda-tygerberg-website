@@ -376,6 +376,6 @@ export async function handleAuthLogout(request: Request): Promise<Response> {
 export async function handleMailSession(request: Request, env: AuthEnv): Promise<Response> {
   const check = await verifySession(request, env);
   if (!check.ok) return json({ ok: false, outcome: check.outcome }, check.outcome === 'not-configured' ? 503 : 401);
-  if (!boardMailEnabled(env)) return json({ ok: true, email: check.email, mail: false }, 200);
+  if (!boardMailEnabled(env)) return json({ ok: true, email: check.email, mail: false, admin: isAdmin(env, check.email) }, 200);
   return json({ ok: true, email: check.email, mail: true, admin: isAdmin(env, check.email), allowedFrom: allowedFrom(env, check.email) }, 200);
 }

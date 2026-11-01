@@ -49,10 +49,12 @@ describe('wrangler contact mail fence — C-31', () => {
     );
   });
 
-  test('TO is fenced as a destination, FROM as a sender', () => {
-    assert.ok(
-      config.send_email[0].allowed_destination_addresses.includes(config.vars.CONTACT_EMAIL_TO),
-    );
+  test('every TO is fenced as a destination, FROM as a sender', () => {
+    const to = String(config.vars.CONTACT_EMAIL_TO).split(',').map((a) => a.trim());
+    assert.ok(to.length > 0 && to.every(Boolean), 'a stray comma would be a malformed recipient');
+    for (const addr of to) {
+      assert.ok(config.send_email[0].allowed_destination_addresses.includes(addr), `${addr} is not an allowed destination`);
+    }
     assert.ok(
       config.send_email[0].allowed_sender_addresses.includes(config.vars.CONTACT_EMAIL_FROM),
     );
@@ -183,4 +185,37 @@ describe('wrangler-action secrets reach the Worker the step deploys', () => {
       }
     });
   }
+});
+
+describe('Board mail send-as — who sends as, and sees, what', () => {
+  const parse = (v) => Object.fromEntries(String(v).split(';').map((e) => { const [who, list] = e.split('='); return [who.trim(), list.split(',').map((a) => a.trim()).sort()]; }));
+  const want = {
+    'sdatygerbergklerk@gmail.com': ['klerk@sdatygerberg.co.za', 'welkom@sdatygerberg.co.za'],
+    'sdatygerbergkerk@gmail.com': ['kerk@sdatygerberg.co.za', 'welkom@sdatygerberg.co.za'],
+    'muller31jp@gmail.com': ['tesourier@sdatygerberg.co.za', 'welkom@sdatygerberg.co.za'],
+    'johanemomberg@gmail.com': ['kerk@sdatygerberg.co.za', 'klerk@sdatygerberg.co.za', 'welkom@sdatygerberg.co.za'],
+    'laurahoffman51@gmail.com': ['welkom@sdatygerberg.co.za'],
+  };
+  test('production and devtest give each member exactly their addresses', () => {
+    assert.deepEqual(parse(config.vars.BOARD_SEND_AS), want);
+    assert.deepEqual(parse(config.env.devtest.vars.BOARD_SEND_AS), want);
+  });
+  test('every non-admin who may sign in is fenced (none falls back to every address)', () => {
+    const admins = new Set(String(config.vars.BOARD_ADMIN_EMAILS).split(','));
+    for (const who of String(config.vars.BOARD_ALLOWED_EMAILS).split(',')) {
+      if (!admins.has(who)) assert.ok(want[who], `${who} has no BOARD_SEND_AS entry`);
+    }
+  });
+  test('rainier@ goes to the admin, not the clerk', () => {
+    assert.equal(config.vars.MAIL_ROUTES['rainier@sdatygerberg.co.za'], 'rainiersvn1@gmail.com');
+  });
+});
+
+describe('Settings tab destinations (C-71)', () => {
+  test('MAIL_DESTINATIONS is exactly the send fence, and covers every route and notification', () => {
+    const dest = String(config.vars.MAIL_DESTINATIONS).split(',').map((a) => a.trim()).sort();
+    assert.deepEqual(dest, [...config.send_email[0].allowed_destination_addresses].sort());
+    for (const to of Object.values(config.vars.MAIL_ROUTES)) assert.ok(dest.includes(to), `${to} is routed to but not a destination`);
+    for (const to of String(config.vars.CONTACT_EMAIL_TO).split(',')) assert.ok(dest.includes(to.trim()), `${to} is notified but not a destination`);
+  });
 });

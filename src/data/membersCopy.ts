@@ -9,6 +9,7 @@ export type MembersCopy = {
   tabMail: string;
   tabContent: string;
   tabTestSite: string;
+  tabSettings: string;
   testHeading: string;
   testIntro: string;
   testPoints: string[];
@@ -39,6 +40,7 @@ export const membersCopy: Record<Lang, MembersCopy> = {
     tabMail: 'Kerkraadpos',
     tabContent: 'Webwerf-inhoud',
     tabTestSite: 'Toetswerf',
+    tabSettings: 'Instellings',
     testHeading: 'Probeer eers op die toetswerf',
     testIntro: 'Die toetswerf is ’n volledige kopie van die webwerf met sy eie lede-area. Hier kan jy veilig oefen en nuwe dinge probeer.',
     testPoints: [
@@ -73,6 +75,7 @@ export const membersCopy: Record<Lang, MembersCopy> = {
     tabMail: 'Board mail',
     tabContent: 'Website content',
     tabTestSite: 'Test site',
+    tabSettings: 'Settings',
     testHeading: 'Try it on the test site first',
     testIntro: 'The test site is a full copy of the website with its own members area. It is where you can practise and try new things safely.',
     testPoints: [

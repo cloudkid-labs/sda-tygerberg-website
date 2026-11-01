@@ -26,7 +26,7 @@ const norm = (a) => a.trim().toLowerCase();
 const { vars, send_email } = config;
 const configured = new Set(
   [
-    vars.CONTACT_EMAIL_TO,
+    ...String(vars.CONTACT_EMAIL_TO ?? '').split(','),
     vars.CONTACT_EMAIL_FROM,
     ...String(vars.CONTACT_EMAIL_BCC ?? '').split(','),
     ...String(vars.MAIL_SEND_FROM ?? '').split(','),

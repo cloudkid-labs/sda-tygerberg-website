@@ -1,12 +1,13 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useLanguage } from '../../context/LanguageContext';
 import { boardCopy, FROM_ADDRESSES, type BoardCopy } from '../../data/boardCopy';
+import { awaitingAnswer, isUnread } from '../../lib/mailUnread';
 
 type Phase = 'loading' | 'signed-out' | 'ready';
 type View = 'inbox' | 'sent' | 'trash' | 'write';
 type SendOutcome = 'invalid' | 'unauthorised' | 'forbidden' | 'not-allowed' | 'not-configured' | 'send-error' | 'trash' | 'network' | 'restore';
 
-type ThreadReply = { by: string; at: string; body?: string };
+type ThreadReply = { by: string; at: string; body?: string; inbound?: boolean };
 type ThreadSummary = {
   id: string;
   submittedAt: string;
@@ -19,8 +20,10 @@ type ThreadSummary = {
   replyFrom?: string;
   replies: ThreadReply[];
   trashedAt?: string;
+  readAt?: string;
 };
-type Thread = ThreadSummary & { message: string };
+/** `replyAs`: the address the Worker will answer from (replyAddressFor). */
+type Thread = ThreadSummary & { message: string; replyAs?: string };
 type SentSummary = {
   id: string;
   at: string;
@@ -72,8 +75,9 @@ function ThreadSections({
   openMessage: (id: string) => void;
   t: BoardCopy;
 }) {
-  const fresh = threads.filter((x) => x.replies.length === 0);
-  const done = threads.filter((x) => x.replies.length > 0);
+  // New: the visitor spoke last (the enquiry, or an emailed answer).
+  const fresh = threads.filter(awaitingAnswer);
+  const done = threads.filter((x) => !awaitingAnswer(x));
   const table = (items: ThreadSummary[], answered: boolean) => (
     <table className="w-full border-collapse text-left">
       <thead>
@@ -90,12 +94,16 @@ function ThreadSections({
         {items.map((x) => (
           <tr key={x.id} className="border-b border-subtle">
             <td className="py-3 pr-3">
+              {isUnread(x) && (
+                <span aria-hidden="true" className="mr-1.5 inline-block size-2 rounded-full bg-orange align-middle" />
+              )}
               <button
                 type="button"
                 onClick={() => openMessage(x.id)}
                 className="text-left font-bold text-navy underline"
               >
                 {x.name}
+                {isUnread(x) && <span className="sr-only"> ({t.unreadRow})</span>}
               </button>
               <span className="block text-[13px] text-slate">{x.email ?? x.phone ?? ''}</span>
               {answered && (
@@ -333,6 +341,9 @@ export function BoardMail({ onUnread }: { onUnread?: (count: number) => void }) 
         if (!res.ok) throw new Error(String(res.status));
         const data = (await res.json()) as { item?: Thread };
         setOpenThread(data.item ?? null);
+        // Opened is read: the badges drop now, not on the next list load.
+        const readAt = data.item?.readAt;
+        if (readAt) setThreads((list) => list.map((x) => (x.id === id && !x.readAt ? { ...x, readAt } : x)));
       } catch {
         setOpenError(true);
       }
@@ -565,7 +576,7 @@ export function BoardMail({ onUnread }: { onUnread?: (count: number) => void }) 
    * Unanswered threads are the "new" ones — the reply count is the state,
    * see ThreadSections. The members shell shows this on its Board mail tab.
    */
-  const unread = threads.filter((x) => x.replies.length === 0).length;
+  const unread = threads.filter(isUnread).length;
   useEffect(() => {
     if (phase === 'ready' && !threadsLoading && !threadsError) onUnread?.(unread);
   }, [phase, threadsLoading, threadsError, unread, onUnread]);
@@ -707,8 +718,12 @@ export function BoardMail({ onUnread }: { onUnread?: (count: number) => void }) 
                               </p>
                               <ul className="grid gap-2.5">
                                 {openThread.replies.map((r, i) => (
-                                  <li key={i} className="rounded-card border border-subtle bg-cream-card p-4">
+                                  <li
+                                    key={i}
+                                    className={`rounded-card border p-4 ${r.inbound ? 'border-orange/60 bg-white' : 'border-subtle bg-cream-card'}`}
+                                  >
                                     <p className="tabular-nums mb-1.5 text-[13px] font-bold text-navy">
+                                      {r.inbound ? `${t.theirAnswer} · ` : ''}
                                       {r.by} · {fmtDate(r.at)}
                                     </p>
                                     {r.body && (
@@ -723,7 +738,7 @@ export function BoardMail({ onUnread }: { onUnread?: (count: number) => void }) 
                             // Replies go out as the topic's role address (see TOPIC_FROM in
                             // src/worker/inbox.ts); a sender fenced to another address
                             // gets the note instead of a form that would 403.
-                            (allowedSenders.length === 0 || allowedSenders.includes(openThread.replyFrom ?? 'welkom@sdatygerberg.co.za')) ? (
+                            (allowedSenders.length === 0 || allowedSenders.includes(openThread.replyAs ?? openThread.replyFrom ?? 'welkom@sdatygerberg.co.za')) ? (
                             <form onSubmit={sendReply} className="grid gap-3">
                               {replyError && (
                                 <p className="rounded-card border border-subtle bg-cream-card px-4 py-3 text-[14.5px] text-slate">

@@ -11,8 +11,11 @@ import { CmsEvents } from './cms/CmsEvents';
 import { CmsHeads } from './cms/CmsHeads';
 import { CmsPages } from './cms/CmsPages';
 import { RecentChanges } from './cms/RecentChanges';
+import { isUnread, type ThreadLike } from '../../lib/mailUnread';
+import { SettingsPanel } from './cms/SettingsPanel';
+import { Avatar } from './Avatar';
 
-type Tab = 'mail' | 'content' | 'test';
+type Tab = 'mail' | 'content' | 'test' | 'settings';
 type Section = 'events' | 'heads' | 'pages';
 type Phase = 'loading' | 'ready' | 'not-configured' | 'error';
 
@@ -23,7 +26,7 @@ function readLocation(): { tab: Tab; section: Section } {
   const params = new URLSearchParams(window.location.search);
   const section = SECTIONS.find((s) => s === params.get('section')) ?? 'events';
   const tab = params.get('tab');
-  return { tab: tab === 'content' || tab === 'test' ? tab : 'mail', section };
+  return { tab: tab === 'content' || tab === 'test' || tab === 'settings' ? tab : 'mail', section };
 }
 
 /** Writes the tab into the URL so a refresh or a shared link lands in place. */
@@ -33,7 +36,7 @@ function writeLocation(tab: Tab, section: Section, extra?: Record<string, string
     params.set('tab', 'content');
     params.set('section', section);
   }
-  if (tab === 'test') params.set('tab', 'test');
+  if (tab === 'test' || tab === 'settings') params.set('tab', tab);
   for (const [k, v] of Object.entries(extra ?? {})) params.set(k, v);
   const query = params.toString();
   window.history.replaceState(null, '', `${window.location.pathname}${query ? `?${query}` : ''}`);
@@ -46,6 +49,23 @@ function Badge({ count, label }: { count: number; label: string }) {
       {count}
       <span className="sr-only"> {label}</span>
     </span>
+  );
+}
+
+/** Outline icons for the sidebar (24px grid, stroke). */
+const ICONS = {
+  mail: 'M4 6h16v12H4zM4 7l8 6 8-6',
+  content: 'M4 5h16v14H4zM4 9h16M9 9v10',
+  test: 'M9 3h6M10 3v6l-5 9a2 2 0 0 0 1.8 3h10.4A2 2 0 0 0 19 18l-5-9V3M7.5 14h9',
+  settings:
+    'M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z',
+};
+
+function NavIcon({ d }: { d: string }) {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d={d} />
+    </svg>
   );
 }
 
@@ -69,6 +89,10 @@ function MembersContent() {
   const [unread, setUnread] = useState(0);
   /** False where the Worker has Board mail switched off (devtest). */
   const [mailOn, setMailOn] = useState(true);
+  /** Admins (SuperAdmins and those Settings names) see the Settings tab. */
+  const [admin, setAdmin] = useState(false);
+  /** Name and picture from Settings: an HOD's headshot, an upload, or none. */
+  const [profile, setProfile] = useState<{ name: string | null; photo: string | null }>({ name: null, photo: null });
   /** A page the events editor asked to open (New page from template). */
   const [openPage, setOpenPage] = useState<string | null>(null);
 
@@ -90,8 +114,15 @@ function MembersContent() {
           return;
         }
         if (!res.ok) throw new Error(String(res.status));
-        const data = (await res.json()) as { email?: string; mail?: boolean };
+        const data = (await res.json()) as { email?: string; mail?: boolean; admin?: boolean };
         setEmail(data.email ?? '');
+        setAdmin(data.admin === true);
+        void fetch('/api/cms/profile', { cache: 'no-store', headers: { Accept: 'application/json' } })
+          .then((r) => (r.ok ? (r.json() as Promise<{ name?: string | null; photo?: string | null }>) : null))
+          .then((p) => {
+            if (p) setProfile({ name: p.name ?? null, photo: p.photo ?? null });
+          })
+          .catch(() => {});
         if (data.mail === false) {
           // No Board mail here: open on Website content instead.
           setMailOn(false);
@@ -104,8 +135,8 @@ function MembersContent() {
         // The badge must be right before Board mail is ever opened.
         const inbox = await fetch('/api/mail/inbox', { cache: 'no-store', headers: { Accept: 'application/json' } });
         if (inbox.ok) {
-          const list = (await inbox.json()) as { items?: { replies?: unknown[] }[] };
-          setUnread((list.items ?? []).filter((x) => (x.replies ?? []).length === 0).length);
+          const list = (await inbox.json()) as { items?: ThreadLike[] };
+          setUnread((list.items ?? []).filter(isUnread).length);
         }
       } catch {
         setPhase('error');
@@ -117,6 +148,11 @@ function MembersContent() {
     setLocation({ tab: next, section: nextSection });
     writeLocation(next, nextSection, extra);
   }, [section]);
+
+  // A Settings link opened by someone who is not an admin lands on content.
+  useEffect(() => {
+    if (phase === 'ready' && tab === 'settings' && !admin) go('content');
+  }, [phase, tab, admin, go]);
 
   const openPageFromEvents = useCallback(
     (slug: string) => {
@@ -131,19 +167,21 @@ function MembersContent() {
     window.location.assign('/login/');
   }
 
-  const topTab = (id: Tab, label: string, badge?: ReactNode) => (
+  const navItem = (id: Tab, label: string, icon: ReactNode, badge?: ReactNode) => (
     <a
-      href={id === 'mail' ? '?' : id === 'test' ? '?tab=test' : `?tab=content&section=${section}`}
+      key={id}
+      href={id === 'mail' ? '?' : id === 'content' ? `?tab=content&section=${section}` : `?tab=${id}`}
       aria-current={tab === id ? 'page' : undefined}
       onClick={(e: MouseEvent) => {
         e.preventDefault();
         go(id);
       }}
-      className={`-mb-px inline-flex min-h-11 items-center gap-2 border-b-[3px] px-[18px] text-[16px] ${
-        tab === id ? 'border-orange font-bold text-navy' : 'border-transparent font-semibold text-slate hover:text-navy'
+      className={`inline-flex min-h-11 min-w-0 items-center gap-2.5 rounded-xl px-3 text-[14.5px] transition-colors sm:gap-3 sm:px-3.5 sm:text-[15px] lg:w-full ${
+        tab === id ? 'bg-navy font-bold text-white' : 'font-semibold text-slate hover:bg-navy/5 hover:text-navy'
       }`}
     >
-      {label}
+      <span className={tab === id ? 'text-orange' : 'text-slate-muted'}>{icon}</span>
+      <span className="flex-1">{label}</span>
       {badge}
     </a>
   );
@@ -156,14 +194,22 @@ function MembersContent() {
 
   return (
     <div className="flex min-h-screen flex-col font-sans text-ink">
-      <SubPageHeader backHome={b.backHome} />
+      <SubPageHeader
+        backHome={b.backHome}
+        account={
+          phase === 'ready' && email ? (
+            <span className="flex min-w-0 items-center gap-2" title={`${b.signedInAs}: ${email}`}>
+              <Avatar src={profile.photo} size={32} alt={profile.name ?? email} />
+              <span className="hidden min-w-0 flex-col leading-tight md:flex">
+                <span className="text-[11px] text-slate-muted">{b.signedInAs}:</span>
+                <span className="max-w-[200px] truncate text-[13px] font-bold text-ink">{profile.name ?? email}</span>
+              </span>
+            </span>
+          ) : undefined
+        }
+      />
 
-      <main
-        id="main"
-        className={`mx-auto w-full flex-1 px-5 pb-20 pt-12 sm:px-7 sm:pt-14 ${
-          tab === 'content' ? 'max-w-content' : 'max-w-[900px]'
-        }`}
-      >
+      <main id="main" className="mx-auto w-full max-w-content flex-1 px-5 pb-20 pt-12 sm:px-7 sm:pt-14">
         <h1 className="font-serif text-[clamp(32px,6vw,46px)] font-medium leading-[1.1] tracking-[-.02em] text-ink">
           {b.heading}
         </h1>
@@ -184,65 +230,78 @@ function MembersContent() {
         )}
 
         {phase === 'ready' && (
-          <>
-            <div className="mt-7 flex flex-wrap items-center justify-between gap-2 text-[14px] text-slate">
-              <span className="min-w-0 break-all">
-                {b.signedInAs} <strong className="text-ink">{email}</strong>
-              </span>
-              <button type="button" onClick={signOut} className="min-h-11 font-bold text-navy underline">
+          <div className="mt-8 grid gap-6 lg:grid-cols-[230px_minmax(0,1fr)] lg:items-start lg:gap-8">
+            {/* The sections: a sidebar on wide screens, a grid of buttons on phones. */}
+            <aside className="min-w-0 lg:sticky lg:top-24">
+              <nav
+                aria-label={t.areaNav}
+                className="grid grid-cols-2 gap-1.5 rounded-card-lg border border-subtle bg-cream-card p-2 shadow-card sm:flex sm:flex-wrap lg:flex-col lg:flex-nowrap"
+              >
+                {mailOn && navItem('mail', t.tabMail, <NavIcon d={ICONS.mail} />, <Badge count={unread} label={b.unreadSuffix} />)}
+                {navItem('content', t.tabContent, <NavIcon d={ICONS.content} />)}
+                {navItem('test', t.tabTestSite, <NavIcon d={ICONS.test} />)}
+                {admin && navItem('settings', t.tabSettings, <NavIcon d={ICONS.settings} />)}
+              </nav>
+              <div className="mt-3 hidden min-w-0 px-2 text-[13px] text-slate lg:block">
+                <span className="block">{b.signedInAs}:</span>
+                <strong className="block break-all text-ink">{email}</strong>
+              </div>
+              <button type="button" onClick={signOut} className="mt-1 hidden min-h-11 px-2 text-[14px] font-bold text-navy underline lg:block">
                 {b.signOut}
               </button>
+            </aside>
+
+            <div className="min-w-0">
+              {tab === 'mail' && mailOn && (
+                <div>
+                  <p className="mb-3.5 text-[14px] text-slate-muted">{t.mailIntro}</p>
+                  <BoardMail onUnread={setUnread} />
+                </div>
+              )}
+
+              {tab === 'test' && <TestSitePanel />}
+
+              {tab === 'settings' && admin && <SettingsPanel />}
+
+              {tab === 'content' && (
+                <div>
+                  <p className="mb-3.5 text-[14px] text-slate-muted">{t.contentIntro}</p>
+                  <nav aria-label={t.contentNav} className="mb-7 flex flex-wrap gap-2">
+                    {SECTIONS.map((sec) => (
+                      <a
+                        key={sec}
+                        href={`?tab=content&section=${sec}`}
+                        aria-current={section === sec ? 'page' : undefined}
+                        onClick={(e) => {
+                          e.preventDefault();
+                          go('content', sec);
+                        }}
+                        className={`inline-flex min-h-11 items-center rounded-pill px-5 text-[14px] font-bold transition-colors ${
+                          section === sec ? 'bg-navy text-white' : 'border-[1.5px] border-navy text-navy hover:bg-navy/5'
+                        }`}
+                      >
+                        {sectionLabel[sec]}
+                      </a>
+                    ))}
+                  </nav>
+                  {section === 'events' && <CmsEvents onOpenPage={openPageFromEvents} />}
+                  {section === 'heads' && <CmsHeads />}
+                  {section === 'pages' && <CmsPages initialSlug={openPage} />}
+                  <RecentChanges refreshKey={section} />
+                </div>
+              )}
+
+              {/* Phones: who is signed in, and sign out, under the section. */}
+              <div className="mt-10 flex flex-wrap items-center justify-between gap-2 border-t border-subtle pt-4 text-[14px] text-slate lg:hidden">
+                <span className="min-w-0 break-all">
+                  {b.signedInAs}: <strong className="text-ink">{email}</strong>
+                </span>
+                <button type="button" onClick={signOut} className="min-h-11 font-bold text-navy underline">
+                  {b.signOut}
+                </button>
+              </div>
             </div>
-
-            <nav aria-label={t.areaNav} className="mt-4 flex flex-wrap gap-1 border-b border-ink/15">
-              {mailOn && topTab('mail', t.tabMail, <Badge count={unread} label={b.unreadSuffix} />)}
-              {topTab('content', t.tabContent)}
-              {topTab('test', t.tabTestSite)}
-            </nav>
-
-            {tab === 'mail' && mailOn && (
-              <div className="mt-[18px]">
-                <p className="mb-3.5 text-[14px] text-slate-muted">{t.mailIntro}</p>
-                <BoardMail onUnread={setUnread} />
-              </div>
-            )}
-
-            {tab === 'test' && (
-              <div className="mt-[18px]">
-                <TestSitePanel />
-              </div>
-            )}
-
-            {tab === 'content' && (
-              <div className="mt-[18px]">
-                <p className="mb-3.5 text-[14px] text-slate-muted">{t.contentIntro}</p>
-                <nav aria-label={t.contentNav} className="mb-7 flex flex-wrap gap-2">
-                  {SECTIONS.map((s) => (
-                    <a
-                      key={s}
-                      href={`?tab=content&section=${s}`}
-                      aria-current={section === s ? 'page' : undefined}
-                      onClick={(e) => {
-                        e.preventDefault();
-                        go('content', s);
-                      }}
-                      className={`inline-flex min-h-11 items-center rounded-pill px-5 text-[14px] font-bold transition-colors ${
-                        section === s
-                          ? 'bg-navy text-white'
-                          : 'border-[1.5px] border-navy text-navy hover:bg-navy/5'
-                      }`}
-                    >
-                      {sectionLabel[s]}
-                    </a>
-                  ))}
-                </nav>
-                {section === 'events' && <CmsEvents onOpenPage={openPageFromEvents} />}
-                {section === 'heads' && <CmsHeads />}
-                {section === 'pages' && <CmsPages initialSlug={openPage} />}
-                <RecentChanges refreshKey={section} />
-              </div>
-            )}
-          </>
+          </div>
         )}
       </main>
 

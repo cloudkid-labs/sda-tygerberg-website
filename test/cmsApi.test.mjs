@@ -119,6 +119,16 @@ describe('events', () => {
     assert.equal(audit.data.items[0].by, BOARD);
     assert.ok(audit.data.items[0].changes.every((c) => c.op === 'moved'), 'newest first: the reorder');
     assert.deepEqual(audit.data.items[1].changes, [{ op: 'edited', label: 'Biduur (nuut)', fields: ['name'], from: 'Biduur' }]);
+
+    // A move-only save keeps the order around it, so back-to-back moves can
+    // be shown as one; any other save does not.
+    const moved = audit.data.items.find((a) => a.changes.every((c) => c.op === 'moved'));
+    const edited = audit.data.items.find((a) => a.changes.some((c) => c.op === 'edited'));
+    assert.deepEqual(moved.order.after, items.map((i) => i.id));
+    assert.deepEqual(moved.order.before, [...items].reverse().map((i) => i.id));
+    assert.equal(moved.order.kind, 'list');
+    assert.equal(moved.order.names[items[0].id], items[0].name.af);
+    assert.equal(edited.order, undefined);
   });
 
   test('the audit log pages newest first: 10, 25 or 50 at a time, then a cursor for more', async () => {

@@ -27,6 +27,44 @@ function fakeMessage(to, { failFor = [] } = {}) {
   };
 }
 
+const KEY = 'submissions/2026/10/25/2026-10-25T10:00:00.000Z-abc-1.json';
+
+/** One website thread the board has answered once, as Brevo sent it. */
+function threadBucket() {
+  const store = new Map([[KEY, JSON.stringify({
+    id: 'abc-1', submittedAt: '2026-10-25T10:00:00.000Z', topic: 'connect', name: 'Jan', email: 'jan@example.co.za',
+    phone: null, lang: 'af', message: 'Hallo',
+    replies: [{ by: 'boss@example.co.za', at: '2026-10-26T10:00:00.000Z', body: 'Ons sien jou Sabbat.', messageId: '<ours-1@smtp-relay.mailin.fr>' }],
+  })]]);
+  let seq = 0;
+  const etags = new Map([[KEY, 'e0']]);
+  return {
+    store,
+    bucket: {
+      async put(key, value, opts = {}) {
+        if (opts.onlyIf?.etagMatches && etags.get(key) !== opts.onlyIf.etagMatches) return null;
+        store.set(key, value);
+        etags.set(key, `e${++seq}`);
+        return { key };
+      },
+      async get(key) {
+        const v = store.get(key);
+        return v === undefined ? null : { etag: etags.get(key), async json() { return JSON.parse(v); } };
+      },
+      async list({ prefix = '' } = {}) {
+        return { objects: [...store.keys()].filter((k) => k.startsWith(prefix)).map((key) => ({ key })), truncated: false };
+      },
+    },
+  };
+}
+
+function mime({ from, subject, body, inReplyTo }) {
+  const headers = [`From: ${from}`, 'To: welkom@sdatygerberg.co.za', `Subject: ${subject}`, 'Message-ID: <theirs-1@example.co.za>'];
+  if (inReplyTo) headers.push(`In-Reply-To: ${inReplyTo}`, `References: ${inReplyTo}`);
+  headers.push('Content-Type: text/plain; charset=utf-8');
+  return new Response(`${headers.join('\r\n')}\r\n\r\n${body}`).body;
+}
+
 /** Runs `fn` with console.error captured, so a failure test can read it. */
 async function capturingErrors(fn) {
   const logged = [];
@@ -127,20 +165,34 @@ describe('handleInboundEmail', () => {
     assert.equal(m.rejections.length, 1);
     assert.match(logged.join('\n'), /forward to treasurer@example\.test failed/);
   });
-  test('stores parsed inbound mail in Board Mail after forwarding', async () => {
-    const store = new Map();
-    const bucket = { async put(key, value) { store.set(key, value); } };
+  test('an emailed answer to our reply is filed under its website thread', async () => {
+    const { bucket, store } = threadBucket();
     const m = fakeMessage('welkom@sdatygerberg.co.za');
-    m.message.raw = new Response('From: Jan Example <jan@example.co.za>\r\nTo: welkom@sdatygerberg.co.za\r\nSubject: Re: Hallo\r\nContent-Type: text/plain; charset=utf-8\r\n\r\nDankie, ek sal daar wees.').body;
+    m.message.raw = mime({
+      from: 'Jan Example <jan@example.co.za>',
+      subject: 'Re: Jou boodskap aan Tygerberg SDA',
+      inReplyTo: '<ours-1@smtp-relay.mailin.fr>',
+      body: 'Dankie, ek sal daar wees.\r\n\r\nOn Sun, 1 Nov 2026 at 10:00, Welkom <welkom@sdatygerberg.co.za> wrote:\r\n> Ons sien jou Sabbat.',
+    });
+    await handleInboundEmail(m.message, { MAIL_FORWARD_TO: CHURCH, SUBMISSIONS: bucket });
+    assert.deepEqual(m.attempted, [CHURCH], 'delivery to the church comes first, as before');
+    const thread = JSON.parse(store.get(KEY));
+    assert.equal(thread.replies.length, 2);
+    const answer = thread.replies[1];
+    assert.equal(answer.inbound, true);
+    assert.equal(answer.by, 'jan@example.co.za');
+    assert.equal(answer.body, 'Dankie, ek sal daar wees.', 'the quoted reply is cut off');
+    assert.equal(store.size, 1, 'no separate Board mail item');
+  });
+
+  test('mail that answers no website thread is delivered but not kept in Board mail', async () => {
+    const { bucket, store } = threadBucket();
+    const m = fakeMessage('welkom@sdatygerberg.co.za');
+    m.message.raw = mime({ from: 'Laura <laura@example.co.za>', subject: 'Laura verslag', body: 'Hi Sanet, please see attached :)' });
     await handleInboundEmail(m.message, { MAIL_FORWARD_TO: CHURCH, SUBMISSIONS: bucket });
     assert.deepEqual(m.attempted, [CHURCH]);
     assert.equal(store.size, 1);
-    const item = JSON.parse([...store.values()][0]);
-    assert.equal(item.topic, 'email');
-    assert.equal(item.email, 'jan@example.co.za');
-    assert.equal(item.subject, 'Re: Hallo');
-    assert.equal(item.message, 'Dankie, ek sal daar wees.');
-    assert.equal(item.replyFrom, 'welkom@sdatygerberg.co.za');
+    assert.equal(JSON.parse(store.get(KEY)).replies.length, 1, 'thread untouched');
   });
 
   test('keeps delivered mail when MIME parsing fails', async () => {
@@ -151,7 +203,7 @@ describe('handleInboundEmail', () => {
       assert.deepEqual(m.attempted, [CHURCH]);
       assert.deepEqual(m.rejections, []);
     });
-    assert.match(errors.join(' '), /inbox store failed/);
+    assert.match(errors.join(' '), /thread filing failed/);
   });
 
 });

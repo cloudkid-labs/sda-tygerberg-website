@@ -78,6 +78,17 @@ missing bucket. Production binds `tygerberg-cms`, devtest `tygerberg-cms-devtest
 hand (`consent-cloudkid-link`, `tygerberg-submissions*`) stay outside Terraform,
 as C-69 records; only the new ones are managed here.
 
+## run.ps1
+
+`./run.ps1` (apply), `-Action plan`, `-Action destroy`, `-Action init`. Each
+terraform step runs once — no retries — and its output is shown and logged to
+`logs/`. apply and destroy save the plan, print what it creates, changes and
+destroys, and apply that exact plan only after you type `YES` — or `DESTROY`
+for a destroy or any plan that deletes something. `-AutoApprove` never
+approves a deletion. Before any terraform call it checks that tokens carry no
+whitespace or quotes and that `cloudflare_account_id` is a 32-hex id, not a
+token.
+
 ## Checks
 
 `terraform fmt -check -recursive`, `terraform validate`, `terraform test`.

@@ -4,20 +4,29 @@
   Wrapper for the members-area Terraform config: checks the toolchain, ensures
   local-only config exists, then runs init / plan / apply.
 
+.DESCRIPTION
+  apply and destroy always stop at an approval gate after the plan: the
+  script counts what the saved plan creates, changes and destroys, names every
+  resource it would destroy, and applies that exact plan only after you type
+  the confirmation word — YES for a plan that destroys nothing, DESTROY for a
+  destroy or any plan that deletes a resource.
+
 .EXAMPLE
-  ./run.ps1                 # init (if needed) + apply
-  ./run.ps1 -Action plan    # init (if needed) + plan
-  ./run.ps1 -Action init    # init only
+  ./run.ps1                    # init (if needed) + plan + approval + apply
+  ./run.ps1 -Action plan       # init (if needed) + plan only, changes nothing
+  ./run.ps1 -Action init       # init only
+  ./run.ps1 -Action destroy    # init + destroy plan + DESTROY approval + apply
 #>
 [CmdletBinding()]
 param(
-  [ValidateSet('init', 'plan', 'apply', 'unlock')]
+  [ValidateSet('init', 'plan', 'apply', 'destroy', 'unlock')]
   [string]$Action = 'apply',
   # Only for -Action unlock: the lease ID from the lock error. Only use it
   # when the holder is gone (a crashed run on this machine) — unlocking a
   # live apply corrupts state.
   [string]$LockID = '',
-  # Non-interactive apply (CI): skips the YES prompt. Only pass a reviewed plan.
+  # Non-interactive apply (CI): skips the YES prompt for a plan that destroys
+  # nothing. It never approves a destroy, or any plan that deletes a resource.
   [switch]$AutoApprove
 )
 
@@ -144,7 +153,51 @@ try {
   }
   Show-InputStatus
 
-  # Runs one terraform step and returns ONLY its exit code.
+  # Values that would otherwise fail deep inside a provider with an unhelpful
+  # message. Checked by shape only; no value is ever printed.
+  function Test-InputShapes {
+    # A token with a trailing newline, a surrounding quote or an inner space is
+    # an invalid HTTP header — the provider reports only `invalid header field
+    # value for "Authorization"`. Surrounding whitespace is trimmed for this
+    # run; anything else stops the run.
+    foreach ($name in @('CLOUDFLARE_API_TOKEN', 'GITHUB_TOKEN', 'TF_VAR_brevo_api_key', 'TF_VAR_google_oauth_client_secret')) {
+      $value = [Environment]::GetEnvironmentVariable($name)
+      if ([string]::IsNullOrEmpty($value)) { continue }
+      $trimmed = $value.Trim()
+      if ($trimmed -ne $value) {
+        [Environment]::SetEnvironmentVariable($name, $trimmed)
+        Write-Host "  [fix] $name had surrounding whitespace or a newline — trimmed for this run. Re-set it without one."
+      }
+      if ($trimmed -match '^(?i:bearer)\s') {
+        throw "$name starts with 'Bearer '. Set the token itself; the provider adds the scheme."
+      }
+      if ($trimmed -notmatch '^[\x21-\x7E]+$') {
+        throw "$name contains spaces, quotes or non-printable characters. Re-set it: `$env:$name = '<token>' (value not shown)."
+      }
+      if ($trimmed -match '^["''].*["'']$') {
+        throw "$name is wrapped in quotes. Re-set it without them (value not shown)."
+      }
+    }
+
+    # cloudflare_account_id is an identifier: 32 hex characters, from the
+    # dashboard's Overview page. Anything token-shaped there is a credential in
+    # the wrong field — and it would be printed in every plan.
+    $tfvarsPath = Join-Path $PSScriptRoot 'terraform.tfvars'
+    $line = Select-String -Path $tfvarsPath -Pattern '^\s*cloudflare_account_id\s*=\s*"([^"]*)"' | Select-Object -First 1
+    if ($line) {
+      $accountId = $line.Matches[0].Groups[1].Value
+      if ($accountId -match '^(cfat_|cfut_|cfk_)' -or ($accountId -notmatch '^[0-9a-f]{32}$' -and $accountId.Length -ge 37)) {
+        throw 'cloudflare_account_id in terraform.tfvars holds what looks like an API TOKEN, not the account id. Replace it with the 32-hex Account ID (dashboard -> Overview), and roll that token in Cloudflare (My Profile -> API Tokens): it has been printed in plan output.'
+      }
+      if ($accountId -notmatch '^[0-9a-f]{32}$') {
+        throw 'cloudflare_account_id in terraform.tfvars must be the 32-character hex Account ID (dashboard -> Overview).'
+      }
+    }
+  }
+  Test-InputShapes
+
+  # Runs one terraform step, once, and returns ONLY its exit code. No retry:
+  # a failure stops the run so its error is the last thing on screen.
   #
   # Everything terraform prints — stdout and stderr — goes straight to the
   # console (and so into the transcript) through Out-Host. It must never reach
@@ -152,25 +205,54 @@ try {
   # function, so the caller would get an array of text plus the code, and
   # `-ne 0` on that array is always truthy — the run would report failure even
   # when terraform succeeded, with the real message swallowed.
-  #
-  # Transient file locks (AV scan on a fresh provider exe, stale handle) can fail
-  # an init/plan/apply that would succeed seconds later. Plan is read-only and
-  # apply is state-guarded, so a bounded retry is safe. Only exit code 1
-  # (error) retries: 0 and plan's 2 (changes present) return immediately.
-  function Invoke-TerraformWithRetry {
+  function Invoke-Terraform {
     param([scriptblock]$Step)
     # Local to this function: stderr lines are output to show, not errors.
     $ErrorActionPreference = 'Continue'
-    $code = 1
-    for ($attempt = 1; $attempt -le 3 -and $code -eq 1; $attempt++) {
-      if ($attempt -gt 1) {
-        Write-Host "Attempt $attempt/3 after a 5s pause..."
-        Start-Sleep -Seconds 5
-      }
-      & $Step 2>&1 | ForEach-Object { "$_" } | Out-Host
-      $code = $LASTEXITCODE
+    & $Step 2>&1 | ForEach-Object { "$_" } | Out-Host
+    return [int]$LASTEXITCODE
+  }
+
+  # The approval gate for apply and destroy. Reads the SAVED plan — the exact
+  # thing that will be applied — and counts its actions from the JSON form,
+  # which is parsed in memory and never printed (it can hold sensitive values).
+  # Returns only when approved; throws otherwise.
+  function Confirm-SavedPlan {
+    param([string]$PlanPath, [ValidateSet('apply', 'destroy')][string]$Kind)
+    $ErrorActionPreference = 'Continue'
+    $json = & terraform show -json $PlanPath 2>$null
+    if ($LASTEXITCODE -ne 0 -or -not $json) { throw 'Could not read the saved plan for approval — nothing applied.' }
+    $plan = ($json -join "`n") | ConvertFrom-Json -Depth 100
+    $creates = @(); $updates = @(); $deletes = @()
+    foreach ($rc in @($plan.resource_changes)) {
+      if (-not $rc) { continue }
+      $actions = @($rc.change.actions)
+      if ($actions -contains 'delete') { $deletes += $rc.address }
+      if ($actions -contains 'create') { $creates += $rc.address }
+      if ($actions -contains 'update') { $updates += $rc.address }
     }
-    return [int]$code
+    $needsDestroyWord = ($Kind -eq 'destroy') -or ($deletes.Count -gt 0)
+    $word = if ($needsDestroyWord) { 'DESTROY' } else { 'YES' }
+
+    Write-Host ''
+    Write-Host '================ APPROVAL REQUIRED ================'
+    Write-Host ("  Action:  terraform {0} (the saved plan above, exactly)" -f $(if ($Kind -eq 'destroy') { 'destroy' } else { 'apply' }))
+    Write-Host ("  Create:  {0}" -f $creates.Count)
+    foreach ($a in $creates) { Write-Host "             + $a" }
+    Write-Host ("  Change:  {0}" -f $updates.Count)
+    foreach ($a in $updates) { Write-Host "             ~ $a" }
+    Write-Host ("  Destroy: {0}" -f $deletes.Count)
+    foreach ($a in $deletes) { Write-Host "             - $a" }
+    Write-Host '==================================================='
+
+    if ($AutoApprove) {
+      if ($needsDestroyWord) { throw '-AutoApprove never approves a destroy or a plan that deletes resources. Run interactively.' }
+      Write-Host 'Approved by -AutoApprove (no deletions in this plan).'
+      return
+    }
+    $answer = Read-Host "Type $word to continue, anything else cancels"
+    if ($answer -cne $word) { throw 'Not approved — nothing changed.' }
+    Write-Host 'Approved.'
   }
 
   # Reconfigure only when the backend config actually changed: -reconfigure
@@ -189,7 +271,7 @@ try {
   $needReconfigure = (-not (Test-Path $terraformDir -PathType Container)) -or (-not (Test-Path $hashFile -PathType Leaf)) -or ((Get-Content $hashFile -Raw).Trim() -ne $currentHash)
   $initArgs = @('init', '-backend-config', $backendFile, '-input=false')
   if ($needReconfigure) { $initArgs += '-reconfigure' }
-  $initExit = Invoke-TerraformWithRetry { & terraform @initArgs }
+  $initExit = Invoke-Terraform { & terraform @initArgs }
   if ($initExit -ne 0) {
     Write-Host ''
     Write-Host 'Common init causes (the terraform error is printed above):'
@@ -206,37 +288,30 @@ try {
     'init' { Write-Host 'Init done.' }
     'unlock' {
       if (-not $LockID) { throw 'Pass -LockID <id> from the lock error.' }
-      $unlockExit = Invoke-TerraformWithRetry { & terraform force-unlock -force $LockID }
+      $unlockExit = Invoke-Terraform { & terraform force-unlock -force $LockID }
       if ($unlockExit -ne 0) { throw 'force-unlock failed.' }
     }
     'plan' {
-      $planOnlyExit = Invoke-TerraformWithRetry { & terraform plan -input=false }
+      $planOnlyExit = Invoke-Terraform { & terraform plan -input=false }
       if ($planOnlyExit -ne 0) { throw "terraform plan failed (exit $planOnlyExit). Full output: $logFile" }
     }
-    'apply' {
-      # Approval gate: review the exact plan before anything changes. The saved
-      # plan is what gets applied, so what you saw is what runs. No diff, no
-      # gate: a clean plan reports and stops without asking.
+    { $_ -in @('apply', 'destroy') } {
+      # Plan to a file, gate on that file, apply that file: what you approved
+      # is exactly what runs. No diff, no gate — a clean plan stops here.
       $planFile = Join-Path $PSScriptRoot 'plan.tfplan'
-      $planExit = Invoke-TerraformWithRetry { & terraform plan -detailed-exitcode -out $planFile -input=false }
+      if ($Action -eq 'destroy') {
+        $planExit = Invoke-Terraform { & terraform plan -destroy -detailed-exitcode -out $planFile -input=false }
+      } else {
+        $planExit = Invoke-Terraform { & terraform plan -detailed-exitcode -out $planFile -input=false }
+      }
       if ($planExit -eq 0) {
-        Remove-Item $planFile -Force -ErrorAction SilentlyContinue
         Write-Host 'No changes. Infrastructure matches the configuration — nothing to approve.'
       } elseif ($planExit -eq 2) {
-        if (-not $AutoApprove) {
-          $answer = Read-Host 'Apply this plan? Type YES to continue'
-          if ($answer -ne 'YES') {
-            Remove-Item $planFile -Force -ErrorAction SilentlyContinue
-            $planFile = $null
-            throw 'Apply cancelled — nothing changed.'
-          }
-        }
-        $applyExit = Invoke-TerraformWithRetry { & terraform apply -input=false $planFile }
-        Remove-Item $planFile -Force -ErrorAction SilentlyContinue
-        if ($applyExit -ne 0) { throw "terraform apply failed (exit $applyExit). Full output: $logFile" }
+        Confirm-SavedPlan -PlanPath $planFile -Kind $Action
+        $applyExit = Invoke-Terraform { & terraform apply -input=false $planFile }
+        if ($applyExit -ne 0) { throw "terraform $Action failed (exit $applyExit). Full output: $logFile" }
       } else {
-        Remove-Item $planFile -Force -ErrorAction SilentlyContinue
-        throw "terraform plan failed (exit $planExit). Full output: $logFile"
+        throw "terraform plan failed (exit $planExit). The terraform error is printed above. Full output: $logFile"
       }
     }
   }

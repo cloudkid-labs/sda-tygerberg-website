@@ -34,6 +34,10 @@ export const cmsCopy = {
     recentHeading: 'Onlangse veranderinge',
     recentEmpty: 'Nog geen veranderinge nie.',
     recentNoDetail: 'geen besonderhede aangeteken nie',
+    recentPerPage: 'Per bladsy',
+    recentShowing: 'Wys die nuutste {n}',
+    recentMore: 'Laai nog {n}',
+    recentLoading: 'Laai…',
     audit: {
       actions: {
         'events.save': 'Hierdie week gestoor',
@@ -258,6 +262,10 @@ export const cmsCopy = {
     recentHeading: 'Recent changes',
     recentEmpty: 'No changes yet.',
     recentNoDetail: 'no details recorded',
+    recentPerPage: 'Per page',
+    recentShowing: 'Showing the latest {n}',
+    recentMore: 'Load {n} more',
+    recentLoading: 'Loading…',
     audit: {
       actions: {
         'events.save': 'This week saved',

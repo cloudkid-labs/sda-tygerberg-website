@@ -121,6 +121,32 @@ describe('events', () => {
     assert.deepEqual(audit.data.items[1].changes, [{ op: 'edited', label: 'Biduur (nuut)', fields: ['name'] }]);
   });
 
+  test('the audit log pages newest first: 10, 25 or 50 at a time, then a cursor for more', async () => {
+    const e = env();
+    const cookie = await cookieFor(BOARD);
+    const { data: first } = await call(e, 'GET', '/api/cms/events', { cookie });
+    let items = first.items.map(({ updatedBy, updatedAt, ...rest }) => rest);
+    let rev = 0;
+    // 12 saves, each renaming the first event, so 12 audit lines.
+    for (let n = 1; n <= 12; n++) {
+      items = items.map((it, i) => (i === 0 ? { ...it, name: { af: `Naam ${n}`, en: `Name ${n}` } } : it));
+      const r = await call(e, 'PUT', '/api/cms/events', { cookie, body: { rev, items } });
+      assert.equal(r.status, 200);
+      rev = r.data.rev;
+    }
+    const p1 = await call(e, 'GET', '/api/cms/audit', { cookie });
+    assert.equal(p1.data.items.length, 10, 'default page is 10');
+    assert.ok(p1.data.next, 'more to load');
+    const p2 = await call(e, 'GET', `/api/cms/audit?limit=10&cursor=${encodeURIComponent(p1.data.next)}`, { cookie });
+    assert.equal(p2.data.items.length, 2);
+    assert.equal(p2.data.next, null, 'last page');
+    // Saves in one millisecond may share a key prefix, so check coverage, not order.
+    const labels = [...p1.data.items, ...p2.data.items].map((x) => x.changes[0].label);
+    assert.equal(new Set(labels).size, 12, 'every save once, no page overlap');
+    assert.equal((await call(e, 'GET', '/api/cms/audit?limit=25', { cookie })).data.items.length, 12);
+    assert.equal((await call(e, 'GET', '/api/cms/audit?limit=7', { cookie })).data.items.length, 10, 'an unoffered size gets the default');
+  });
+
   test('invalid events are rejected with the failing fields', async () => {
     const r = await call(env(), 'PUT', '/api/cms/events', {
       cookie: await cookieFor(BOARD),

@@ -2,7 +2,11 @@ import { useEffect, useState } from 'react';
 import { useLanguage } from '../../../context/LanguageContext';
 import { cmsCopy, fill, type CmsCopy } from '../../../data/cmsCopy';
 import type { AuditChange } from '../../../lib/cms/auditDiff';
-import { cmsApi, formatWhen } from './ui';
+import { buttonSecondary, cmsApi, formatWhen } from './ui';
+
+const PAGE_SIZES = [10, 25, 50] as const;
+type PageSize = (typeof PAGE_SIZES)[number];
+type AuditPage = { items: Entry[]; next: string | null };
 
 type Entry = { at: string; by: string; action: string; target: string; detail?: string; changes?: AuditChange[] };
 
@@ -36,23 +40,67 @@ export function RecentChanges({ refreshKey }: { refreshKey: string }) {
   const { lang } = useLanguage();
   const t = cmsCopy[lang];
   const [items, setItems] = useState<Entry[] | null>(null);
+  const [next, setNext] = useState<string | null>(null);
+  const [size, setSize] = useState<PageSize>(10);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [failed, setFailed] = useState(false);
   const [open, setOpen] = useState(false);
 
+  const page = (cursor: string | null) =>
+    cmsApi<AuditPage>('GET', `/api/cms/audit?limit=${size}${cursor ? `&cursor=${encodeURIComponent(cursor)}` : ''}`);
+
+  // First page again whenever the list is opened, an editor saves, or the
+  // page size changes.
   useEffect(() => {
     if (!open) return;
     let live = true;
-    cmsApi<{ items: Entry[] }>('GET', '/api/cms/audit').then((res) => {
-      if (live) setItems(res.ok ? res.data.items : []);
+    setFailed(false);
+    page(null).then((res) => {
+      if (!live) return;
+      setItems(res.ok ? res.data.items : []);
+      setNext(res.ok ? res.data.next : null);
+      setFailed(!res.ok);
     });
     return () => {
       live = false;
     };
-  }, [open, refreshKey]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, refreshKey, size]);
+
+  async function loadMore() {
+    if (!next) return;
+    setLoadingMore(true);
+    const res = await page(next);
+    setLoadingMore(false);
+    if (!res.ok) return setFailed(true);
+    setItems((list) => [...(list ?? []), ...res.data.items]);
+    setNext(res.data.next);
+  }
 
   return (
     <details className="mt-10 rounded-card border border-subtle bg-cream-card" onToggle={(e) => setOpen(e.currentTarget.open)}>
       <summary className="flex min-h-11 cursor-pointer items-center px-4 text-[14px] font-bold text-navy">{t.recentHeading}</summary>
       <div className="border-t border-subtle px-4 py-3">
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+          <span aria-live="polite" className="text-[12.5px] text-slate-muted">
+            {items && items.length > 0 ? fill(t.recentShowing, { n: items.length }) : ''}
+          </span>
+          <label className="flex items-center gap-2 text-[13px] font-bold text-navy">
+            {t.recentPerPage}
+            <select
+              className="min-h-11 rounded-xl border border-strong bg-white px-3 text-[15px] text-ink focus:border-navy focus:outline-none focus:ring-[3px] focus:ring-navy/15"
+              value={size}
+              onChange={(e) => setSize(Number(e.target.value) as PageSize)}
+            >
+              {PAGE_SIZES.map((n) => (
+                <option key={n} value={n}>
+                  {n}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
+        {failed && <p className="mb-2 text-[13.5px] text-[#9a4f0f]">{t.errLoad}</p>}
         {items === null ? null : items.length === 0 ? (
           <p className="text-[13.5px] text-slate-muted">{t.recentEmpty}</p>
         ) : (
@@ -78,6 +126,13 @@ export function RecentChanges({ refreshKey }: { refreshKey: string }) {
               </li>
             ))}
           </ul>
+        )}
+        {next && (
+          <div className="mt-3">
+            <button type="button" className={buttonSecondary} disabled={loadingMore} onClick={loadMore}>
+              {loadingMore ? t.recentLoading : fill(t.recentMore, { n: size })}
+            </button>
+          </div>
         )}
       </div>
     </details>

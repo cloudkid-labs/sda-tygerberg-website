@@ -276,6 +276,9 @@ async function pagesRoute(request: Request, env: CmsEnv, g: { email: string; buc
   return json({ ok: true, rev: next.rev, page, live: nowLive, dirty: isDirty(page, nowLive) }, 200);
 }
 
+/** Page sizes the Recent changes list offers; anything else gets the first. */
+export const AUDIT_PAGE_SIZES = [10, 25, 50];
+
 /** Every /api/cms/* request. */
 export async function handleCms(request: Request, env: CmsEnv): Promise<Response> {
   const g = await gate(request, env);
@@ -291,8 +294,15 @@ export async function handleCms(request: Request, env: CmsEnv): Promise<Response
     case '/api/cms/media':
       return handleMediaUpload(request, env, g);
     case '/api/cms/audit':
+    {
       if (request.method !== 'GET') return json({ ok: false, outcome: 'invalid', errors: ['method'] }, 405);
-      return json({ ok: true, items: await recentAudit(g.bucket) }, 200);
+      const params = new URL(request.url).searchParams;
+      const size = Number(params.get('limit'));
+      const limit = AUDIT_PAGE_SIZES.includes(size) ? size : AUDIT_PAGE_SIZES[0];
+      const cursor = params.get('cursor') ?? undefined;
+      if (cursor !== undefined && (cursor === '' || cursor.length > 1024)) return json({ ok: false, outcome: 'invalid', errors: ['cursor'] }, 400);
+      return json({ ok: true, ...(await recentAudit(g.bucket, limit, cursor)) }, 200);
+    }
     default:
       return json({ ok: false, outcome: 'invalid', errors: ['path'] }, 404);
   }

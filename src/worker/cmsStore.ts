@@ -199,12 +199,18 @@ export async function audit(bucket: R2Bucket, entry: Omit<AuditEntry, 'at'>): Pr
   console.log(`cms: ${entry.action} ${entry.target} by=${entry.by}`);
 }
 
-export async function recentAudit(bucket: R2Bucket, limit = 50): Promise<AuditEntry[]> {
-  const page = await bucket.list({ prefix: 'audit/', limit });
-  const out: AuditEntry[] = [];
-  for (const obj of page.objects) {
-    const hit = await readJson<AuditEntry>(bucket, obj.key);
-    if (hit) out.push(hit.value);
-  }
-  return out;
+/**
+ * One page of the audit log, newest first (the keys count down). `next` is
+ * R2's own list cursor, passed back as is for the following page; null when
+ * there is no more.
+ */
+export async function recentAudit(
+  bucket: R2Bucket,
+  limit = 10,
+  cursor?: string,
+): Promise<{ items: AuditEntry[]; next: string | null }> {
+  const page = await bucket.list({ prefix: 'audit/', limit, ...(cursor ? { cursor } : {}) });
+  const hits = await Promise.all(page.objects.map((obj) => readJson<AuditEntry>(bucket, obj.key)));
+  const items = hits.filter((h): h is { value: AuditEntry; etag: string } => h !== null).map((h) => h.value);
+  return { items, next: page.truncated && page.cursor ? page.cursor : null };
 }

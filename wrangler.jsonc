@@ -259,20 +259,36 @@
         "LIVE_CHECK_CRON": "* 9-12 * * 6",
         "LIVE_CHECK_TZ": "Africa/Johannesburg",
         // Hostnames siteverify must echo back for /api/contact tokens — C-21.
-        "TURNSTILE_HOSTNAMES": "tygerberg-sda.cloudkid.link"
+        "TURNSTILE_HOSTNAMES": "tygerberg-sda.cloudkid.link",
+        // Who may sign in to the members area on the preview — the same people
+        // as production (vars do not inherit, so they are repeated; a test keeps
+        // the two in step). Sign-in also needs GOOGLE_CLIENT_ID,
+        // GOOGLE_CLIENT_SECRET and SESSION_SECRET, which the devtest workflow
+        // uploads; SESSION_SECRET is the preview's own (DEVTEST_SESSION_SECRET,
+        // terraform/), so a preview session never verifies on production.
+        // No MAIL_SEND_FROM or BREVO_API_KEY: board mail can read the devtest
+        // inbox but never sends (C-61). C-70
+        "BOARD_ALLOWED_EMAILS": "muller31jp@gmail.com,sdatygerbergklerk@gmail.com,sdatygerbergkerk@gmail.com,rainiersvn1@gmail.com,johanemomberg@gmail.com",
+        "BOARD_SEND_AS": "muller31jp@gmail.com=tesourier@sdatygerberg.co.za",
+        "BOARD_ADMIN_EMAILS": "rainiersvn1@gmail.com",
+        "BOARD_ADMIN_ONLY_EMAILS": "archive@sdatygerberg.co.za,rainier@sdatygerberg.co.za"
       },
       // Devtest reads and writes its own submissions bucket, so trialling the
       // inbox never touches the production queue. Create with:
       // wrangler r2 bucket create tygerberg-submissions-devtest
       //
-      // TODO(infra): bind CMS -> tygerberg-cms-devtest once terraform/ has
-      // created it (cloudflare_r2_bucket.cms_devtest). Until then devtest has
-      // no CMS bucket and serves the seed — it also has no sign-in secrets, so
-      // the members area cannot be used there either way. C-70
+      // CMS: the preview's own content bucket, created by terraform/
+      // (cloudflare_r2_bucket.cms_devtest). Apply that BEFORE the next devtest
+      // deploy — wrangler refuses a binding to a bucket that does not exist.
+      // C-70
       "r2_buckets": [
         {
           "binding": "SUBMISSIONS",
           "bucket_name": "tygerberg-submissions-devtest"
+        },
+        {
+          "binding": "CMS",
+          "bucket_name": "tygerberg-cms-devtest"
         }
       ]
       // No send_email, r2_buckets or CONTACT_EMAIL_* here on purpose: a preview

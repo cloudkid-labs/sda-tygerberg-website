@@ -16,6 +16,16 @@ name: Deploy devtest (Cloudflare)
 #   CLOUDFLARE_ACCOUNT_ID
 # and deliberately NO YouTube secrets — the devtest Worker runs keyless
 # (see wrangler.jsonc env.devtest for why).
+#
+# Members-area sign-in on the preview (C-70) uploads three Worker secrets:
+#   GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET  the production OAuth client, whose
+#                                           redirect URIs include devtest's
+#   SESSION_SECRET  <- DEVTEST_SESSION_SECRET  the preview's own signing key,
+#                                           created by terraform/, so a preview
+#                                           session never verifies on production
+# All three repo secrets must exist before a run carrying this block: a
+# listed-but-unset name uploads an empty value (sign-in then answers
+# not-configured, as before).
 on:
   push:
     branches: [dev]
@@ -76,6 +86,18 @@ jobs:
           # a distinct Worker on tygerberg-sda.cloudkid.link with no email or
           # consent bindings.
           command: deploy --env devtest
+          # Names only; the action runs `wrangler secret put` for each, reading
+          # the value from this step's env. See the header for why the session
+          # key is the preview's own.
+          secrets: |
+            GOOGLE_CLIENT_ID
+            GOOGLE_CLIENT_SECRET
+            SESSION_SECRET
+        env:
+          # Step-scoped, so none of these is present during the build above.
+          GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
+          GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
+          SESSION_SECRET: ${{ secrets.DEVTEST_SESSION_SECRET }}
 
       # Same script as production, and now with the edge checks it could never
       # run against Pages: /api/* routing, the security headers, and the

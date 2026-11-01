@@ -161,6 +161,17 @@ variable "google_oauth_client_secret" {
   }
 }
 
+variable "devtest_origin" {
+  description = "The devtest preview's origin. Registered on the OAuth client so the preview's members area can sign in (C-70)."
+  type        = string
+  default     = "https://tygerberg-sda.cloudkid.link"
+
+  validation {
+    condition     = can(regex("^https://[^/]+$", var.devtest_origin))
+    error_message = "An https origin with no path or trailing slash."
+  }
+}
+
 variable "extra_redirect_origins" {
   description = "Extra origins to register on the OAuth client, for `wrangler dev`. Production is always included."
   type        = list(string)
@@ -175,7 +186,7 @@ variable "extra_redirect_origins" {
 # ---- Access control ---------------------------------------------------------
 
 variable "session_secret_generation" {
-  description = "Bump to rotate SESSION_SECRET. Rotating signs every board member out."
+  description = "Bump to rotate SESSION_SECRET and DEVTEST_SESSION_SECRET. Rotating signs every board member out."
   type        = number
   default     = 1
 }

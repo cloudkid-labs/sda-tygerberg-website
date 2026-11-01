@@ -1794,8 +1794,8 @@ hand-coded homepage, read from `homeCopy.ts` and `departmentHeads.ts`, so the
 first render after the switch is byte-identical to the last one before it.
 
 **The bucket must exist before the Worker deploy that binds it.** `wrangler
-deploy` refuses a binding to a missing bucket. `terraform/r2.tf` is the
-producer; apply it first.
+deploy` refuses a binding to a missing bucket — production's and devtest's
+alike. `terraform/r2.tf` is the producer; apply it first.
 
 **Rendering into a static site.** The site stays `output: 'static'`. The build
 bakes a JSON payload (the seed) into the page, and the homepage and
@@ -1828,6 +1828,13 @@ transform is a pure function the tests run.
 before a payload exists. Draft pages are never read on a public path; an
 unknown or draft slug gets the normal 404. The built `/page-shell/` is answered
 404 itself.
+
+**The preview signs in too.** Devtest uses the production OAuth client, with
+its own callback registered on it, and its own session key
+(`DEVTEST_SESSION_SECRET`, terraform/), so a cookie minted on a preview running
+unreleased code never verifies on production. Its `BOARD_*` vars repeat
+production's (vars do not inherit; a test keeps them equal). It reads its own
+submissions and CMS buckets and never sends mail.
 
 **Access.** The Worker gates the `/members` HTML as well as every
 `/api/cms/*` route, reads included, through `verifySession` (session and

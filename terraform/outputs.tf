@@ -1,8 +1,8 @@
 output "google_oauth_client_setup" {
   description = "Paste these into the OAuth client in Google Auth Platform (Clients -> Web application)."
   value = {
-    authorized_javascript_origins = concat([local.site_origin], var.extra_redirect_origins)
-    authorized_redirect_uris      = concat([local.redirect_uri], [for o in var.extra_redirect_origins : "${o}/auth/callback"])
+    authorized_javascript_origins = local.oauth_origins
+    authorized_redirect_uris      = [for o in local.oauth_origins : "${o}/auth/callback"]
     scopes                        = ["openid", "email"]
   }
 }

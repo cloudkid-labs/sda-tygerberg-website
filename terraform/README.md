@@ -11,6 +11,7 @@ Actions. Spec: *Church Board Mail via Google Sign-in: Implementation Spec*.
 | `random_password.session` | `SESSION_SECRET`, signs the board session cookie |
 | `github_actions_secret.worker` | `BREVO_API_KEY`, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `SESSION_SECRET` |
 | `cloudflare_r2_bucket.cms`, `.cms_devtest` | Members-area CMS content and images (`tygerberg-cms`, `tygerberg-cms-devtest`), bound as `CMS` in `wrangler.jsonc` — C-70 |
+| `random_password.session_devtest`, `github_actions_secret.devtest_session` | `DEVTEST_SESSION_SECRET`, the devtest preview's own session key, uploaded as its `SESSION_SECRET` by the devtest workflow — C-70 |
 
 ## Not managed here
 
@@ -50,12 +51,30 @@ Actions. Spec: *Church Board Mail via Google Sign-in: Implementation Spec*.
    quoting in `main.tf` (`local.brevo_code_txt`, the DKIM `content`) is wrong for your provider version.
 7. Add the names from `terraform output worker_secrets_block` to the deploy workflow.
 
+## Devtest sign-in (C-70)
+
+The preview at `tygerberg-sda.cloudkid.link` signs in to `/members` with the
+**same** Google OAuth client as production and its **own** session key, so a
+preview session never verifies on production.
+
+1. `terraform apply` — creates `DEVTEST_SESSION_SECRET` (and the CMS buckets).
+2. In Google Auth Platform → Clients → the Web client, add what
+   `terraform output google_oauth_client_setup` now lists for devtest:
+   origin `https://tygerberg-sda.cloudkid.link`, redirect URI
+   `https://tygerberg-sda.cloudkid.link/auth/callback`. If Google asks, add
+   `cloudkid.link` under Branding → Authorized domains.
+3. Re-run *Deploy devtest (Cloudflare)*; it uploads `GOOGLE_CLIENT_ID`,
+   `GOOGLE_CLIENT_SECRET` and `SESSION_SECRET` (from `DEVTEST_SESSION_SECRET`).
+
+Who may sign in is `BOARD_*` in `wrangler.jsonc` `env.devtest.vars`, kept equal
+to production's by a test. The preview never sends mail: no Brevo key, no
+`MAIL_SEND_FROM`.
+
 ## CMS buckets (C-70)
 
 `r2.tf` creates the two buckets the members-area CMS stores content in. Apply it
 **before** the Worker deploy that binds them — `wrangler deploy` fails against a
-missing bucket. Production binds `tygerberg-cms` now; devtest's binding is a TODO
-in `wrangler.jsonc` until `tygerberg-cms-devtest` exists. Existing buckets made by
+missing bucket. Production binds `tygerberg-cms`, devtest `tygerberg-cms-devtest`. Existing buckets made by
 hand (`consent-cloudkid-link`, `tygerberg-submissions*`) stay outside Terraform,
 as C-69 records; only the new ones are managed here.
 

@@ -117,11 +117,22 @@ describe('wrangler routes and bindings', () => {
     );
   });
 
-  test('devtest binds only its own submissions bucket — trialling the inbox never touches prod — C-69', () => {
+  test('devtest binds only its own buckets — trialling the inbox or the CMS never touches prod — C-69, C-70', () => {
     const buckets = config.env.devtest.r2_buckets ?? [];
-    assert.equal(buckets.length, 1);
-    assert.equal(buckets[0].binding, 'SUBMISSIONS');
-    assert.equal(buckets[0].bucket_name, 'tygerberg-submissions-devtest');
+    assert.deepEqual(
+      buckets.map((b) => [b.binding, b.bucket_name]),
+      [
+        ['SUBMISSIONS', 'tygerberg-submissions-devtest'],
+        ['CMS', 'tygerberg-cms-devtest'],
+      ],
+    );
+    assert.ok(buckets.every((b) => b.bucket_name.endsWith('-devtest')));
+  });
+
+  test('devtest signs in the same board as production — vars do not inherit — C-70', () => {
+    for (const key of ['BOARD_ALLOWED_EMAILS', 'BOARD_SEND_AS', 'BOARD_ADMIN_EMAILS', 'BOARD_ADMIN_ONLY_EMAILS']) {
+      assert.equal(config.env.devtest.vars[key], config.vars[key], `${key} differs between production and devtest`);
+    }
   });
 });
 
@@ -135,8 +146,9 @@ describe('the CMS bucket and its producer — C-70', () => {
     assert.ok(managed.includes(cms.bucket_name), `${cms.bucket_name} is not in terraform/r2.tf`);
   });
 
-  test('terraform also creates the devtest bucket the TODO binding will use', () => {
-    assert.ok(managed.includes('tygerberg-cms-devtest'));
+  test('devtest binds CMS to the bucket terraform/ creates for it', () => {
+    const cms = config.env.devtest.r2_buckets.find((b) => b.binding === 'CMS');
+    assert.ok(managed.includes(cms.bucket_name));
   });
 
   test('both Workers carry the import.meta.env define the React render needs', () => {

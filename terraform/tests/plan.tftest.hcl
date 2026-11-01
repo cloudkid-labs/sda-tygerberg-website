@@ -172,3 +172,27 @@ run "creates_the_cms_buckets_wrangler_binds" {
     error_message = "The CMS bucket must live in the site's own Cloudflare account."
   }
 }
+
+run "devtest_signs_in_with_its_own_session_key" {
+  command = plan
+
+  assert {
+    condition     = contains(output.google_oauth_client_setup.authorized_redirect_uris, "https://tygerberg-sda.cloudkid.link/auth/callback")
+    error_message = "The devtest callback must be registered on the OAuth client."
+  }
+
+  assert {
+    condition     = contains(output.google_oauth_client_setup.authorized_javascript_origins, "https://tygerberg-sda.cloudkid.link")
+    error_message = "The devtest origin must be registered on the OAuth client."
+  }
+
+  assert {
+    condition     = github_actions_secret.devtest_session.secret_name == "DEVTEST_SESSION_SECRET"
+    error_message = "The devtest workflow reads DEVTEST_SESSION_SECRET."
+  }
+
+  assert {
+    condition     = !contains(keys(github_actions_secret.worker), "DEVTEST_SESSION_SECRET")
+    error_message = "The preview's session key is its own secret, never one of production's."
+  }
+}

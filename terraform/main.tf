@@ -2,6 +2,10 @@ locals {
   site_origin  = "https://${var.domain}"
   redirect_uri = "${local.site_origin}/auth/callback"
 
+  # Every origin the one OAuth client signs in from: production, the devtest
+  # preview, then the extras (wrangler dev). Order is what the output prints.
+  oauth_origins = distinct(concat([local.site_origin, var.devtest_origin], var.extra_redirect_origins))
+
   # True once the Google OAuth client exists and both values are supplied.
   # `nonsensitive` is safe: it exposes only whether the values are set.
   google_client_ready = nonsensitive(var.google_oauth_client_id != null && var.google_oauth_client_secret != null)
@@ -93,4 +97,26 @@ resource "github_actions_secret" "worker" {
   repository  = var.github_repository
   secret_name = each.key
   value       = local.worker_secret_values[each.key]
+}
+
+# ---- Devtest preview sign-in (C-70) -----------------------------------------
+# The preview signs in with the production OAuth client (devtest's callback is
+# registered on it, see outputs.tf) but its own session key, so a cookie minted
+# on the preview — which runs unreleased code — never verifies on production.
+# deploy-devtest-cloudflare.yml uploads this as the devtest Worker's
+# SESSION_SECRET. Apply before the devtest deploy that lists it.
+
+resource "random_password" "session_devtest" {
+  length  = 48
+  special = false
+
+  keepers = {
+    generation = var.session_secret_generation
+  }
+}
+
+resource "github_actions_secret" "devtest_session" {
+  repository  = var.github_repository
+  secret_name = "DEVTEST_SESSION_SECRET"
+  value       = random_password.session_devtest.result
 }

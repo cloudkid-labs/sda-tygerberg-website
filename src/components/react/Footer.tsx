@@ -3,6 +3,7 @@ import { useLanguage } from '../../context/LanguageContext';
 import { homeCopy } from '../../data/homeCopy';
 import { SERVICE_TIMES, SITE, serviceRange } from '../../data/site';
 import { Logo } from './Logo';
+import { SocialLinks } from './SocialLinks';
 
 export function Footer() {
   const { lang } = useLanguage();
@@ -33,6 +34,11 @@ export function Footer() {
             {t.footerVisit}
           </div>
           <p className="mb-1 text-sm">{SITE.address}</p>
+          {/* Under the address, not in the brand column — the canvas puts
+              "find us" and "follow us" together. */}
+          <div className="mt-4.5">
+            <SocialLinks label={t.followUs} newTab={t.opensNewTab} variant="navy" />
+          </div>
         </div>
         <div>
           <div className="mb-2 text-xs font-bold uppercase tracking-[.08em] text-blue-muted">

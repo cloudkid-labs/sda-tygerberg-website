@@ -1,6 +1,6 @@
 # terraform
 
-Manages the infrastructure behind the church board mail page (`/kerkraad`): Brevo DNS
+Manages the infrastructure behind the members area (`/members`: board mail and the CMS): Brevo DNS
 records on `sdatygerberg.co.za` and the Worker's deploy secrets in GitHub
 Actions. Spec: *Church Board Mail via Google Sign-in: Implementation Spec*.
 
@@ -10,6 +10,8 @@ Actions. Spec: *Church Board Mail via Google Sign-in: Implementation Spec*.
 | `google_project.this` | New Google Cloud project that holds the OAuth consent screen and client (protected from destroy) |
 | `random_password.session` | `SESSION_SECRET`, signs the board session cookie |
 | `github_actions_secret.worker` | `BREVO_API_KEY`, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `SESSION_SECRET` |
+| `cloudflare_r2_bucket.cms`, `.cms_devtest` | Members-area CMS content and images (`tygerberg-cms`, `tygerberg-cms-devtest`), bound as `CMS` in `wrangler.jsonc` — C-70 |
+| `random_password.session_devtest`, `github_actions_secret.devtest_session` | `DEVTEST_SESSION_SECRET`, the devtest preview's own session key, uploaded as its `SESSION_SECRET` by the devtest workflow — C-70 |
 
 ## Not managed here
 
@@ -31,7 +33,7 @@ Actions. Spec: *Church Board Mail via Google Sign-in: Implementation Spec*.
    subscription you own, not an employer's.
 2. `cp backend.hcl.example backend.hcl`, fill in `resource_group_name` (tenant, subscription and storage account are prefilled; the container is `sda-tygerberg`).
 3. `az login` and `gcloud auth application-default login`, then export `CLOUDFLARE_API_TOKEN` (Zone:Read + DNS:Edit on this
-   zone only) and `GITHUB_TOKEN` (fine-grained, Secrets read/write on this repo only).
+   zone only, plus Account → Workers R2 Storage:Edit for the CMS buckets) and `GITHUB_TOKEN` (fine-grained, Secrets read/write on this repo only).
 4. `terraform init -backend-config=backend.hcl`
 
 ## First apply
@@ -48,6 +50,44 @@ Actions. Spec: *Church Board Mail via Google Sign-in: Implementation Spec*.
 6. Run `terraform plan`. It must be empty. A diff on a TXT record means the
    quoting in `main.tf` (`local.brevo_code_txt`, the DKIM `content`) is wrong for your provider version.
 7. Add the names from `terraform output worker_secrets_block` to the deploy workflow.
+
+## Devtest sign-in (C-70)
+
+The preview at `tygerberg-sda.cloudkid.link` signs in to `/members` with the
+**same** Google OAuth client as production and its **own** session key, so a
+preview session never verifies on production.
+
+1. `terraform apply` — creates `DEVTEST_SESSION_SECRET` (and the CMS buckets).
+2. In Google Auth Platform → Clients → the Web client, add what
+   `terraform output google_oauth_client_setup` now lists for devtest:
+   origin `https://tygerberg-sda.cloudkid.link`, redirect URI
+   `https://tygerberg-sda.cloudkid.link/auth/callback`. If Google asks, add
+   `cloudkid.link` under Branding → Authorized domains.
+3. Re-run *Deploy devtest (Cloudflare)*; it uploads `GOOGLE_CLIENT_ID`,
+   `GOOGLE_CLIENT_SECRET` and `SESSION_SECRET` (from `DEVTEST_SESSION_SECRET`).
+
+Who may sign in is `BOARD_*` in `wrangler.jsonc` `env.devtest.vars`, kept equal
+to production's by a test. The preview never sends mail: no Brevo key, no
+`MAIL_SEND_FROM`.
+
+## CMS buckets (C-70)
+
+`r2.tf` creates the two buckets the members-area CMS stores content in. Apply it
+**before** the Worker deploy that binds them — `wrangler deploy` fails against a
+missing bucket. Production binds `tygerberg-cms`, devtest `tygerberg-cms-devtest`. Existing buckets made by
+hand (`consent-cloudkid-link`, `tygerberg-submissions*`) stay outside Terraform,
+as C-69 records; only the new ones are managed here.
+
+## run.ps1
+
+`./run.ps1` (apply), `-Action plan`, `-Action destroy`, `-Action init`. Each
+terraform step runs once — no retries — and its output is shown and logged to
+`logs/`. apply and destroy save the plan, print what it creates, changes and
+destroys, and apply that exact plan only after you type `yes` (any case) — or `DESTROY`, exactly,
+for a destroy or any plan that deletes something. `-AutoApprove` never
+approves a deletion. Before any terraform call it checks that tokens carry no
+whitespace or quotes and that `cloudflare_account_id` is a 32-hex id, not a
+token.
 
 ## Checks
 

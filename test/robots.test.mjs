@@ -27,4 +27,11 @@ describe('robotsTxt', () => {
     assert.match(txt, /^Disallow: \/auth\/$/m);
     assert.match(txt, /^Disallow: \/api\/mail\/$/m);
   });
+
+  test('production disallows the members area and the CMS API', () => {
+    const txt = robotsTxt(true, SITEMAP);
+    assert.match(txt, /^Disallow: \/members\/$/m);
+    assert.match(txt, /^Disallow: \/no-access\/$/m);
+    assert.match(txt, /^Disallow: \/api\/cms\/$/m);
+  });
 });

@@ -176,6 +176,15 @@
       "allowed_sender_addresses": ["welkom@sdatygerberg.co.za"]
     }
   ],
+  // The Worker renders React for the CMS (src/worker/cmsRender.tsx, C-70) and
+  // those components read `import.meta.env`, which only Vite defines. This is
+  // the Worker's copy of the two values they read at module scope: BASE_URL,
+  // and PUBLIC_IMAGE_CDN left undefined (= enabled). The build's own flags reach
+  // the render through the page payload instead. Not inherited — env.devtest
+  // repeats it.
+  "define": {
+    "import.meta.env": "{\"BASE_URL\":\"/\"}"
+  },
   // Consent records for /api/contact submissions — CONCERNS.md C-34.
   //
   // A bucket that already existed in the account and had nothing writing to it:
@@ -204,6 +213,16 @@
     {
       "binding": "SUBMISSIONS",
       "bucket_name": "tygerberg-submissions"
+    },
+    // Website content for the members-area CMS: events, department heads,
+    // pages (draft and live), images, history and the audit log — C-70.
+    // Created by terraform/ (cloudflare_r2_bucket.cms), which must be applied
+    // BEFORE a deploy carrying this binding: wrangler refuses to deploy against
+    // a bucket that does not exist. Unbound, the site serves the seed and
+    // /api/cms answers `not-configured`.
+    {
+      "binding": "CMS",
+      "bucket_name": "tygerberg-cms"
     }
   ],
   "routes": [
@@ -233,19 +252,46 @@
     "devtest": {
       "name": "tygerberg-sda-website-devtest",
       "routes": [{ "pattern": "tygerberg-sda.cloudkid.link", "custom_domain": true }],
+      "define": {
+        "import.meta.env": "{\"BASE_URL\":\"/\"}"
+      },
       "vars": {
         "LIVE_CHECK_CRON": "* 9-12 * * 6",
         "LIVE_CHECK_TZ": "Africa/Johannesburg",
         // Hostnames siteverify must echo back for /api/contact tokens — C-21.
-        "TURNSTILE_HOSTNAMES": "tygerberg-sda.cloudkid.link"
+        "TURNSTILE_HOSTNAMES": "tygerberg-sda.cloudkid.link",
+        // Who may sign in to the members area on the preview — the same people
+        // as production (vars do not inherit, so they are repeated; a test keeps
+        // the two in step). Sign-in also needs GOOGLE_CLIENT_ID,
+        // GOOGLE_CLIENT_SECRET and SESSION_SECRET, which the devtest workflow
+        // uploads; SESSION_SECRET is the preview's own (DEVTEST_SESSION_SECRET,
+        // terraform/), so a preview session never verifies on production.
+        // Board mail is switched off here entirely: BOARD_MAIL "off" makes
+        // every /api/mail/* route but the session check answer 404, and the
+        // members page hides the tab. (There is no MAIL_SEND_FROM or
+        // BREVO_API_KEY either, so it could never send — C-61.) C-70
+        "BOARD_ALLOWED_EMAILS": "muller31jp@gmail.com,sdatygerbergklerk@gmail.com,sdatygerbergkerk@gmail.com,rainiersvn1@gmail.com,johanemomberg@gmail.com",
+        "BOARD_SEND_AS": "muller31jp@gmail.com=tesourier@sdatygerberg.co.za",
+        "BOARD_ADMIN_EMAILS": "rainiersvn1@gmail.com",
+        "BOARD_ADMIN_ONLY_EMAILS": "archive@sdatygerberg.co.za,rainier@sdatygerberg.co.za",
+        "BOARD_MAIL": "off"
       },
       // Devtest reads and writes its own submissions bucket, so trialling the
       // inbox never touches the production queue. Create with:
       // wrangler r2 bucket create tygerberg-submissions-devtest
+      //
+      // CMS: the preview's own content bucket, created by terraform/
+      // (cloudflare_r2_bucket.cms_devtest). Apply that BEFORE the next devtest
+      // deploy — wrangler refuses a binding to a bucket that does not exist.
+      // C-70
       "r2_buckets": [
         {
           "binding": "SUBMISSIONS",
           "bucket_name": "tygerberg-submissions-devtest"
+        },
+        {
+          "binding": "CMS",
+          "bucket_name": "tygerberg-cms-devtest"
         }
       ]
       // No send_email, r2_buckets or CONTACT_EMAIL_* here on purpose: a preview

@@ -293,7 +293,17 @@ Cloudflare's own Bot Fight Mode / WAF rule remain **off by default**.
 
 ## Editing content
 
-All copy and structured content is under `src/data/`, away from components:
+**Board members** edit three things without code, in the members area at
+`/members` → Website content (sign in at `/login`): the "Hierdie week" cards,
+the department heads and their headshots, and pages built from the standard
+template. Publish is live on the next request; drafts never reach a visitor.
+How that works, and what it depends on — [C-70](./CONCERNS.md#c-70--the-cms-stores-content-in-r2-and-the-worker-renders-it-into-static-pages).
+
+Once a board member has saved, the CMS's R2 bucket is the source for those
+three; `homeCopy.ts` (the `week` list) and `departmentHeads.ts` are only the
+seed it started from and the fallback when the bucket is empty or unbound.
+
+Everything else is under `src/data/`, away from components:
 
 | File | Holds |
 |---|---|
@@ -301,7 +311,7 @@ All copy and structured content is under `src/data/`, away from components:
 | `homeCopy.ts` | Homepage copy, weekly schedule, "your first visit" answers |
 | `beliefsCopy.ts` | Beliefs-page header copy |
 | `beliefs.ts` | All 28 Fundamental Beliefs, bilingual, in 6 categories |
-| `departmentHeads.ts` | Carousel roster — 22 people, 14 with headshots |
+| `departmentHeads.ts` | Seed for the CMS's department heads — 22 people, 14 with headshots |
 | `requestCopy.ts` | `/connect` and `/bible-studies` copy, incl. POPIA wording |
 | `resources.ts` | External resource links (logos in `public/logos/`) |
 | `giving.ts` | `/giving` page copy, EFT banking details, Zapper link |
@@ -312,7 +322,12 @@ No phone numbers or email addresses anywhere in content —
 [C-20](./CONCERNS.md#c-20--popia-shapes-what-the-form-asks-and-what-it-stores).
 
 Adding a page? `src/pages/sitemap.xml.ts` lists routes by hand — nothing
-enumerates `src/pages/` for you.
+enumerates `src/pages/` for you — and its name must go into `RESERVED_SLUGS`
+(`src/lib/cms/validate.ts`) so a CMS page can never take it; a test fails
+until it does. CMS pages are added to the sitemap by the Worker.
+
+Social links (YouTube, Instagram, Facebook) live once, in `SOCIAL_LINKS` in
+`site.ts`.
 
 ### Zapper on `/giving`
 
@@ -353,6 +368,9 @@ The homepage video always embeds the channel's auto-generated uploads playlist,
 newest-first, no API key. Which video plays never depends on `YOUTUBE_API_KEY`.
 
 ### Adding a department-head photo
+
+In the members area: Website content → Department heads → Replace photo, then
+Publish. The steps below are for the seeded roster's own files only.
 
 1. Put the original in `public/images/hod/`.
 2. `npm run headshots` — builds its fallback copy, and checks the rest.

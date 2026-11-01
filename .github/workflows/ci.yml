@@ -52,6 +52,13 @@ jobs:
       - name: Build
         run: npm run build
 
+      # The Worker splices live CMS content into built pages by re-rendering the
+      # same React components (C-70). If its render of the build's own payload
+      # differs from what Astro rendered, every homepage view would hydrate
+      # against the wrong markup.
+      - name: Check the Worker's CMS render matches the build
+        run: node --import ./test/register.mjs scripts/check-cms-render.mjs
+
       # The build writes the Content-Security-Policy into dist/_headers from the
       # hashes of the inline scripts it just emitted. A build that quietly
       # shipped no policy would look identical from here.

@@ -18,9 +18,10 @@ import type { APIContext } from 'astro';
  */
 export function robotsTxt(indexable: boolean, sitemapUrl: string): string {
   if (!indexable) return 'User-agent: *\nDisallow: /\n';
-  // /kerkraad is a private board page: crawlable site, uncrawlable page.
+  // The members area is private: crawlable site, uncrawlable pages. /kerkraad
+  // now only redirects to /members, and stays listed for old links. C-70
   return (
-    `User-agent: *\nAllow: /\nDisallow: /kerkraad/\nDisallow: /auth/\nDisallow: /api/mail/\n\nSitemap: ${sitemapUrl}\n`
+    `User-agent: *\nAllow: /\nDisallow: /members/\nDisallow: /no-access/\nDisallow: /kerkraad/\nDisallow: /auth/\nDisallow: /api/mail/\nDisallow: /api/cms/\n\nSitemap: ${sitemapUrl}\n`
   );
 }
 

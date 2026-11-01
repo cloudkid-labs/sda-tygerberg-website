@@ -117,10 +117,70 @@ describe('wrangler routes and bindings', () => {
     );
   });
 
-  test('devtest binds only its own submissions bucket — trialling the inbox never touches prod — C-69', () => {
+  test('devtest binds only its own buckets — trialling the inbox or the CMS never touches prod — C-69, C-70', () => {
     const buckets = config.env.devtest.r2_buckets ?? [];
-    assert.equal(buckets.length, 1);
-    assert.equal(buckets[0].binding, 'SUBMISSIONS');
-    assert.equal(buckets[0].bucket_name, 'tygerberg-submissions-devtest');
+    assert.deepEqual(
+      buckets.map((b) => [b.binding, b.bucket_name]),
+      [
+        ['SUBMISSIONS', 'tygerberg-submissions-devtest'],
+        ['CMS', 'tygerberg-cms-devtest'],
+      ],
+    );
+    assert.ok(buckets.every((b) => b.bucket_name.endsWith('-devtest')));
   });
+
+  test('devtest signs in the same board as production — vars do not inherit — C-70', () => {
+    for (const key of ['BOARD_ALLOWED_EMAILS', 'BOARD_SEND_AS', 'BOARD_ADMIN_EMAILS', 'BOARD_ADMIN_ONLY_EMAILS']) {
+      assert.equal(config.env.devtest.vars[key], config.vars[key], `${key} differs between production and devtest`);
+    }
+  });
+
+  test('devtest switches Board mail off; production leaves it on', () => {
+    assert.equal(config.env.devtest.vars.BOARD_MAIL, 'off');
+    assert.ok(!('BOARD_MAIL' in config.vars) || config.vars.BOARD_MAIL !== 'off', 'production must keep Board mail');
+  });
+});
+
+describe('the CMS bucket and its producer — C-70', () => {
+  const r2tf = readFileSync(new URL('../terraform/r2.tf', import.meta.url), 'utf8');
+  const managed = [...r2tf.matchAll(/name\s*=\s*"([^"]+)"/g)].map((m) => m[1]);
+
+  test('production binds CMS to a bucket terraform/ creates', () => {
+    const cms = config.r2_buckets.find((b) => b.binding === 'CMS');
+    assert.ok(cms, 'CMS binding missing');
+    assert.ok(managed.includes(cms.bucket_name), `${cms.bucket_name} is not in terraform/r2.tf`);
+  });
+
+  test('devtest binds CMS to the bucket terraform/ creates for it', () => {
+    const cms = config.env.devtest.r2_buckets.find((b) => b.binding === 'CMS');
+    assert.ok(managed.includes(cms.bucket_name));
+  });
+
+  test('both Workers carry the import.meta.env define the React render needs', () => {
+    for (const block of [config, config.env.devtest]) {
+      assert.deepEqual(JSON.parse(block.define['import.meta.env']), { BASE_URL: '/' });
+    }
+  });
+});
+
+/*
+ * wrangler-action uploads `secrets:` with `wrangler secret bulk`, adding
+ * `--env` only from its own `environment` input — never from `command`. A
+ * step that deploys `--env devtest` without `environment: devtest` uploads its
+ * secrets to the top-level Worker, which is production (C-70).
+ */
+describe('wrangler-action secrets reach the Worker the step deploys', () => {
+  const workflowDir = new URL('../.github/workflows/', import.meta.url);
+  for (const file of ['deploy-devtest-cloudflare.yml', 'deploy-production-cloudflare.yml']) {
+    const yml = readFileSync(new URL(file, workflowDir), 'utf8');
+    const steps = yml.split(/\n\s*- name: /).filter((s) => s.includes('cloudflare/wrangler-action'));
+    test(`${file}: secrets upload targets the deployed env`, () => {
+      assert.ok(steps.length > 0, 'no wrangler-action step found');
+      for (const step of steps) {
+        const cmdEnv = step.match(/^\s*command:.*--env[ =](\S+)/m)?.[1] ?? null;
+        const inputEnv = step.match(/^\s*environment:\s*(\S+)/m)?.[1] ?? null;
+        if (/^\s*secrets:/m.test(step)) assert.equal(inputEnv, cmdEnv, 'environment: must equal the --env in command');
+      }
+    });
+  }
 });

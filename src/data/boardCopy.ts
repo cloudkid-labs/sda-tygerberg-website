@@ -1,8 +1,9 @@
 import type { Lang } from './site';
 
 /**
- * Copy for the private board-mail page (/kerkraad). Afrikaans first — the
- * document ships as lang="af" and the toggle swaps the body client-side.
+ * Copy for board mail inside the members area (/members) and for /login.
+ * Afrikaans first — the document ships as lang="af" and the toggle swaps the
+ * body client-side.
  */
 
 export type BoardCopy = {
@@ -21,6 +22,10 @@ export type BoardCopy = {
   termsLabel: string;
   signOut: string;
   signedInAs: string;
+  /** Login card eyebrow, "Members only". */
+  loginEyebrow: string;
+  /** Screen-reader suffix on the unread count badge. */
+  unreadSuffix: string;
   inboxTabs: string;
   tabInbox: string;
   tabSent: string;
@@ -101,23 +106,25 @@ export const FROM_ADDRESSES = [
 
 export const boardCopy: Record<Lang, BoardCopy> = {
   af: {
-    pageTitle: 'Kerkraadpos · Tygerberg SDA Kerk',
+    pageTitle: 'Lede-area · Tygerberg SDA Kerk',
     pageDescription:
-      'Privaat bladsy vir kerkraadslede om as die kerk se amptelike adresse te skryf.',
+      'Privaat bladsy vir kerkraadslede: kerkraadpos en webwerf-inhoud.',
     backHome: 'Tuis',
-    heading: 'Kerkraadpos',
-    sub: 'Boodskappe van besoekers, en skryf as die kerk se amptelike adresse. Net kerkraadslede het toegang.',
-    signIn: 'Teken in met Google',
-    signInHint: 'Jou Google-rekening moet op die kerkraadlys wees.',
+    heading: 'Lede-area',
+    sub: 'Kerkraadpos en webwerf-inhoud. Net vir kerkraadslede.',
+    signIn: 'Gaan voort met Google',
+    signInHint: 'Nie op die lys nie? Vra ’n kerkraadslid om jou Google-adres by te voeg.',
     loginHeading: 'Teken in',
     loginSub:
-      'Die kerkraadpos is vir lede met ’n leierspos (’n ampsdraer) in die kerk. Teken in met jou Google-rekening om voort te gaan.',
+      'Kerkraadpos en webwerf-inhoud. Gebruik jou Google-rekening — die kerkraad gee toegang.',
     loginPageTitle: 'Teken in · Tygerberg SDA Kerk',
-    loginPageDescription: 'Teken in met jou Google-rekening vir kerkraadpos.',
+    loginPageDescription: 'Teken in met jou Google-rekening vir die lede-area: kerkraadpos en webwerf-inhoud.',
     privacyLabel: 'Privaatheidsbeleid',
     termsLabel: 'Algemene voorwaardes',
     signOut: 'Meld af',
     signedInAs: 'Aangemeld as',
+    loginEyebrow: 'Net vir lede',
+    unreadSuffix: 'nuwe boodskappe',
     inboxTabs: 'Kies inkassie, gestuurde boodskappe of nuwe boodskap',
     tabInbox: 'Inkassie',
     tabSent: 'Gestuur',
@@ -189,23 +196,25 @@ export const boardCopy: Record<Lang, BoardCopy> = {
     errNetwork: 'Iets het met die verbinding verkeerd gegaan. Probeer weer.',
   },
   en: {
-    pageTitle: 'Board Mail · Tygerberg SDA Church',
+    pageTitle: 'Members area · Tygerberg SDA Church',
     pageDescription:
-      'Private page for board members to write as the church’s official addresses.',
+      'Private page for board members: board mail and website content.',
     backHome: 'Home',
-    heading: 'Board mail',
-    sub: 'Messages from visitors, and write as the church’s official addresses. Board members only.',
-    signIn: 'Sign in with Google',
-    signInHint: 'Your Google account must be on the board list.',
+    heading: 'Members area',
+    sub: 'Board mail and website content. Board members only.',
+    signIn: 'Continue with Google',
+    signInHint: 'Not on the list? Ask a board member to add your Google address.',
     loginHeading: 'Sign in',
     loginSub:
-      'Board mail is for anyone with a lead position (an office-bearer) in the church. Sign in with your Google account to continue.',
+      'Board mail and website content. Use your Google account — access is granted by the church board.',
     loginPageTitle: 'Sign in · Tygerberg SDA Church',
-    loginPageDescription: 'Sign in with your Google account for board mail.',
+    loginPageDescription: 'Sign in with your Google account for the members area: board mail and website content.',
     privacyLabel: 'Privacy policy',
     termsLabel: 'Terms & conditions',
     signOut: 'Sign out',
     signedInAs: 'Signed in as',
+    loginEyebrow: 'Members only',
+    unreadSuffix: 'new messages',
     inboxTabs: 'Choose inbox, sent mail or new message',
     tabInbox: 'Inbox',
     tabSent: 'Sent',

@@ -8,7 +8,7 @@ import {
   handleAuthCallback,
   handleAuthLogin,
   handleAuthLogout,
-  handleMailSession,
+  boardMailEnabled, handleMailSession,
   type AuthEnv,
 } from './auth';
 import { handleMailSend, type MailSendEnv } from './mailSend';
@@ -16,6 +16,11 @@ import { handleInboxList, handleInboxMessage, handleInboxReply, handleInboxDelet
 import { healthResponse } from './health';
 import { handleInboundEmail, type InboundEmailEnv } from './inboundEmail';
 import { requestFacts, requestLogEntry } from './requestLog';
+import { isLegacyBoardPath, isMembersPath, legacyBoardRedirect, membersGate, noAccess } from './members';
+import { handleCms, type CmsEnv } from './cms';
+import { serveMedia } from './cmsMedia';
+import { serveCmsPage, serveHome, serveSitemap } from './cmsPublic';
+import { renderAboutSection, renderEventsSection, renderPageRoot, renderWeekSection } from './cmsRender';
 
 export type Env = LiveStatusEnv &
   LatestVideoEnv &
@@ -23,9 +28,13 @@ export type Env = LiveStatusEnv &
   InboundEmailEnv &
   AuthEnv &
   MailSendEnv &
-  InboxEnv & {
+  InboxEnv &
+  CmsEnv & {
     ASSETS: Fetcher;
   };
+
+/** The React renders the Worker writes into built pages — C-70. */
+const RENDER = { week: renderWeekSection, events: renderEventsSection, about: renderAboutSection, page: renderPageRoot };
 
 /**
  * A headshot master, but not one of the pre-resized copies under `fallback/`.
@@ -111,6 +120,20 @@ async function route(request: Request, env: Env, ctx: ExecutionContext): Promise
     return handleContact(request, env);
   }
 
+  // The members area: gated HTML, the 403 page, and the old board-mail
+  // address. C-70.
+  if (isMembersPath(pathname)) {
+    return membersGate(request, env);
+  }
+
+  if (pathname === '/no-access' || pathname === '/no-access/') {
+    return noAccess(request, env);
+  }
+
+  if (isLegacyBoardPath(pathname)) {
+    return legacyBoardRedirect(request);
+  }
+
   if (pathname === '/auth/login') {
     return handleAuthLogin(request, env);
   }
@@ -125,6 +148,11 @@ async function route(request: Request, env: Env, ctx: ExecutionContext): Promise
 
   if (pathname === '/api/mail/session') {
     return handleMailSession(request, env);
+  }
+
+  // Board mail switched off (devtest): no inbox, no send, whatever the caller.
+  if (pathname.startsWith('/api/mail/') && !boardMailEnabled(env)) {
+    return Response.json({ ok: false, outcome: 'disabled' }, { status: 404, headers: { 'Cache-Control': 'no-store' } });
   }
 
   if (pathname === '/api/mail/send') {
@@ -150,6 +178,28 @@ async function route(request: Request, env: Env, ctx: ExecutionContext): Promise
 
   if (pathname === '/api/mail/sent') {
     return handleInboxSent(request, env);
+  }
+
+  if (pathname.startsWith('/api/cms/')) {
+    return handleCms(request, env);
+  }
+
+  if (pathname.startsWith('/media/')) {
+    return (await serveMedia(request, env)) ?? env.ASSETS.fetch(new Request(new URL('/__missing__', request.url), request));
+  }
+
+  // The CMS page shell is an implementation detail, never a page of its own.
+  if (pathname === '/page-shell' || pathname.startsWith('/page-shell/')) {
+    return env.ASSETS.fetch(new Request(new URL('/__missing__', request.url), request));
+  }
+
+  // Live CMS content into the built homepage — C-70.
+  if (pathname === '/' && (request.method === 'GET' || request.method === 'HEAD')) {
+    return serveHome(request, env, RENDER);
+  }
+
+  if (pathname === '/sitemap.xml') {
+    return serveSitemap(request, env);
   }
 
   if (pathname === '/api/live-status') {
@@ -185,5 +235,9 @@ async function route(request: Request, env: Env, ctx: ExecutionContext): Promise
     );
   }
 
-  return env.ASSETS.fetch(request);
+  const asset = await env.ASSETS.fetch(request);
+  // No file for this path: a live CMS page, or the 404 the build already has.
+  // Drafts are never looked up here (C-70).
+  if (asset.status === 404) return (await serveCmsPage(request, env, RENDER)) ?? asset;
+  return asset;
 }

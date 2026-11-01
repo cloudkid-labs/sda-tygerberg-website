@@ -25,3 +25,7 @@ google_project_id = "<globally-unique-id>"
 # Leave both out for the first apply. After creating the Web client in Google
 # Auth Platform, add them and apply again.
 # google_oauth_client_id = "<digits>-<id>.apps.googleusercontent.com"
+
+# Cloudflare dashboard -> any zone -> Overview -> Account ID. Owns the CMS R2
+# buckets in r2.tf.
+cloudflare_account_id = "<32-hex account id>"

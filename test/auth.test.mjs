@@ -8,7 +8,7 @@ import {
 } from '../src/worker/auth.ts';
 
 /*
- * Google sign-in for /kerkraad: login starts the PKCE flow, the callback
+ * Google sign-in for /members: login starts the PKCE flow, the callback
  * finishes it and sets the session, the session check gates every API call.
  * One status for every rejection — valid session or nothing to learn.
  */
@@ -137,10 +137,10 @@ describe('handleAuthCallback', () => {
     );
   }
 
-  test('success sets the session and redirects to /kerkraad/', async () => {
+  test('success sets the session and redirects to /members/', async () => {
     const res = await callbackWith(goodClaims());
     assert.equal(res.status, 303);
-    assert.equal(res.headers.get('location'), '/kerkraad/');
+    assert.equal(res.headers.get('location'), '/members/');
     // Two separate headers: a folded Set-Cookie line costs the session in
     // every browser, while get('set-cookie') would still match.
     const cookies = res.headers.getSetCookie();
@@ -153,17 +153,18 @@ describe('handleAuthCallback', () => {
     ['unverified email', { email_verified: false }],
     ['unlisted address', { email: 'stranger@example.co.za' }],
   ]) {
-    test(`forbidden redirect on ${name}`, async () => {
+    test(`refused to the 403 page on ${name}, with no session`, async () => {
       const res = await callbackWith(goodClaims(claims));
       assert.equal(res.status, 303);
-      assert.match(res.headers.get('location') ?? '', /forbidden/);
+      assert.equal(res.headers.get('location'), '/no-access/');
+      assert.ok(!res.headers.getSetCookie().some((c) => /^__Host-kerkraad=[^;]+/.test(c)));
     });
   }
 
   test('uppercase allow-list address signs in', async () => {
     const res = await callbackWith(goodClaims({ email: 'BOSS@example.co.za' }));
     assert.equal(res.status, 303);
-    assert.equal(res.headers.get('location'), '/kerkraad/');
+    assert.equal(res.headers.get('location'), '/members/');
   });
 });
 

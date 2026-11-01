@@ -1,8 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
-import { LanguageProvider, useLanguage } from '../../context/LanguageContext';
+import { useLanguage } from '../../context/LanguageContext';
 import { boardCopy, FROM_ADDRESSES, type BoardCopy } from '../../data/boardCopy';
-import { SubPageHeader } from './SubPageHeader';
-import { SubPageFooter } from './SubPageFooter';
 
 type Phase = 'loading' | 'signed-out' | 'ready';
 type View = 'inbox' | 'sent' | 'trash' | 'write';
@@ -145,8 +143,12 @@ function ThreadSections({
  * answerable from the page, plus the compose form beside it. Standard
  * list-detail; the view and the open thread live in the URL so a refresh or
  * a shared link lands in the same place.
+ *
+ * Rendered inside the members area (MembersPage), which owns the page chrome,
+ * the heading and the signed-in row. `onUnread` reports the count of
+ * unanswered threads for the shell's Board mail badge.
  */
-function KerkraadContent() {
+export function BoardMail({ onUnread }: { onUnread?: (count: number) => void }) {
   const { lang } = useLanguage();
   const t = boardCopy[lang];
   const [phase, setPhase] = useState<Phase>('loading');
@@ -370,13 +372,6 @@ function KerkraadContent() {
     })();
   }, [loadInbox, loadSent, openMessage, openSentMessage]);
 
-  async function signOut() {
-    await fetch('/auth/logout', { method: 'POST' });
-    setEmail('');
-    setIsAdmin(false);
-    setAllowedSenders([]);
-    setPhase('signed-out');
-  }
 
   /** Admin-only: trashes the open thread, or permanently deletes it from the trash. */
   async function deleteThread() {
@@ -566,19 +561,17 @@ function KerkraadContent() {
     network: t.errNetwork,
   };
 
+  /**
+   * Unanswered threads are the "new" ones — the reply count is the state,
+   * see ThreadSections. The members shell shows this on its Board mail tab.
+   */
+  const unread = threads.filter((x) => x.replies.length === 0).length;
+  useEffect(() => {
+    if (phase === 'ready' && !threadsLoading && !threadsError) onUnread?.(unread);
+  }, [phase, threadsLoading, threadsError, unread, onUnread]);
+
   return (
-    <div className="flex min-h-screen flex-col font-sans text-ink">
-      <SubPageHeader backHome={t.backHome} />
-
-      <main id="main" className="flex-1">
-        <section className="mx-auto max-w-[900px] px-5 pb-8 pt-14 sm:px-7 sm:pt-16">
-          <h1 className="mb-3 font-serif text-[clamp(28px,5vw,42px)] font-medium leading-[1.1] tracking-[-.015em] text-ink">
-            {t.heading}
-          </h1>
-          <p className="max-w-[560px] text-[16.5px] leading-relaxed text-slate">{t.sub}</p>
-        </section>
-
-        <section className="mx-auto max-w-[900px] px-5 pb-16 sm:px-7">
+    <div>
           {phase === 'loading' && (
             <div aria-hidden="true" className="grid gap-3">
               {[0, 1, 2].map((i) => (
@@ -606,15 +599,6 @@ function KerkraadContent() {
 
           {phase === 'ready' && (
             <div>
-              <div className="mb-6 flex items-center justify-between gap-4 text-[13.5px] text-slate">
-                <span>
-                  {t.signedInAs} <strong className="text-ink">{email}</strong>
-                </span>
-                <button type="button" onClick={signOut} className="font-bold text-navy underline">
-                  {t.signOut}
-                </button>
-              </div>
-
               <div role="tablist" aria-label={t.inboxTabs} className="mb-6 flex flex-wrap gap-2">
                 {(['inbox', 'sent', 'trash', 'write'] as View[]).map((v) => (
                   <button
@@ -628,11 +612,17 @@ function KerkraadContent() {
                       else if (v === 'sent') void loadSent();
                       else if (v === 'trash') void loadTrash();
                     }}
-                    className={`rounded-pill px-5 py-2.5 text-[14px] font-bold transition-colors ${
+                    className={`inline-flex min-h-11 items-center rounded-pill px-5 text-[14px] font-bold transition-colors ${
                       view === v ? 'bg-navy text-white' : 'border-[1.5px] border-navy text-navy hover:bg-navy hover:text-white'
                     }`}
                   >
                     {v === 'inbox' ? t.tabInbox : v === 'sent' ? t.tabSent : v === 'trash' ? t.tabTrash : t.tabWrite}
+                    {v === 'inbox' && unread > 0 && (
+                      <span className="ml-2 rounded-pill bg-orange px-[7px] py-0.5 text-[11px] font-bold text-ink">
+                        {unread}
+                        <span className="sr-only"> {t.unreadSuffix}</span>
+                      </span>
+                    )}
                   </button>
                 ))}
               </div>
@@ -1123,18 +1113,6 @@ function KerkraadContent() {
               )}
             </div>
           )}
-        </section>
-      </main>
-
-      <SubPageFooter backHome={t.backHome} />
     </div>
-  );
-}
-
-export function KerkraadPage() {
-  return (
-    <LanguageProvider>
-      <KerkraadContent />
-    </LanguageProvider>
   );
 }

@@ -182,16 +182,27 @@ try {
     # cloudflare_account_id is an identifier: 32 hex characters, from the
     # dashboard's Overview page. Anything token-shaped there is a credential in
     # the wrong field — and it would be printed in every plan.
-    $tfvarsPath = Join-Path $PSScriptRoot 'terraform.tfvars'
-    $line = Select-String -Path $tfvarsPath -Pattern '^\s*cloudflare_account_id\s*=\s*"([^"]*)"' | Select-Object -First 1
-    if ($line) {
-      $accountId = $line.Matches[0].Groups[1].Value
-      if ($accountId -match '^(cfat_|cfut_|cfk_)' -or ($accountId -notmatch '^[0-9a-f]{32}$' -and $accountId.Length -ge 37)) {
-        throw 'cloudflare_account_id in terraform.tfvars holds what looks like an API TOKEN, not the account id. Replace it with the 32-hex Account ID (dashboard -> Overview), and roll that token in Cloudflare (My Profile -> API Tokens): it has been printed in plan output.'
+    # Every source Terraform reads is checked: the env var, then each *.tfvars
+    # file here (terraform.tfvars and *.auto.tfvars are both loaded). The
+    # saved plan is checked again at the approval gate, whatever the source.
+    $sources = @()
+    $envValue = [Environment]::GetEnvironmentVariable('TF_VAR_cloudflare_account_id')
+    if (-not [string]::IsNullOrEmpty($envValue)) { $sources += [pscustomobject]@{ Where = 'env TF_VAR_cloudflare_account_id'; Value = $envValue.Trim().Trim('"') } }
+    foreach ($file in @(Get-ChildItem -Path $PSScriptRoot -Filter '*.tfvars' -File -ErrorAction SilentlyContinue) + @(Get-ChildItem -Path $PSScriptRoot -Filter '*.auto.tfvars.json' -File -ErrorAction SilentlyContinue)) {
+      foreach ($m in @(Select-String -Path $file.FullName -Pattern '^\s*"?cloudflare_account_id"?\s*[=:]\s*"?([^"\s,]*)"?')) {
+        $sources += [pscustomobject]@{ Where = $file.Name; Value = $m.Matches[0].Groups[1].Value }
       }
-      if ($accountId -notmatch '^[0-9a-f]{32}$') {
-        throw 'cloudflare_account_id in terraform.tfvars must be the 32-character hex Account ID (dashboard -> Overview).'
-      }
+    }
+    foreach ($src in $sources) { Assert-AccountIdShape -Value $src.Value -Where $src.Where }
+  }
+
+  function Assert-AccountIdShape {
+    param([string]$Value, [string]$Where)
+    if ($Value -match '^(cfat_|cfut_|cfk_)' -or ($Value -notmatch '^[0-9a-f]{32}$' -and $Value.Length -ge 37)) {
+      throw "cloudflare_account_id ($Where) holds what looks like an API TOKEN, not the account id. Replace it with the 32-hex Account ID (dashboard -> Overview), and roll that token in Cloudflare (My Profile -> API Tokens): it has been printed in plan output."
+    }
+    if ($Value -notmatch '^[0-9a-f]{32}$') {
+      throw "cloudflare_account_id ($Where) must be the 32-character hex Account ID (dashboard -> Overview)."
     }
   }
   Test-InputShapes
@@ -230,6 +241,16 @@ try {
       if ($actions -contains 'delete') { $deletes += $rc.address }
       if ($actions -contains 'create') { $creates += $rc.address }
       if ($actions -contains 'update') { $updates += $rc.address }
+    }
+    # Source-agnostic backstop: any Cloudflare resource whose planned
+    # account_id is not a 32-hex id is refused before the prompt (value never
+    # printed — it is usually a token pasted into the wrong field).
+    foreach ($rc in @($plan.resource_changes)) {
+      if (-not $rc -or $rc.type -notlike 'cloudflare_*') { continue }
+      $after = $rc.change.after
+      if ($after -and $after.PSObject.Properties.Name -contains 'account_id' -and $after.account_id) {
+        Assert-AccountIdShape -Value ([string]$after.account_id) -Where "planned for $($rc.address)"
+      }
     }
     $needsDestroyWord = ($Kind -eq 'destroy') -or ($deletes.Count -gt 0)
     $word = if ($needsDestroyWord) { 'DESTROY' } else { 'YES' }

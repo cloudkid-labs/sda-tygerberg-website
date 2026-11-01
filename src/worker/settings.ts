@@ -1,7 +1,7 @@
 /// <reference types="@cloudflare/workers-types" />
 
 import { allowedFrom, isAdmin, isAdminOnlyEmail, senders, type AuthEnv } from './auth';
-import { audit, keepHistory, readJson, writeJson } from './cmsStore';
+import { audit, keepHistory, readHeads, readJson, writeJson } from './cmsStore';
 import type { AuditChange } from '../lib/cms/auditDiff';
 import { normEmail, validateSettings, type MailSettings, type SettingsOptions } from '../lib/mailSettings';
 
@@ -38,10 +38,13 @@ const list = (v: string | undefined) =>
     .map(normEmail)
     .filter(Boolean);
 
+/** Deploy config's admins, before the overlay widened BOARD_ADMIN_EMAILS. */
+const superAdmins = (env: SettingsEnv) => list(env.BOARD_SUPER_ADMIN_EMAILS ?? env.BOARD_ADMIN_EMAILS);
+
 /** What settings may choose from — deploy config, never editable here. */
 export function settingsOptions(env: SettingsEnv): SettingsOptions {
   return {
-    admins: list(env.BOARD_ADMIN_EMAILS),
+    superAdmins: superAdmins(env),
     senders: [...senders(env)].filter((a) => !isAdminOnlyEmail(env, a)),
     destinations: list(env.MAIL_DESTINATIONS),
     domain: normEmail(env.CONTACT_EMAIL_FROM).split('@')[1] || 'sdatygerberg.co.za',
@@ -52,7 +55,7 @@ export function settingsOptions(env: SettingsEnv): SettingsOptions {
 
 /** The settings the vars describe — what the tab shows before the first save. */
 export function settingsFromConfig(env: SettingsEnv): MailSettings {
-  const admins = new Set(list(env.BOARD_ADMIN_EMAILS));
+  const admins = new Set(superAdmins(env));
   const regular = new Set(settingsOptions(env).senders);
   return {
     members: list(env.BOARD_ALLOWED_EMAILS)
@@ -60,6 +63,7 @@ export function settingsFromConfig(env: SettingsEnv): MailSettings {
       .map((email) => ({ email, sendAs: allowedFrom(env, email).filter((a) => regular.has(a)).sort() })),
     routes: Object.entries(env.MAIL_ROUTES ?? {}).map(([address, to]) => ({ address: normEmail(address), to: normEmail(to) })),
     notify: list(env.CONTACT_EMAIL_TO).sort(),
+    profiles: [],
   };
 }
 
@@ -78,11 +82,13 @@ export function applySettings<E extends SettingsEnv>(env: E, s: MailSettings): E
   const o = settingsOptions(env);
   const regular = new Set(o.senders);
   const dest = new Set(o.destinations);
-  const admins = new Set(o.admins);
-  const members = s.members.filter((m) => m.email && !admins.has(m.email));
+  const supers = o.superAdmins;
+  const members = s.members.filter((m) => m.email && !supers.includes(m.email));
   const notify = s.notify.filter((a) => dest.has(a) && a !== o.archive);
   return {
     ...env,
+    BOARD_SUPER_ADMIN_EMAILS: supers.join(','),
+    BOARD_ADMIN_EMAILS: [...supers, ...members.filter((m) => m.admin).map((m) => m.email)].join(','),
     BOARD_ALLOWED_EMAILS: members.map((m) => m.email).join(','),
     // An entry with no addresses fences that member to nothing (fail closed).
     BOARD_SEND_AS: members.map((m) => `${m.email}=${m.sendAs.filter((a) => regular.has(a)).join(',')}`).join(';'),
@@ -120,7 +126,13 @@ export function diffSettings(before: MailSettings, after: MailSettings): AuditCh
   for (const m of after.members) {
     const old = byEmail.get(m.email);
     if (!old) changes.push({ op: 'added', label: m.email });
-    else if (old.sendAs.join() !== m.sendAs.join()) changes.push({ op: 'edited', label: m.email, fields: ['sendAs'] });
+    else {
+      const fields = [
+        ...(old.sendAs.join() !== m.sendAs.join() ? ['sendAs'] : []),
+        ...(Boolean(old.admin) !== Boolean(m.admin) ? ['admin'] : []),
+      ];
+      if (fields.length) changes.push({ op: 'edited', label: m.email, fields });
+    }
   }
   for (const m of before.members) if (!nowEmail.has(m.email)) changes.push({ op: 'removed', label: m.email });
   const routeTo = new Map(before.routes.map((r) => [r.address, r.to]));
@@ -132,6 +144,13 @@ export function diffSettings(before: MailSettings, after: MailSettings): AuditCh
   }
   for (const r of before.routes) if (!nowRoute.has(r.address)) changes.push({ op: 'removed', label: `${r.address} → ${r.to}` });
   if (before.notify.join() !== after.notify.join()) changes.push({ op: 'edited', label: after.notify.join(', '), fields: ['notify'] });
+  const who = (p?: { head?: string; name?: string; photo?: string }) =>
+    p ? (p.head ? `head:${p.head}` : `name:${p.name}|${p.photo ?? ''}`) : '';
+  const was = new Map((before.profiles ?? []).map((p) => [p.email, p]));
+  const now = new Map((after.profiles ?? []).map((p) => [p.email, p]));
+  for (const email of new Set([...was.keys(), ...now.keys()])) {
+    if (who(was.get(email)) !== who(now.get(email))) changes.push({ op: 'edited', label: email, fields: ['name'] });
+  }
   return changes;
 }
 
@@ -152,13 +171,16 @@ export async function settingsRoute(
   const current = await readSettings(g.bucket);
   const inForce = current?.doc.settings ?? settingsFromConfig(env);
   if (request.method === 'GET') {
+    // The department heads a profile picture can come from.
+    const { doc: heads } = await readHeads(g.bucket);
     return json(
       {
         ok: true,
         rev: current?.doc.rev ?? 0,
         source: current ? 'saved' : 'config',
-        settings: inForce,
+        settings: { ...inForce, profiles: inForce.profiles ?? [] },
         options,
+        heads: heads.items.map((h) => ({ id: h.id, name: h.name, photo: h.photo?.src ?? null })),
         updatedBy: current?.doc.updatedBy ?? null,
         updatedAt: current?.doc.updatedAt ?? null,
       },
@@ -180,4 +202,20 @@ export async function settingsRoute(
   const changes = diffSettings(inForce, next.settings);
   if (changes.length) await audit(g.bucket, { by: g.email, action: 'settings.save', target: 'settings', changes });
   return json({ ok: true, rev: next.rev, source: 'saved', settings: next.settings, options, updatedBy: next.updatedBy, updatedAt: next.updatedAt }, 200);
+}
+
+/**
+ * GET /api/cms/profile — who the signed-in member is: the name and headshot
+ * of the department head Settings links them to, or the name typed in for a
+ * board member with no HOD position (no photo: the page then shows the
+ * default avatar, as a head without a photo does).
+ */
+export async function profileRoute(request: Request, g: { email: string; bucket: R2Bucket }): Promise<Response> {
+  if (request.method !== 'GET') return json({ ok: false, outcome: 'invalid', errors: ['method'] }, 405);
+  const saved = await readSettings(g.bucket);
+  const profile = saved?.doc.settings.profiles?.find((p) => p.email === g.email);
+  if (!profile?.head) return json({ ok: true, email: g.email, name: profile?.name ?? null, photo: profile?.photo ?? null }, 200);
+  const { doc } = await readHeads(g.bucket);
+  const hit = doc.items.find((h) => h.id === profile.head);
+  return json({ ok: true, email: g.email, name: hit?.name ?? null, photo: hit?.photo?.src ?? null }, 200);
 }

@@ -5,17 +5,30 @@
  * a website enquiry. Saved settings stand in for the matching wrangler vars;
  * until the first save the vars are the settings.
  *
- * What stays in deploy config, on purpose: the admins (so nobody can lock
- * everyone out) and the addresses mail may be delivered to — Cloudflare only
+ * What stays in deploy config, on purpose: the SuperAdmins (so nobody can
+ * lock everyone out, and no admin can revoke them) and the addresses mail may be delivered to — Cloudflare only
  * delivers to verified destinations, and only sends to the fenced ones.
  */
-export type MemberSetting = { email: string; sendAs: string[] };
+/** `admin`: an admin made here — everything but the SuperAdmin-only identities. */
+export type MemberSetting = { email: string; sendAs: string[]; admin?: boolean };
 export type RouteSetting = { address: string; to: string };
-export type MailSettings = { members: MemberSetting[]; routes: RouteSetting[]; notify: string[] };
+/**
+ * Who a sign-in address belongs to: a department head (`head`, the HOD entry
+ * — their name and headshot), or, for a board member with no HOD position, a
+ * name typed in (`name`, shown with the default avatar). One or the other.
+ */
+export type ProfileSetting = { email: string; head?: string; name?: string; photo?: string };
+/** An uploaded profile picture (POST /api/cms/media?kind=profile). */
+export const PROFILE_PHOTO = /^\/media\/profiles\/[a-z0-9-]+\.jpg$/;
+export const MAX_NAME = 80;
+export type MailSettings = { members: MemberSetting[]; routes: RouteSetting[]; notify: string[]; profiles: ProfileSetting[] };
+
+const HEAD_ID = /^[a-z0-9][a-z0-9-]{0,63}$/;
 
 /** What the settings may choose from, from deploy config. */
 export type SettingsOptions = {
-  admins: string[];
+  /** Deploy config's admins: not editable or revocable here. */
+  superAdmins: string[];
   /** Role addresses members may send as (admin-only identities excluded). */
   senders: string[];
   /** Verified destinations: delivery targets for routes and notifications. */
@@ -44,7 +57,7 @@ type Result = { ok: true; value: MailSettings } | { ok: false; errors: string[] 
 export function validateSettings(input: unknown, o: SettingsOptions): Result {
   const errors: string[] = [];
   const src = (input && typeof input === 'object' ? input : {}) as Record<string, unknown>;
-  const admins = new Set(o.admins.map(normEmail));
+  const admins = new Set(o.superAdmins.map(normEmail));
   const senders = new Set(o.senders.map(normEmail));
   const destinations = new Set(o.destinations.map(normEmail));
   const archive = normEmail(o.archive);
@@ -62,7 +75,8 @@ export function validateSettings(input: unknown, o: SettingsOptions): Result {
       seen.add(email);
       const sendAs = Array.isArray(r.sendAs) ? [...new Set(r.sendAs.map(normEmail))] : null;
       if (!sendAs || sendAs.some((a) => !senders.has(a))) errors.push(`members.${i}.sendAs`);
-      members.push({ email, sendAs: (sendAs ?? []).filter((a) => senders.has(a)).sort() });
+      if (r.admin !== undefined && typeof r.admin !== 'boolean') errors.push(`members.${i}.admin`);
+      members.push({ email, sendAs: (sendAs ?? []).filter((a) => senders.has(a)).sort(), ...(r.admin === true ? { admin: true } : {}) });
     });
   }
 
@@ -93,5 +107,30 @@ export function validateSettings(input: unknown, o: SettingsOptions): Result {
   // Someone must hear of an enquiry — where there is anywhere to send it.
   else if (notify.length === 0 && destinations.size > 0) errors.push('notify.empty');
 
-  return errors.length ? { ok: false, errors } : { ok: true, value: { members, routes, notify } };
+  // Optional: documents saved before profiles existed have none. Anyone who
+  // may sign in (admin or member) may have one; a head id that no longer
+  // exists just shows the default avatar.
+  const profiles: ProfileSetting[] = [];
+  const rawProfiles = src.profiles === undefined ? [] : Array.isArray(src.profiles) ? src.profiles : null;
+  if (!rawProfiles) errors.push('profiles');
+  else {
+    const people = new Set([...admins, ...members.map((m) => m.email)]);
+    const seen = new Set<string>();
+    rawProfiles.forEach((x, i) => {
+      const r = (x && typeof x === 'object' ? x : {}) as Record<string, unknown>;
+      const email = normEmail(r.email);
+      const head = typeof r.head === 'string' ? r.head.trim() : '';
+      const name = typeof r.name === 'string' ? r.name.replace(/\s+/g, ' ').trim() : '';
+      // A picture of their own only without an HOD entry, and never required.
+      const photo = typeof r.photo === 'string' ? r.photo.trim() : '';
+      const one = head
+        ? HEAD_ID.test(head) && !name && !photo
+        : name.length > 0 && name.length <= MAX_NAME && (!photo || PROFILE_PHOTO.test(photo));
+      if (!people.has(email) || seen.has(email) || !one) errors.push(`profiles.${i}`);
+      seen.add(email);
+      profiles.push(head ? { email, head } : { email, name, ...(photo ? { photo } : {}) });
+    });
+  }
+
+  return errors.length ? { ok: false, errors } : { ok: true, value: { members, routes, notify, profiles } };
 }

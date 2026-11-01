@@ -1,6 +1,6 @@
 /// <reference types="@cloudflare/workers-types" />
 
-import { verifySession, type AuthEnv } from './auth';
+import { isAdmin, verifySession, type AuthEnv } from './auth';
 import {
   audit,
   deletePageLive,
@@ -24,7 +24,7 @@ import { handleMediaUpload, type MediaEnv } from './cmsMedia';
 import { STATIC_PAGE_SLUGS, validateEvents, validateHeads, validatePage, isValidSlug } from '../lib/cms/validate';
 import type { ChurchEvent, DepartmentHead, Page } from '../lib/cms/types';
 import { diffEvents, diffHeads, diffPage, eventsOrder, headsOrder, isMoveOnly, pageOrder } from '../lib/cms/auditDiff';
-import { settingsRoute, type SettingsEnv } from './settings';
+import { profileRoute, settingsRoute, type SettingsEnv } from './settings';
 
 /**
  * /api/cms/* — the members area's content API (C-70).
@@ -301,7 +301,13 @@ export async function handleCms(request: Request, env: CmsEnv): Promise<Response
     case '/api/cms/pages':
       return pagesRoute(request, env, g);
     case '/api/cms/media':
+      // Profile pictures belong to Settings, which only admins may change.
+      if (new URL(request.url).searchParams.get('kind') === 'profile' && !isAdmin(env, g.email)) {
+        return json({ ok: false, outcome: 'forbidden' }, 403);
+      }
       return handleMediaUpload(request, env, g);
+    case '/api/cms/profile':
+      return profileRoute(request, g);
     case '/api/cms/settings':
       return settingsRoute(request, env, g, () => readBody(request));
     case '/api/cms/audit':

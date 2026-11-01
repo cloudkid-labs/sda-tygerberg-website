@@ -63,6 +63,7 @@ export const cmsCopy = {
       fields: {
         kind: 'soort',
         sendAs: 'stuur-as-adresse',
+        admin: 'administrateur',
         to: 'bestemming',
         notify: 'kennisgewings',
         day: 'dag',
@@ -298,6 +299,7 @@ export const cmsCopy = {
       fields: {
         kind: 'type',
         sendAs: 'send-as addresses',
+        admin: 'admin',
         to: 'destination',
         notify: 'notifications',
         day: 'day',

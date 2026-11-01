@@ -1,6 +1,6 @@
 /// <reference types="@cloudflare/workers-types" />
 
-import { verifySession, allowedFrom, senders, isAdmin, isAdminOnlyEmail, type AuthEnv } from './auth';
+import { verifySession, allowedFrom, senders, isAdmin, isAdminOnlyEmail, type AuthEnv, isSuperAdmin } from './auth';
 import { mailHtml, LOGO_REMOTE_URL } from './signature';
 
 export type MailSendEnv = AuthEnv & {
@@ -232,7 +232,7 @@ export async function handleMailSend(request: Request, env: MailSendEnv): Promis
   if (errors.length > 0) return json({ ok: false, outcome: 'invalid', errors }, 400);
 
   // Admin-only addresses are restricted in both the From and recipient fields.
-  if (!isAdmin(env, session.email) && to.some((address) => isAdminOnlyEmail(env, address))) {
+  if (!isSuperAdmin(env, session.email) && to.some((address) => isAdminOnlyEmail(env, address))) {
     return json({ ok: false, outcome: 'not-allowed', errors: ['to'] }, 403);
   }
 

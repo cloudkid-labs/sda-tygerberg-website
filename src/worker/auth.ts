@@ -20,6 +20,12 @@ export type AuthEnv = {
    * Administrators can sign in and use all Board Mail actions and sender identities.
    */
   BOARD_ADMIN_EMAILS?: string;
+  /**
+   * The SuperAdmins — deploy config's BOARD_ADMIN_EMAILS, kept here by the
+   * Settings overlay (settings.ts) once it widens BOARD_ADMIN_EMAILS with the
+   * admins Settings names. Unset: BOARD_ADMIN_EMAILS are the SuperAdmins.
+   */
+  BOARD_SUPER_ADMIN_EMAILS?: string;
   /** Board Mail addresses reserved for admin use in From and recipient fields. */
   BOARD_ADMIN_ONLY_EMAILS?: string;
   /**
@@ -112,15 +118,28 @@ function allowList(env: AuthEnv): Set<string> {
   );
 }
 
-/** Admins may sign in and use every Board Mail function. */
+const listHas = (value: string | undefined, email: string) =>
+  (value ?? '')
+    .split(',')
+    .map((s) => s.trim().toLowerCase())
+    .filter(Boolean)
+    .includes(email.trim().toLowerCase());
+
+/**
+ * Admins may sign in and use every Board Mail function and Settings — the
+ * SuperAdmins plus anyone Settings makes an admin (C-71).
+ */
 export function isAdmin(env: AuthEnv, email: string): boolean {
-  const admins = new Set(
-    (env.BOARD_ADMIN_EMAILS ?? '')
-      .split(',')
-      .map((s) => s.trim().toLowerCase())
-      .filter(Boolean),
-  );
-  return admins.has(email.trim().toLowerCase());
+  return listHas(env.BOARD_ADMIN_EMAILS, email) || isSuperAdmin(env, email);
+}
+
+/**
+ * SuperAdmins are set in deploy config and no admin can revoke them. They
+ * alone use the admin-only identities (BOARD_ADMIN_ONLY_EMAILS — the archive
+ * and a SuperAdmin's own address) and see mail to or from them.
+ */
+export function isSuperAdmin(env: Pick<AuthEnv, 'BOARD_ADMIN_EMAILS' | 'BOARD_SUPER_ADMIN_EMAILS'>, email: string): boolean {
+  return listHas(env.BOARD_SUPER_ADMIN_EMAILS ?? env.BOARD_ADMIN_EMAILS, email);
 }
 
 function adminOnlyEmails(env: Pick<AuthEnv, 'BOARD_ADMIN_ONLY_EMAILS'>): Set<string> {
@@ -132,12 +151,14 @@ function adminOnlyEmails(env: Pick<AuthEnv, 'BOARD_ADMIN_ONLY_EMAILS'>): Set<str
   );
 }
 
-/** True for addresses that only an administrator may use in Board Mail. */
+/** True for addresses that only a SuperAdmin may use in Board Mail. */
 export function isAdminOnlyEmail(env: Pick<AuthEnv, 'BOARD_ADMIN_ONLY_EMAILS'>, email: string): boolean {
   return adminOnlyEmails(env).has(email.trim().toLowerCase());
 }
 
-type SendersEnv = Pick<AuthEnv, 'BOARD_SEND_AS' | 'BOARD_ADMIN_EMAILS' | 'BOARD_ADMIN_ONLY_EMAILS'> & { MAIL_SEND_FROM?: string };
+type SendersEnv = Pick<AuthEnv, 'BOARD_SEND_AS' | 'BOARD_ADMIN_EMAILS' | 'BOARD_SUPER_ADMIN_EMAILS' | 'BOARD_ADMIN_ONLY_EMAILS'> & {
+  MAIL_SEND_FROM?: string;
+};
 
 export function senders(env: SendersEnv): Set<string> {
   return new Set(
@@ -158,9 +179,11 @@ export function senders(env: SendersEnv): Set<string> {
  */
 export function allowedFrom(env: SendersEnv, email: string): string[] {
   const all = senders(env);
-  if (isAdmin(env, email)) return [...all];
+  if (isSuperAdmin(env, email)) return [...all];
   const adminOnly = adminOnlyEmails(env);
   const eligible = new Set([...all].filter((address) => !adminOnly.has(address)));
+  // An admin made in Settings sends as every role address, not the SuperAdmin-only ones.
+  if (isAdmin(env, email)) return [...eligible];
   const entry = (env.BOARD_SEND_AS ?? '')
     .split(';')
     .map((s) => s.trim().toLowerCase())
@@ -376,6 +399,7 @@ export async function handleAuthLogout(request: Request): Promise<Response> {
 export async function handleMailSession(request: Request, env: AuthEnv): Promise<Response> {
   const check = await verifySession(request, env);
   if (!check.ok) return json({ ok: false, outcome: check.outcome }, check.outcome === 'not-configured' ? 503 : 401);
-  if (!boardMailEnabled(env)) return json({ ok: true, email: check.email, mail: false, admin: isAdmin(env, check.email) }, 200);
-  return json({ ok: true, email: check.email, mail: true, admin: isAdmin(env, check.email), allowedFrom: allowedFrom(env, check.email) }, 200);
+  const roles = { admin: isAdmin(env, check.email), superAdmin: isSuperAdmin(env, check.email) };
+  if (!boardMailEnabled(env)) return json({ ok: true, email: check.email, mail: false, ...roles }, 200);
+  return json({ ok: true, email: check.email, mail: true, ...roles, allowedFrom: allowedFrom(env, check.email) }, 200);
 }

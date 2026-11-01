@@ -98,6 +98,7 @@ describe('settings from config, and laid over it', () => {
       ],
       routes: [{ address: `tesourier@${D}`, to: 'treasurer-inbox@example.co.za' }],
       notify: ['clerk-inbox@example.co.za'],
+      profiles: [],
     });
   });
 
@@ -155,7 +156,7 @@ describe('/api/cms/settings', () => {
     assert.equal(r.data.source, 'config');
     assert.equal(r.data.rev, 0);
     assert.deepEqual(r.data.options.senders, [`welkom@${D}`, `klerk@${D}`, `tesourier@${D}`, `kerk@${D}`]);
-    assert.deepEqual(r.data.options.admins, [ADMIN]);
+    assert.deepEqual(r.data.options.superAdmins, [ADMIN]);
   });
 
   test('a save takes effect at once: the new member signs in and sees only their addresses', async () => {
@@ -188,5 +189,76 @@ describe('/api/cms/settings', () => {
     assert.equal(bad.status, 400);
     assert.deepEqual(bad.data.errors, ['notify']);
     assert.equal((await call(e, 'PUT', '/api/cms/settings', { cookie: admin, body: { rev: 1, settings: next }, origin: 'https://evil.example' })).status, 403);
+  });
+});
+
+describe('profile pictures', () => {
+  test('a profile links anyone who may sign in to a department head; nobody else', () => {
+    const o = settingsOptions(env());
+    const base = { members: [{ email: CLERK, sendAs: [] }], routes: [], notify: ['clerk-inbox@example.co.za'] };
+    assert.equal(validateSettings({ ...base, profiles: [{ email: ADMIN, head: 'kerkraad' }, { email: CLERK, head: 'ouderlinge' }] }, o).ok, true);
+    assert.equal(validateSettings(base, o).ok, true, 'documents from before profiles still validate');
+    assert.deepEqual(validateSettings({ ...base, profiles: [{ email: 'stranger@example.co.za', head: 'kerkraad' }] }, o).errors, ['profiles.0']);
+    assert.deepEqual(validateSettings({ ...base, profiles: [{ email: CLERK, head: '../x' }] }, o).errors, ['profiles.0']);
+    assert.equal(validateSettings({ ...base, profiles: [{ email: CLERK, name: '  Sanet   Smit ' }] }, o).value.profiles[0].name, 'Sanet Smit', 'a board member with no HOD position');
+    assert.deepEqual(validateSettings({ ...base, profiles: [{ email: CLERK, name: '' }] }, o).errors, ['profiles.0'], 'one or the other');
+    assert.deepEqual(validateSettings({ ...base, profiles: [{ email: CLERK, head: 'kerkraad', name: 'X' }] }, o).errors, ['profiles.0'], 'not both');
+  });
+
+  test('/api/cms/profile answers the linked headshot, or none for the default avatar', async () => {
+    const e = env();
+    const admin = await cookieFor(ADMIN);
+    const heads = (await call(e, 'GET', '/api/cms/heads', { cookie: admin })).data.items;
+    const withPhoto = heads.find((h) => h.photo);
+    assert.ok(withPhoto, 'the seed has a head with a photo');
+    const settings = (await call(e, 'GET', '/api/cms/settings', { cookie: admin })).data;
+    assert.ok(settings.heads.some((h) => h.id === withPhoto.id), 'Settings lists the heads to choose from');
+    await quiet(() =>
+      call(e, 'PUT', '/api/cms/settings', {
+        cookie: admin,
+        body: { rev: 0, settings: { ...settings.settings, profiles: [{ email: CLERK, head: withPhoto.id }] } },
+      }),
+    );
+    const clerk = await call(e, 'GET', '/api/cms/profile', { cookie: await cookieFor(CLERK) });
+    assert.equal(clerk.status, 200);
+    assert.equal(clerk.data.photo, withPhoto.photo.src);
+    assert.equal(clerk.data.name, withPhoto.name, 'the HOD name comes with the headshot');
+    const none = await call(e, 'GET', '/api/cms/profile', { cookie: admin });
+    assert.equal(none.data.photo, null);
+    assert.equal(none.data.name, null);
+    assert.equal((await call(e, 'GET', '/api/cms/profile')).status, 401);
+  });
+});
+
+describe('admins made in Settings; the SuperAdmin stays', () => {
+  test('a member ticked admin is an admin — every role address, Settings — but not the SuperAdmin-only identities', async () => {
+    const e = env();
+    const superCookie = await cookieFor(ADMIN);
+    const settings = (await call(e, 'GET', '/api/cms/settings', { cookie: superCookie })).data.settings;
+    const members = settings.members.map((m) => (m.email === CLERK ? { ...m, admin: true } : m));
+    const saved = await quiet(() => call(e, 'PUT', '/api/cms/settings', { cookie: superCookie, body: { rev: 0, settings: { ...settings, members } } }));
+    assert.equal(saved.status, 200);
+
+    const clerk = await cookieFor(CLERK);
+    const session = (await call(e, 'GET', '/api/mail/session', { cookie: clerk })).data;
+    assert.equal(session.admin, true);
+    assert.equal(session.superAdmin, false);
+    assert.deepEqual(session.allowedFrom.sort(), [`kerk@${D}`, `klerk@${D}`, `tesourier@${D}`, `welkom@${D}`], 'not archive@');
+    assert.equal((await call(e, 'GET', '/api/cms/settings', { cookie: clerk })).status, 200, 'an admin opens Settings');
+
+    const sup = (await call(e, 'GET', '/api/mail/session', { cookie: superCookie })).data;
+    assert.equal(sup.superAdmin, true);
+    assert.ok(sup.allowedFrom.includes(`archive@${D}`));
+  });
+
+  test('the SuperAdmin cannot be listed, demoted or removed through Settings', () => {
+    const o = settingsOptions(env());
+    const r = validateSettings({ members: [{ email: ADMIN, sendAs: [], admin: false }], routes: [], notify: ['clerk-inbox@example.co.za'] }, o);
+    assert.deepEqual(r.errors, ['members.0.email']);
+    const e = applySettings(env(), { members: [], routes: [], notify: ['clerk-inbox@example.co.za'], profiles: [] });
+    assert.equal(e.BOARD_ADMIN_EMAILS, ADMIN, 'an empty members list leaves the SuperAdmin');
+    assert.equal(e.BOARD_SUPER_ADMIN_EMAILS, ADMIN);
+    const twice = applySettings(e, { members: [{ email: CLERK, sendAs: [], admin: true }], routes: [], notify: ['clerk-inbox@example.co.za'], profiles: [] });
+    assert.equal(twice.BOARD_SUPER_ADMIN_EMAILS, ADMIN, 'laying settings over settings keeps the deploy SuperAdmins');
   });
 });

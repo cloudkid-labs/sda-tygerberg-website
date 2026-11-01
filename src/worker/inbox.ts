@@ -1,6 +1,6 @@
 /// <reference types="@cloudflare/workers-types" />
 
-import { verifySession, isAdmin, isAdminOnlyEmail, allowedFrom, senders, type AuthEnv } from './auth';
+import { verifySession, isAdmin, isAdminOnlyEmail, isSuperAdmin, allowedFrom, senders, type AuthEnv } from './auth';
 import { sendViaBrevoWithId, storeSent, type MailSendEnv, type SentItem } from './mailSend';
 import { isUnread, isWebsiteThread } from '../lib/mailUnread';
 import { mailHtml, LOGO_REMOTE_URL } from './signature';
@@ -93,30 +93,30 @@ function str(value: unknown): string {
 }
 
 function isAdminOnlySubmission(env: InboxEnv, sessionEmail: string, item: Submission): boolean {
-  return !isAdmin(env, sessionEmail) &&
+  return !isSuperAdmin(env, sessionEmail) &&
     (isAdminOnlyEmail(env, item.replyFrom ?? '') || isAdminOnlyEmail(env, item.email ?? ''));
 }
 
 function isAdminOnlySentItem(env: InboxEnv, sessionEmail: string, item: SentItem): boolean {
-  return !isAdmin(env, sessionEmail) &&
+  return !isSuperAdmin(env, sessionEmail) &&
     (isAdminOnlyEmail(env, item.from) || (item.to ?? []).some((address) => isAdminOnlyEmail(env, address)));
 }
 
 /**
  * Each member sees only the mail of addresses they may send as
  * (BOARD_SEND_AS): a thread when they may answer it, from its reply address.
- * Admins see everything.
+ * Admins see everything but the SuperAdmin-only identities' mail.
  */
 function canSeeThread(env: InboxEnv, sessionEmail: string, item: Submission): boolean {
-  if (isAdmin(env, sessionEmail)) return true;
   if (isAdminOnlySubmission(env, sessionEmail, item)) return false;
+  if (isAdmin(env, sessionEmail)) return true;
   return allowedFrom(env, sessionEmail).includes(replyAddressFor(env, item));
 }
 
 /** A Sent item when they may send as its From. Admins see everything. */
 function canSeeSent(env: InboxEnv, sessionEmail: string, item: SentItem): boolean {
-  if (isAdmin(env, sessionEmail)) return true;
   if (isAdminOnlySentItem(env, sessionEmail, item)) return false;
+  if (isAdmin(env, sessionEmail)) return true;
   return allowedFrom(env, sessionEmail).includes((item.from ?? '').trim().toLowerCase());
 }
 

@@ -134,8 +134,9 @@
     // The Settings tab (admins, C-71) overrides these two and MAIL_ROUTES and
     // CONTACT_EMAIL_TO once saved; until then they are the settings.
     "BOARD_SEND_AS": "sdatygerbergklerk@gmail.com=klerk@sdatygerberg.co.za,welkom@sdatygerberg.co.za;sdatygerbergkerk@gmail.com=kerk@sdatygerberg.co.za,welkom@sdatygerberg.co.za;muller31jp@gmail.com=tesourier@sdatygerberg.co.za,welkom@sdatygerberg.co.za;johanemomberg@gmail.com=klerk@sdatygerberg.co.za,welkom@sdatygerberg.co.za,kerk@sdatygerberg.co.za;laurahoffman51@gmail.com=welkom@sdatygerberg.co.za",
-    // Board Mail admins can use every sender address, access all mail, and
-    // delete inbox threads.
+    // SuperAdmins (C-71): every sender address including the admin-only ones,
+    // all mail, delete, Settings — and no admin can revoke them. Settings can
+    // make other members admins (everything but the admin-only identities).
     "BOARD_ADMIN_EMAILS": "rainiersvn1@gmail.com",
     // Additional Board Mail identity usable only by administrators as From or
     // recipient. The archive's automatic BCC remains system-controlled.

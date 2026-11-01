@@ -247,6 +247,7 @@ export function SettingsPanel() {
       <section aria-labelledby="st-sendas" className={sectionClass}>
         <h3 id="st-sendas" className={h2}>{t.sendAsHeading}</h3>
         <p className={note}>{t.sendAsNote}</p>
+        {o.senders.length === 0 && <p className="rounded-[10px] bg-tan px-3.5 py-2.5 text-[13.5px] text-slate">{t.noDestinations}</p>}
         <ul className="grid gap-2.5">
           {o.superAdmins.map((a) => (
             <li key={a} className="flex min-w-0 flex-wrap items-center gap-2 rounded-[10px] bg-white px-3.5 py-3 text-[14px]">
@@ -326,16 +327,21 @@ export function SettingsPanel() {
             </li>
           ))}
         </ul>
-        <div>
-          <button
-            type="button"
-            className={buttonSecondary}
-            disabled={pickable.length === 0}
-            onClick={() => update({ ...draft, routes: [...draft.routes, { address: `@${o.domain}`, to: pickable[0] ?? '' }] })}
-          >
-            {t.addRoute}
-          </button>
-        </div>
+        {pickable.length === 0 ? (
+          // Nowhere mail may go (devtest has mail off, C-61): say so rather
+          // than offer a button that cannot do anything.
+          <p className="rounded-[10px] bg-tan px-3.5 py-2.5 text-[13.5px] text-slate">{t.noDestinations}</p>
+        ) : (
+          <div>
+            <button
+              type="button"
+              className={buttonSecondary}
+              onClick={() => update({ ...draft, routes: [...draft.routes, { address: `@${o.domain}`, to: pickable[0] }] })}
+            >
+              {t.addRoute}
+            </button>
+          </div>
+        )}
         <ul className="grid gap-1 text-[13.5px] text-slate">
           {o.forwardTo && <li>{fill(t.everythingElse, { to: o.forwardTo })}</li>}
           {o.archive && <li>{fill(t.archiveCopy, { to: o.archive })}</li>}
@@ -345,6 +351,7 @@ export function SettingsPanel() {
       <section aria-labelledby="st-notify" className={sectionClass}>
         <h3 id="st-notify" className={h2}>{t.notifyHeading}</h3>
         <p className={note}>{t.notifyNote}</p>
+        {pickable.length === 0 && <p className="rounded-[10px] bg-tan px-3.5 py-2.5 text-[13.5px] text-slate">{t.noDestinations}</p>}
         <fieldset className="grid gap-1">
           <legend className="sr-only">{t.notifyHeading}</legend>
           {pickable.map((d) => (

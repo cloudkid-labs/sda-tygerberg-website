@@ -34,6 +34,7 @@ type SettingsCopy = {
   errForbidden: string;
   headshotNoPhoto: string;
   notHod: string;
+  noDestinations: string;
   superAdmin: string;
   adminToggle: string;
   adminEveryRole: string;
@@ -91,6 +92,8 @@ export const settingsCopy: Record<'af' | 'en', SettingsCopy> = {
     errForbidden: 'Net administrateurs kan instellings sien.',
     headshotNoPhoto: 'nog geen foto',
     notHod: 'Kerkraadlid sonder ’n departementshoof-pos',
+    noDestinations:
+      'Hierdie werf het geen pos-instellings nie (op die toetswerf is pos af), so stuur-as-adresse, roetes en kennisgewings kan nie hier gestel word nie. Stel dit op die regte werf.',
     superAdmin: 'SuperAdmin — kan nie herroep word nie',
     adminToggle: 'Administrateur (kan alles doen, insluitend Instellings)',
     adminEveryRole: 'Administrateur — alle rol-adresse',
@@ -153,6 +156,8 @@ export const settingsCopy: Record<'af' | 'en', SettingsCopy> = {
     errForbidden: 'Only admins can see settings.',
     headshotNoPhoto: 'no photo yet',
     notHod: 'Board member without a department-head position',
+    noDestinations:
+      'This site has no mail configuration (mail is off on the test site), so send-as addresses, routes and notifications cannot be set here. Set them on the live site.',
     superAdmin: 'SuperAdmin — cannot be revoked',
     adminToggle: 'Admin (can do everything, including Settings)',
     adminEveryRole: 'Admin — every role address',

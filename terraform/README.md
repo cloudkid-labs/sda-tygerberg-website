@@ -10,6 +10,7 @@ Actions. Spec: *Church Board Mail via Google Sign-in: Implementation Spec*.
 | `google_project.this` | New Google Cloud project that holds the OAuth consent screen and client (protected from destroy) |
 | `random_password.session` | `SESSION_SECRET`, signs the board session cookie |
 | `github_actions_secret.worker` | `BREVO_API_KEY`, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `SESSION_SECRET` |
+| `cloudflare_r2_bucket.cms`, `.cms_devtest` | Members-area CMS content and images (`tygerberg-cms`, `tygerberg-cms-devtest`), bound as `CMS` in `wrangler.jsonc` — C-70 |
 
 ## Not managed here
 
@@ -31,7 +32,7 @@ Actions. Spec: *Church Board Mail via Google Sign-in: Implementation Spec*.
    subscription you own, not an employer's.
 2. `cp backend.hcl.example backend.hcl`, fill in `resource_group_name` (tenant, subscription and storage account are prefilled; the container is `sda-tygerberg`).
 3. `az login` and `gcloud auth application-default login`, then export `CLOUDFLARE_API_TOKEN` (Zone:Read + DNS:Edit on this
-   zone only) and `GITHUB_TOKEN` (fine-grained, Secrets read/write on this repo only).
+   zone only, plus Account → Workers R2 Storage:Edit for the CMS buckets) and `GITHUB_TOKEN` (fine-grained, Secrets read/write on this repo only).
 4. `terraform init -backend-config=backend.hcl`
 
 ## First apply
@@ -48,6 +49,15 @@ Actions. Spec: *Church Board Mail via Google Sign-in: Implementation Spec*.
 6. Run `terraform plan`. It must be empty. A diff on a TXT record means the
    quoting in `main.tf` (`local.brevo_code_txt`, the DKIM `content`) is wrong for your provider version.
 7. Add the names from `terraform output worker_secrets_block` to the deploy workflow.
+
+## CMS buckets (C-70)
+
+`r2.tf` creates the two buckets the members-area CMS stores content in. Apply it
+**before** the Worker deploy that binds them — `wrangler deploy` fails against a
+missing bucket. Production binds `tygerberg-cms` now; devtest's binding is a TODO
+in `wrangler.jsonc` until `tygerberg-cms-devtest` exists. Existing buckets made by
+hand (`consent-cloudkid-link`, `tygerberg-submissions*`) stay outside Terraform,
+as C-69 records; only the new ones are managed here.
 
 ## Checks
 

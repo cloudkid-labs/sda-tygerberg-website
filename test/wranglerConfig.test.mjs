@@ -124,3 +124,24 @@ describe('wrangler routes and bindings', () => {
     assert.equal(buckets[0].bucket_name, 'tygerberg-submissions-devtest');
   });
 });
+
+describe('the CMS bucket and its producer — C-70', () => {
+  const r2tf = readFileSync(new URL('../terraform/r2.tf', import.meta.url), 'utf8');
+  const managed = [...r2tf.matchAll(/name\s*=\s*"([^"]+)"/g)].map((m) => m[1]);
+
+  test('production binds CMS to a bucket terraform/ creates', () => {
+    const cms = config.r2_buckets.find((b) => b.binding === 'CMS');
+    assert.ok(cms, 'CMS binding missing');
+    assert.ok(managed.includes(cms.bucket_name), `${cms.bucket_name} is not in terraform/r2.tf`);
+  });
+
+  test('terraform also creates the devtest bucket the TODO binding will use', () => {
+    assert.ok(managed.includes('tygerberg-cms-devtest'));
+  });
+
+  test('both Workers carry the import.meta.env define the React render needs', () => {
+    for (const block of [config, config.env.devtest]) {
+      assert.deepEqual(JSON.parse(block.define['import.meta.env']), { BASE_URL: '/' });
+    }
+  });
+});

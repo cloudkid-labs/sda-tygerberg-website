@@ -9,6 +9,7 @@ import {
   listPageDrafts,
   liveSlugs,
   readEvents,
+  rebuildEventPages,
   readHeads,
   readPageDraft,
   readPageLive,
@@ -226,6 +227,7 @@ async function pagesRoute(request: Request, env: CmsEnv, g: { email: string; buc
       return json({ ok: false, outcome: 'invalid', errors: ['linked'] }, 409);
     }
     await deletePageLive(g.bucket, slug);
+    await rebuildEventPages(g.bucket);
     const page: Page = { ...draft.doc.page, status: 'draft', updatedBy: g.email, updatedAt: new Date().toISOString() };
     await writePageDraft(g.bucket, draft.doc, { rev: draft.doc.rev + 1, page }, draft.etag);
     await audit(g.bucket, { by: g.email, action: 'page.unpublish', target: `/${slug}/` });
@@ -255,7 +257,10 @@ async function pagesRoute(request: Request, env: CmsEnv, g: { email: string; buc
   if (!(await writePageDraft(g.bucket, existing?.doc ?? null, next, existing?.etag ?? null))) {
     return json({ ok: false, outcome: 'conflict', rev: existing?.doc.rev ?? 0 }, 409);
   }
-  if (publish) await writePageLive(g.bucket, page);
+  if (publish) {
+    await writePageLive(g.bucket, page);
+    await rebuildEventPages(g.bucket);
+  }
   // A publish reports what visitors will now see differently (against the
   // live copy); a draft save reports what changed since the last draft.
   const changes = publish ? diffPage(live, page) : diffPage(existing?.doc.page ?? null, page);

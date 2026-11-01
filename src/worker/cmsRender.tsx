@@ -1,6 +1,7 @@
 import { renderToString } from 'react-dom/server';
 import { LanguageProvider } from '../context/LanguageContext';
 import { ThisWeek } from '../components/react/ThisWeek';
+import { EventPages } from '../components/react/EventPages';
 import { AboutCarousel } from '../components/react/AboutCarousel';
 import { CmsPageView } from '../components/react/CmsPageView';
 import type { HomePayload, PublicPage } from '../lib/cms/types';
@@ -28,6 +29,14 @@ export function renderWeekSection(payload: HomePayload): string {
   return withoutHoistedHints(renderToString(
     <LanguageProvider>
       <ThisWeek data={payload} />
+    </LanguageProvider>,
+  ));
+}
+
+export function renderEventsSection(payload: HomePayload): string {
+  return withoutHoistedHints(renderToString(
+    <LanguageProvider>
+      <EventPages data={payload} />
     </LanguageProvider>,
   ));
 }

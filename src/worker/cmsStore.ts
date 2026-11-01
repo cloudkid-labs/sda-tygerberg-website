@@ -3,6 +3,8 @@
 import { seedEvents, seedHeads, seedPages } from '../lib/cms/seed';
 import type { ChurchEvent, DepartmentHead, Page } from '../lib/cms/types';
 import type { AuditChange } from '../lib/cms/auditDiff';
+import type { PublicEventPage } from '../lib/cms/types';
+import { eventPageSummary } from '../lib/cms/public';
 
 /**
  * The CMS's storage, one R2 bucket (`CMS`, C-70):
@@ -123,6 +125,28 @@ async function listKeys(bucket: R2Bucket, prefix: string): Promise<string[]> {
 
 export async function liveSlugs(bucket: R2Bucket): Promise<string[]> {
   return (await listKeys(bucket, 'pages/live/')).map((k) => k.slice('pages/live/'.length, -'.json'.length));
+}
+
+/**
+ * The homepage's Events list, kept as one object so a homepage request reads
+ * one key instead of every live page. Rebuilt from the live pages after each
+ * publish and unpublish — a rebuild, not a patch, so a missed write heals on
+ * the next one. Newest publish first.
+ */
+export const EVENT_PAGES_KEY = 'index/event-pages.json';
+
+export async function readEventPages(bucket: R2Bucket): Promise<PublicEventPage[]> {
+  return (await readJson<PublicEventPage[]>(bucket, EVENT_PAGES_KEY))?.value ?? [];
+}
+
+export async function rebuildEventPages(bucket: R2Bucket): Promise<PublicEventPage[]> {
+  const pages = (await Promise.all((await liveSlugs(bucket)).map((s) => readPageLive(bucket, s)))).filter(
+    (p): p is Page => Boolean(p?.showInEvents),
+  );
+  pages.sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
+  const list = pages.map(eventPageSummary);
+  await bucket.put(EVENT_PAGES_KEY, JSON.stringify(list), JSON_META);
+  return list;
 }
 
 /**

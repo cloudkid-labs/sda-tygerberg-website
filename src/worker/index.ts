@@ -20,7 +20,7 @@ import { isLegacyBoardPath, isMembersPath, legacyBoardRedirect, membersGate, noA
 import { handleCms, type CmsEnv } from './cms';
 import { serveMedia } from './cmsMedia';
 import { serveCmsPage, serveHome, serveSitemap } from './cmsPublic';
-import { renderAboutSection, renderPageRoot, renderWeekSection } from './cmsRender';
+import { renderAboutSection, renderEventsSection, renderPageRoot, renderWeekSection } from './cmsRender';
 
 export type Env = LiveStatusEnv &
   LatestVideoEnv &
@@ -34,7 +34,7 @@ export type Env = LiveStatusEnv &
   };
 
 /** The React renders the Worker writes into built pages — C-70. */
-const RENDER = { week: renderWeekSection, about: renderAboutSection, page: renderPageRoot };
+const RENDER = { week: renderWeekSection, events: renderEventsSection, about: renderAboutSection, page: renderPageRoot };
 
 /**
  * A headshot master, but not one of the pre-resized copies under `fallback/`.

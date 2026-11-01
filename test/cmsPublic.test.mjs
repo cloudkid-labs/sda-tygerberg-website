@@ -13,17 +13,18 @@ import { johannesburgDate, isExpired } from '../src/lib/cms/time.ts';
  */
 
 const { buildHomePayload } = await import('../src/lib/cms/payload.ts');
-const { renderWeekSection, renderAboutSection, renderPageRoot } = await import('../src/worker/cmsRender.tsx');
+const { renderWeekSection, renderEventsSection, renderAboutSection, renderPageRoot } = await import('../src/worker/cmsRender.tsx');
+const { rebuildEventPages } = await import('../src/worker/cmsStore.ts');
 const { rewriteHome, serveHome, serveCmsPage, findElement } = await import('../src/worker/cmsPublic.ts');
 
-const RENDER = { week: renderWeekSection, about: renderAboutSection, page: renderPageRoot };
+const RENDER = { week: renderWeekSection, events: renderEventsSection, about: renderAboutSection, page: renderPageRoot };
 
 /** The homepage as the build would emit it, reduced to what the Worker edits. */
 function builtHome() {
   const payload = buildHomePayload();
   return `<!doctype html><html lang="af"><head><title>Home</title></head><body>
 <script type="application/json" id="cms-home">${scriptJson(payload)}</script>
-<astro-island><div><main>${renderWeekSection(payload)}${renderAboutSection(payload)}</main></div></astro-island>
+<astro-island><div><main>${renderWeekSection(payload)}${renderEventsSection(payload)}${renderAboutSection(payload)}</main></div></astro-island>
 </body></html>`;
 }
 
@@ -131,6 +132,32 @@ describe('the homepage', () => {
     const out = publicEvents([event({ id: 'b', order: 2 }), event({ id: 'a', order: 1 }), event({ id: 'd', status: 'draft', order: 0 })], '2026-10-31');
     assert.deepEqual(out.map((e) => e.id), ['a', 'b']);
     assert.ok(!('updatedBy' in out[0]) && !('status' in out[0]));
+  });
+
+  test('Events lists live pages marked showInEvents, newest publish first, and nothing else', async () => {
+    const L = (af, en = af) => ({ af, en });
+    const pg = (slug, over) => ({ slug, title: L(slug), eyebrow: L('Kamp'), intro: L('Inleiding'), blocks: [], status: 'live', updatedBy: 'member@example.co.za', ...over });
+    const live = [
+      pg('somerkamp', { showInEvents: true, updatedAt: '2026-10-01T00:00:00.000Z' }),
+      pg('konferensie', { showInEvents: true, updatedAt: '2026-10-20T00:00:00.000Z' }),
+      pg('gewone-bladsy', { updatedAt: '2026-10-25T00:00:00.000Z' }),
+    ];
+    const CMS = await bucketWith({ live, pages: [pg('konsep', { showInEvents: true, status: 'draft', updatedAt: '2026-10-30T00:00:00.000Z' })] });
+    await rebuildEventPages(CMS);
+    const html = await (await serveHome(new Request('https://x/'), { ASSETS: assets, CMS }, RENDER, new Date('2026-10-31T08:00:00Z'))).text();
+    const payload = payloadIn(html);
+    assert.deepEqual(payload.eventPages.map((p) => p.slug), ['konferensie', 'somerkamp'], 'live + marked only, newest first; drafts never');
+    assert.ok(!('updatedBy' in payload.eventPages[0]), 'no audit fields reach the page');
+    const events = section(html, 'geleenthede');
+    assert.equal(events, renderEventsSection(payload), 'hydration-exact');
+    assert.match(events, /href="\/konferensie\/"/);
+    assert.doesNotMatch(events, /gewone-bladsy|konsep/);
+  });
+
+  test('the build ships an empty Events section that says so', () => {
+    const html = renderEventsSection(buildHomePayload());
+    assert.match(html, /^<section id="geleenthede"/);
+    assert.match(html, /geen komende geleenthede/);
   });
 
   test('markers missing → the build is served, never a half-rewritten page', () => {

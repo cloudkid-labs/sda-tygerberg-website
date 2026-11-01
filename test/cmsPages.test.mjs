@@ -140,6 +140,17 @@ describe('a page from the template', () => {
     assert.equal((await put({ action: 'unpublish', slug })).status, 200);
   });
 
+  test('publishing a page marked "Show under Events" lists it; unpublishing removes it', async () => {
+    const slug = 'jeugkamp';
+    const index = async () => JSON.parse((await (await env.CMS.get('index/event-pages.json'))?.text()) ?? '[]').map((p) => p.slug);
+    await put({ rev: 0, page: { ...page, slug, showInEvents: true } });
+    assert.ok(!(await index()).includes(slug), 'a draft is not listed');
+    await put({ rev: 1, page: { ...page, slug, showInEvents: true }, publish: true });
+    assert.ok((await index()).includes(slug));
+    await put({ action: 'unpublish', slug });
+    assert.ok(!(await index()).includes(slug));
+  });
+
   test('the shell itself is never served', async () => {
     assert.equal((await get('/page-shell/')).status, 404);
   });

@@ -553,6 +553,18 @@ export function CmsPages({ initialSlug }: { initialSlug?: string | null }) {
               <p className="mt-1.5 text-[12.5px] text-slate-muted">{t.pgSlugHelp}</p>
             </div>
             <Pair id="pg-intro" label={t.pgIntro} value={content.intro} multiline onChange={(v) => edit((c) => ({ ...c, intro: v }))} />
+            <div>
+              <label className="flex min-h-11 items-center gap-3 text-[14px] font-bold text-ink">
+                <input
+                  type="checkbox"
+                  checked={Boolean(content.showInEvents)}
+                  onChange={(e) => edit((c) => ({ ...c, showInEvents: e.target.checked }))}
+                  className="h-5 w-5 accent-navy"
+                />
+                {t.pgShowInEvents}
+              </label>
+              <p className="text-[12.5px] text-slate-muted">{t.pgShowInEventsHelp}</p>
+            </div>
           </fieldset>
 
           {loaded && slug ? <PageEventLinks slug={slug} pageLive={isLive} onLinkedChange={setLiveLinks} /> : null}

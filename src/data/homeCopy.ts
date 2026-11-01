@@ -37,6 +37,11 @@ export type HomeCopy = {
   navAbout: string;
   navBeliefs: string;
   navMinistries: string;
+  navEvents: string;
+  eventsHeading: string;
+  eventsSub: string;
+  eventsEmpty: string;
+  eventsMore: string;
   navVisit: string;
   navConnect: string;
   navResources: string;
@@ -121,6 +126,11 @@ export const homeCopy: Record<Lang, HomeCopy> = {
     navAbout: 'Oor Ons',
     navBeliefs: 'Wat Ons Glo',
     navMinistries: 'Hierdie Week',
+    navEvents: 'Geleenthede',
+    eventsHeading: 'Geleenthede',
+    eventsSub: 'Kampe, konferensies en spesiale dae — besonderhede op elke bladsy.',
+    eventsEmpty: 'Daar is tans geen komende geleenthede nie. Kyk binnekort weer.',
+    eventsMore: 'Lees meer',
     navVisit: 'Besoek',
     navConnect: 'Verbind',
     navResources: 'Hulpbronne',
@@ -233,6 +243,11 @@ export const homeCopy: Record<Lang, HomeCopy> = {
     navAbout: 'About',
     navBeliefs: 'Beliefs',
     navMinistries: 'This Week',
+    navEvents: 'Events',
+    eventsHeading: 'Events',
+    eventsSub: 'Camps, conferences and special days — details on each page.',
+    eventsEmpty: 'There are no upcoming events right now. Check back soon.',
+    eventsMore: 'Read more',
     navVisit: 'Visit',
     navConnect: 'Connect',
     navResources: 'Resources',

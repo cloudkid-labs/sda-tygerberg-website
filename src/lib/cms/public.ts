@@ -4,6 +4,7 @@ import type {
   HomePayload,
   Page,
   PublicEvent,
+  PublicEventPage,
   PublicHead,
   PublicPage,
 } from './types';
@@ -34,13 +35,19 @@ export function publicPage(page: Page): PublicPage {
   return rest;
 }
 
+/** What the Events section shows of a live page — never its stamps. */
+export function eventPageSummary(page: Page): PublicEventPage {
+  return { slug: page.slug, title: page.title, eyebrow: page.eyebrow, intro: page.intro };
+}
+
 export function homePayload(
   events: ChurchEvent[],
   heads: DepartmentHead[],
   asOf: string,
   build: HomePayload['build'],
+  eventPages: PublicEventPage[] = [],
 ): HomePayload {
-  return { asOf, build, events: publicEvents(events, asOf), heads: publicHeads(heads) };
+  return { asOf, build, events: publicEvents(events, asOf), heads: publicHeads(heads), eventPages };
 }
 
 /**

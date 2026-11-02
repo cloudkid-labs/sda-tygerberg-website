@@ -16,8 +16,10 @@ import { isEmail, normEmail } from '../lib/mailSettings';
  * on what a bug in the Worker could mail.
  *
  * Destination addresses belong to the whole Cloudflare account, so the token
- * could reach other projects' addresses. This module only lists and creates —
- * never deletes — and hides MAIL_DESTINATIONS_HIDDEN from management.
+ * could reach other projects' addresses. Only manageable addresses (not
+ * MAIL_DESTINATIONS_HIDDEN, not the church domain) are listed, added or
+ * removed, and an address still in use — deploy config or saved settings —
+ * is never removed.
  */
 
 export type DestinationsEnv = AuthEnv & {
@@ -32,7 +34,8 @@ export type DestinationsEnv = AuthEnv & {
   EMAIL_ROUTING_ACCOUNT_ID?: string;
 };
 
-export type Destination = { email: string; verified: boolean };
+/** `id`: Cloudflare's identifier, used to delete; never sent to the page. */
+export type Destination = { email: string; verified: boolean; id?: string };
 
 /** The verified addresses last seen, for routing between page loads. */
 export const VERIFIED_KEY = 'settings/destinations.json';
@@ -71,7 +74,7 @@ export function manageable(env: DestinationsEnv, email: string): boolean {
 
 type CfResult<T> = { ok: true; result: T; info?: { total_pages?: number } } | { ok: false; status: number; codes: number[] };
 
-async function cf<T>(env: DestinationsEnv, method: 'GET' | 'POST', path: string, body?: unknown): Promise<CfResult<T>> {
+async function cf<T>(env: DestinationsEnv, method: 'GET' | 'POST' | 'DELETE', path: string, body?: unknown): Promise<CfResult<T>> {
   try {
     const res = await fetch(`${API}/accounts/${env.EMAIL_ROUTING_ACCOUNT_ID}/email/routing/addresses${path}`, {
       method,
@@ -103,11 +106,11 @@ export async function listDestinations(env: DestinationsEnv): Promise<Destinatio
   if (!destinationsConfigured(env)) return null;
   const all: Destination[] = [];
   for (let page = 1; page <= MAX_PAGES; page++) {
-    const r = await cf<{ email?: string; verified?: string | null }[]>(env, 'GET', `?per_page=50&page=${page}`);
+    const r = await cf<{ email?: string; verified?: string | null; id?: string }[]>(env, 'GET', `?per_page=50&page=${page}`);
     if (!r.ok) return null;
     for (const a of r.result) {
       const email = normEmail(a.email);
-      if (email) all.push({ email, verified: Boolean(a.verified) });
+      if (email) all.push({ email, verified: Boolean(a.verified), ...(typeof a.id === 'string' ? { id: a.id } : {}) });
     }
     if (r.result.length < 50 || page >= (r.info?.total_pages ?? page)) break;
   }
@@ -155,7 +158,7 @@ function json(body: unknown, status: number): Response {
   return Response.json(body, { status, headers: { 'Cache-Control': 'no-store' } });
 }
 
-async function view(env: DestinationsEnv, bucket: R2Bucket, all: Destination[]) {
+async function view(env: DestinationsEnv, bucket: R2Bucket, all: Destination[], inUse: Set<string>) {
   const fenced = new Set(list(env.MAIL_DESTINATIONS));
   await remember(bucket, verifiedOf(env, all));
   const adds = await readJson<AddsDoc>(bucket, ADDS_KEY);
@@ -167,30 +170,52 @@ async function view(env: DestinationsEnv, bucket: R2Bucket, all: Destination[]) 
     items: all
       .filter((d) => manageable(env, d.email))
       .sort((a, b) => a.email.localeCompare(b.email))
-      .map((d) => ({ ...d, notify: fenced.has(d.email) })),
+      .map((d) => ({ email: d.email, verified: d.verified, notify: fenced.has(d.email), inUse: inUse.has(d.email) })),
     remaining: Math.max(0, ADD_LIMIT - recent),
   };
 }
 
 /**
- * GET/POST /api/cms/destinations — SuperAdmins only. GET lists the account's
- * manageable destination addresses with their verification state; POST
- * `{ email }` creates one (Cloudflare then emails its confirmation link),
- * rate-limited and audited.
+ * GET/POST/DELETE /api/cms/destinations — SuperAdmins only. GET lists the
+ * account's manageable destination addresses with their verification state;
+ * POST `{ email }` creates one (Cloudflare then emails its confirmation link),
+ * rate-limited and audited; DELETE `{ email }` removes one that nothing uses,
+ * audited. `inUse` names every address the deploy config or saved settings
+ * deliver to.
  */
 export async function destinationsRoute(
   request: Request,
   env: DestinationsEnv,
   g: { email: string; bucket: R2Bucket },
   body: () => Promise<{ ok: true; body: Record<string, unknown> } | { ok: false; response: Response }>,
+  inUse: () => Promise<Set<string>>,
 ): Promise<Response> {
   if (!isSuperAdmin(env, g.email)) return json({ ok: false, outcome: 'forbidden' }, 403);
   if (!destinationsConfigured(env)) return json({ ok: true, configured: false, items: [], remaining: 0 }, 200);
-  if (request.method !== 'GET' && request.method !== 'POST') return json({ ok: false, outcome: 'invalid', errors: ['method'] }, 405);
+  if (!['GET', 'POST', 'DELETE'].includes(request.method)) return json({ ok: false, outcome: 'invalid', errors: ['method'] }, 405);
 
   if (request.method === 'GET') {
     const all = await listDestinations(env);
-    return all ? json(await view(env, g.bucket, all), 200) : json({ ok: false, outcome: 'upstream' }, 502);
+    return all ? json(await view(env, g.bucket, all, await inUse()), 200) : json({ ok: false, outcome: 'upstream' }, 502);
+  }
+
+  if (request.method === 'DELETE') {
+    const read = await body();
+    if (!read.ok) return read.response;
+    const email = normEmail(read.body.email);
+    if (!manageable(env, email)) return json({ ok: false, outcome: 'invalid', errors: ['email'] }, 400);
+    // Still delivered to: removing it would bounce mail or fail a send.
+    if ((await inUse()).has(email)) return json({ ok: false, outcome: 'in-use' }, 409);
+    const all = await listDestinations(env);
+    if (!all) return json({ ok: false, outcome: 'upstream' }, 502);
+    const hit = all.find((d) => d.email === email);
+    if (!hit) return json({ ok: false, outcome: 'not-found' }, 404);
+    if (!hit.id || !ACCOUNT_ID.test(hit.id)) return json({ ok: false, outcome: 'upstream' }, 502);
+    const removed = await cf<unknown>(env, 'DELETE', `/${hit.id}`);
+    if (!removed.ok) return json({ ok: false, outcome: 'upstream' }, 502);
+    await audit(g.bucket, { by: g.email, action: 'destination.remove', target: 'destinations', changes: [{ op: 'removed', label: email }] });
+    const after = (await listDestinations(env)) ?? all.filter((d) => d.email !== email);
+    return json(await view(env, g.bucket, after, await inUse()), 200);
   }
 
   const read = await body();
@@ -217,5 +242,5 @@ export async function destinationsRoute(
   if (!created.ok) return json({ ok: false, outcome: 'upstream' }, 502);
   await audit(g.bucket, { by: g.email, action: 'destination.add', target: 'destinations', changes: [{ op: 'added', label: email }] });
   const after = (await listDestinations(env)) ?? [...all, { email, verified: Boolean(created.result.verified) }];
-  return json(await view(env, g.bucket, after), 200);
+  return json(await view(env, g.bucket, after, await inUse()), 200);
 }

@@ -1,10 +1,10 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { fill } from '../../../data/cmsCopy';
 import { settingsCopy } from '../../../data/settingsCopy';
 import { isEmail, normEmail } from '../../../lib/mailSettings';
 import { Alert, buttonAdd, buttonSecondary, cardClass, cmsApi, inputClass, labelClass } from './ui';
 
-type Item = { email: string; verified: boolean; notify: boolean };
+type Item = { email: string; verified: boolean; notify: boolean; inUse: boolean };
 type Listing = { configured: boolean; items: Item[]; remaining: number };
 
 /**
@@ -12,7 +12,8 @@ type Listing = { configured: boolean; items: Item[]; remaining: number };
  * Adds an address to the Cloudflare account, which emails its owner a
  * confirmation link; lists each one's state. Verified addresses become route
  * targets at once (`onChanged` refreshes the panel's choices); notifications
- * still need a deploy. Nothing here deletes.
+ * still need a deploy. Removing asks to confirm, and an address still in use
+ * shows as such instead.
  */
 export function DestinationsSection({ lang, onChanged }: { lang: 'af' | 'en'; onChanged: () => void }) {
   const t = settingsCopy[lang];
@@ -22,6 +23,14 @@ export function DestinationsSection({ lang, onChanged }: { lang: 'af' | 'en'; on
   const [error, setError] = useState('');
   const [invalid, setInvalid] = useState(false);
   const [done, setDone] = useState('');
+  /** The address whose Remove was pressed, awaiting confirmation. */
+  const [confirming, setConfirming] = useState('');
+  /** The address to add, waiting for the SuperAdmin to confirm the owner knows. */
+  const [pending, setPending] = useState('');
+  const confirmAdd = useRef<HTMLButtonElement>(null);
+  useEffect(() => {
+    if (pending) confirmAdd.current?.focus();
+  }, [pending]);
 
   const load = useCallback(async () => {
     setError('');
@@ -36,12 +45,19 @@ export function DestinationsSection({ lang, onChanged }: { lang: 'af' | 'en'; on
     void load();
   }, [load]);
 
-  async function add() {
+  /** Add pressed: check the address, then ask before Cloudflare emails anyone. */
+  function ask() {
     const address = normEmail(email);
     setDone('');
     setError('');
     if (!isEmail(address)) return setInvalid(true);
     setInvalid(false);
+    if (listing?.items.some((d) => d.email === address)) return setError(t.destErrExists);
+    setPending(address);
+  }
+
+  async function add(address: string) {
+    setPending('');
     setBusy(true);
     const res = await cmsApi<Listing>('POST', '/api/cms/destinations', { email: address });
     setBusy(false);
@@ -66,6 +82,23 @@ export function DestinationsSection({ lang, onChanged }: { lang: 'af' | 'en'; on
     );
   }
 
+  async function remove(address: string) {
+    setDone('');
+    setError('');
+    setBusy(true);
+    const res = await cmsApi<Listing>('DELETE', '/api/cms/destinations', { email: address });
+    setBusy(false);
+    setConfirming('');
+    if (res.ok) {
+      setListing(res.data);
+      setDone(fill(t.destRemoved, { email: address }));
+      onChanged();
+      return;
+    }
+    setError(res.outcome === 'in-use' ? t.destErrInUse : res.outcome === 'upstream' ? t.destErrUpstream : t.errSave);
+    if (res.outcome === 'not-found' || res.outcome === 'in-use') void load();
+  }
+
   if (listing && !listing.configured) return null;
   const state = (d: Item) => (!d.verified ? t.destPending : d.notify ? t.destRoutesAndNotify : t.destRoutesOnly);
 
@@ -88,11 +121,37 @@ export function DestinationsSection({ lang, onChanged }: { lang: 'af' | 'en'; on
                   >
                     {state(d)}
                   </span>
+                  {d.inUse ? (
+                    <span className="px-2 text-[12.5px] text-slate-muted">{t.destInUse}</span>
+                  ) : confirming === d.email ? (
+                    <span className="flex basis-full flex-wrap items-center gap-2 sm:basis-auto">
+                      <button
+                        type="button"
+                        className="min-h-11 rounded-pill bg-[#9a4f0f] px-4 text-[13px] font-bold text-white disabled:opacity-60"
+                        disabled={busy}
+                        onClick={() => void remove(d.email)}
+                      >
+                        {fill(t.destConfirm, { email: d.email })}
+                      </button>
+                      <button type="button" className="min-h-11 px-2 text-[13px] font-bold text-navy underline" onClick={() => setConfirming('')}>
+                        {t.destCancel}
+                      </button>
+                    </span>
+                  ) : (
+                    <button
+                      type="button"
+                      className="min-h-11 px-2 text-[13px] font-bold text-[#9a4f0f] underline"
+                      disabled={busy}
+                      onClick={() => setConfirming(d.email)}
+                    >
+                      {t.destRemove}
+                      <span className="sr-only"> {d.email}</span>
+                    </button>
+                  )}
                 </li>
               ))}
             </ul>
           )}
-          {listing.items.some((d) => d.verified && !d.notify) && <p className="text-[12.5px] text-slate-muted">{t.destDeployNote}</p>}
           <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end">
             <div className="min-w-0">
               <label className={labelClass} htmlFor="st-dest-new">{t.destAddLabel}</label>
@@ -103,19 +162,46 @@ export function DestinationsSection({ lang, onChanged }: { lang: 'af' | 'en'; on
                 value={email}
                 aria-invalid={invalid || undefined}
                 disabled={busy || listing.remaining === 0}
-                onChange={(e) => setEmail(e.target.value)}
+                onChange={(e) => {
+                  setEmail(e.target.value);
+                  setPending('');
+                }}
                 onKeyDown={(e) => {
                   if (e.key === 'Enter') {
                     e.preventDefault();
-                    void add();
+                    ask();
                   }
                 }}
               />
             </div>
-            <button type="button" className={buttonAdd} disabled={busy || listing.remaining === 0} onClick={() => void add()}>
+            <button type="button" className={buttonAdd} disabled={busy || Boolean(pending) || listing.remaining === 0} onClick={ask}>
               {busy ? t.destAdding : t.destAdd}
             </button>
           </div>
+          {pending && (
+            <div
+              role="alertdialog"
+              aria-labelledby="st-dest-ask-h"
+              aria-describedby="st-dest-ask-p"
+              className="grid gap-3 rounded-[10px] border-[1.5px] border-[#e8a25a] bg-[#fdf3e7] px-4 py-3.5"
+              onKeyDown={(e) => {
+                if (e.key === 'Escape') setPending('');
+              }}
+            >
+              <p id="st-dest-ask-h" className="text-[15px] font-bold text-ink">{t.destAskHeading}</p>
+              <p id="st-dest-ask-p" className="break-words text-[14px] leading-relaxed text-slate">
+                {fill(t.destAskBody, { email: pending })}
+              </p>
+              <div className="flex flex-wrap items-center gap-2">
+                <button ref={confirmAdd} type="button" className={buttonAdd} onClick={() => void add(pending)}>
+                  {t.destAskConfirm}
+                </button>
+                <button type="button" className="min-h-11 px-2 text-[13px] font-bold text-navy underline" onClick={() => setPending('')}>
+                  {t.destCancel}
+                </button>
+              </div>
+            </div>
+          )}
           <div className="flex flex-wrap items-center gap-3">
             <p className="text-[12.5px] text-slate-muted">
               {listing.remaining === 0 ? t.destErrLimit : fill(t.destRemaining, { n: String(listing.remaining) })}

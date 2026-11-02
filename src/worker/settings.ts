@@ -213,6 +213,27 @@ export async function settingsRoute(
 }
 
 /**
+ * Every address mail is delivered to now: the deploy config's destinations,
+ * forward and archive, the routes and notifications in force, and what saved
+ * settings name (even where the overlay dropped it). Settings → Destination
+ * addresses will not remove any of these (C-72).
+ */
+export async function destinationsInUse(env: SettingsEnv, bucket: R2Bucket): Promise<Set<string>> {
+  const saved = await readSettings(bucket);
+  return new Set(
+    [
+      ...list(env.MAIL_DESTINATIONS),
+      normEmail(env.MAIL_FORWARD_TO),
+      normEmail(env.MAIL_ARCHIVE_TO),
+      ...list(env.CONTACT_EMAIL_TO),
+      ...Object.values(env.MAIL_ROUTES ?? {}).map(normEmail),
+      ...(saved?.doc.settings.routes ?? []).map((r) => r.to),
+      ...(saved?.doc.settings.notify ?? []),
+    ].filter(Boolean),
+  );
+}
+
+/**
  * GET /api/cms/profile — who the signed-in member is: the name and headshot
  * of the department head Settings links them to, or the name typed in for a
  * board member with no HOD position (no photo: the page then shows the

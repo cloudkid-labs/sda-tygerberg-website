@@ -3,6 +3,7 @@ import { useLanguage } from '../../../context/LanguageContext';
 import { fill } from '../../../data/cmsCopy';
 import { settingsCopy } from '../../../data/settingsCopy';
 import { isEmail, normEmail, type MailSettings, type ProfileSetting, type SettingsOptions } from '../../../lib/mailSettings';
+import { DestinationsSection } from './DestinationsSection';
 import { PersonIdentity } from './PersonIdentity';
 import { Alert, buttonAdd, buttonPrimary, buttonSecondary, cardClass, cmsApi, formatWhen, inputClass, labelClass } from './ui';
 
@@ -14,6 +15,8 @@ type Loaded = {
   updatedBy: string | null;
   updatedAt: string | null;
   heads: { id: string; name: string; photo: string | null }[];
+  /** SuperAdmin with the Cloudflare token configured (C-72). */
+  manageDestinations?: boolean;
 };
 
 const local = (address: string) => address.split('@')[0];
@@ -54,9 +57,18 @@ export function SettingsPanel() {
     void load();
   }, [load]);
 
+  /** New choices after a destination changed, keeping unsaved edits. */
+  const refreshOptions = useCallback(async () => {
+    const res = await cmsApi<Loaded>('GET', '/api/cms/settings');
+    if (res.ok) setLoaded((prev) => (prev ? { ...prev, options: res.data.options } : prev));
+  }, []);
+
   if (!loaded || !draft) return error ? <Alert>{error}</Alert> : null;
   const o = loaded.options;
+  /** Notifications: the deploy's fenced destinations. */
   const pickable = o.destinations.filter((d) => d !== o.archive);
+  /** Inbound routes: those plus any address verified since (C-72). */
+  const routePickable = (o.routeDestinations ?? o.destinations).filter((d) => d !== o.archive);
   const has = (key: string) => fieldErrors.includes(key);
   const profileOf = (email: string) => draft.profiles.find((p) => p.email === email);
   const setProfile = (email: string, next: ProfileSetting | null) =>
@@ -310,8 +322,8 @@ export function SettingsPanel() {
                   aria-invalid={has(`routes.${i}.to`) || undefined}
                   onChange={(e) => update({ ...draft, routes: draft.routes.map((x, k) => (k === i ? { ...x, to: e.target.value } : x)) })}
                 >
-                  {!pickable.includes(r.to) && <option value={r.to}>{r.to || '—'}</option>}
-                  {pickable.map((d) => (
+                  {!routePickable.includes(r.to) && <option value={r.to}>{r.to || '—'}</option>}
+                  {routePickable.map((d) => (
                     <option key={d} value={d}>{d}</option>
                   ))}
                 </select>
@@ -327,7 +339,7 @@ export function SettingsPanel() {
             </li>
           ))}
         </ul>
-        {pickable.length === 0 ? (
+        {routePickable.length === 0 ? (
           // Nowhere mail may go (devtest has mail off, C-61): say so rather
           // than offer a button that cannot do anything.
           <p className="rounded-[10px] bg-tan px-3.5 py-2.5 text-[13.5px] text-slate">{t.noDestinations}</p>
@@ -336,7 +348,7 @@ export function SettingsPanel() {
             <button
               type="button"
               className={buttonSecondary}
-              onClick={() => update({ ...draft, routes: [...draft.routes, { address: `@${o.domain}`, to: pickable[0] }] })}
+              onClick={() => update({ ...draft, routes: [...draft.routes, { address: `@${o.domain}`, to: routePickable[0] }] })}
             >
               {t.addRoute}
             </button>
@@ -381,6 +393,9 @@ export function SettingsPanel() {
         </button>
         <p aria-live="polite" className="text-[13.5px] font-bold text-navy">{note2}</p>
       </div>
+
+      {/* Its own action, not part of Save settings: it changes Cloudflare. */}
+      {sub === 'email' && loaded.manageDestinations && <DestinationsSection lang={lang} onChanged={() => void refreshOptions()} />}
     </div>
   );
 }

@@ -1888,4 +1888,46 @@ picks from that list and cannot name a new one. A test keeps it equal to
 allows are dropped when laid over, not trusted.
 
 **Ordering.** A new destination is verified in Email Routing, added to
-`MAIL_DESTINATIONS` and the fence, and deployed — only then can Settings use it.
+`MAIL_DESTINATIONS` and the fence, and deployed — only then can Settings use it
+for notifications. Inbound routes no longer wait for the deploy: C-72.
+
+### C-72 — Settings adds Cloudflare destination addresses; routes use them before a deploy
+
+SuperAdmins add a destination address at `/members` → Settings → Email
+settings → Destination addresses. The Worker calls Cloudflare's API
+(`POST /accounts/{id}/email/routing/addresses`); Cloudflare emails the owner a
+confirmation link. The section lists each address as waiting, verified for
+routes, or verified for routes and notifications.
+
+**Option 1: the send fence stays.** A verified address is an inbound-route
+target at once — forwarding needs only a verified destination. Notifications
+still need it in `MAIL_DESTINATIONS` and `send_email.allowed_destination_addresses`,
+which only a deploy changes, so a bug in the Worker still cannot mail an
+address outside the fence. Settings validates routes against
+`MAIL_DESTINATIONS` plus the verified addresses, notifications against
+`MAIL_DESTINATIONS` alone.
+
+**Seam.** `settings/destinations.json` in the CMS bucket holds the verified
+addresses last seen. It is refreshed from Cloudflare whenever Settings or the
+section loads, and read by `withSettings()` on every request and inbound mail,
+which never call Cloudflare. Producer before consumer: an address verified
+after the last load routes only once a SuperAdmin or admin opens Settings
+again. An address no longer verified is dropped from routing on the next
+refresh.
+
+**Bounds.** SuperAdmins only (`BOARD_SUPER_ADMIN_EMAILS`); admins made in
+Settings do not see the section. At most 5 adds per rolling 24 hours, counted
+in `settings/destination-adds.json` before Cloudflare is asked, so a failed add
+still spends its slot. Every add is an audit line (`destination.add`). Church
+addresses are refused (they would loop through the Worker).
+`MAIL_DESTINATIONS_HIDDEN` lists account addresses this site does not manage;
+they are never listed, added or offered as route targets unless already in
+`MAIL_DESTINATIONS`. The Worker only lists and creates — it has no delete.
+
+**The token reaches the whole account.** Destination addresses are
+account-level and the permission cannot be narrowed to one zone or to create
+only. `EMAIL_ROUTING_API_TOKEN` (Worker secret, Email Routing Addresses Write
+on the one account) could therefore list or delete other projects' addresses
+if leaked. Rotate it as SETUP-INSTRUCTIONS §4 says. Without the token or
+`EMAIL_ROUTING_ACCOUNT_ID` the section is hidden and Settings behaves as in
+C-71.

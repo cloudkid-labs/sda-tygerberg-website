@@ -63,7 +63,12 @@ type SettingsCopy = {
   destRemaining: string;
   destRefresh: string;
   destEmpty: string;
-  destDeployNote: string;
+  destRemove: string;
+  destConfirm: string;
+  destCancel: string;
+  destRemoved: string;
+  destInUse: string;
+  destErrInUse: string;
   destErrInvalid: string;
   destErrExists: string;
   destErrLimit: string;
@@ -137,13 +142,18 @@ export const settingsCopy: Record<'af' | 'en', SettingsCopy> = {
     destAdd: 'Voeg bestemming by',
     destAdding: 'Voeg by…',
     destAdded: 'Bygevoeg. Cloudflare het ’n bevestigingskakel aan {email} gestuur.',
-    destRemaining: 'Nog {n} kan vandag bygevoeg word.',
+    destRemaining: 'Hoogstens 5 byvoegings per 24 uur (ook mislukte) — nog {n} oor.',
     destRefresh: 'Kyk weer',
     destEmpty: 'Nog geen bestemmingsadresse nie.',
-    destDeployNote: 'Om ’n geverifieerde adres vir webwerf-navrae te gebruik, voeg dit by MAIL_DESTINATIONS en allowed_destination_addresses in die ontplooiing.',
+    destRemove: 'Verwyder',
+    destConfirm: 'Ja, verwyder {email}',
+    destCancel: 'Kanselleer',
+    destRemoved: '{email} verwyder.',
+    destInUse: 'In gebruik',
+    destErrInUse: 'Daardie adres is nog in gebruik (’n roete, kennisgewing of die ontplooiing). Haal dit eers daar weg.',
     destErrInvalid: 'Nie ’n geldige adres nie, of een wat nie hier bestuur kan word nie (kerkadresse ook nie).',
     destErrExists: 'Daardie adres is reeds ’n bestemming.',
-    destErrLimit: 'Die daaglikse perk is bereik. Probeer môre weer.',
+    destErrLimit: 'Die perk van 5 byvoegings per 24 uur is bereik. Probeer later weer.',
     destErrUpstream: 'Cloudflare het nie geantwoord nie. Probeer weer.',
     destErrLoad: 'Kon nie die bestemmingsadresse laai nie.',
     fieldErrors: {
@@ -219,13 +229,18 @@ export const settingsCopy: Record<'af' | 'en', SettingsCopy> = {
     destAdd: 'Add destination',
     destAdding: 'Adding…',
     destAdded: 'Added. Cloudflare has emailed {email} a confirmation link.',
-    destRemaining: '{n} more can be added today.',
+    destRemaining: 'At most 5 adds per 24 hours (failed ones count) — {n} left.',
     destRefresh: 'Check again',
     destEmpty: 'No destination addresses yet.',
-    destDeployNote: 'To use a verified address for website enquiries, add it to MAIL_DESTINATIONS and allowed_destination_addresses in the deployment.',
+    destRemove: 'Remove',
+    destConfirm: 'Yes, remove {email}',
+    destCancel: 'Cancel',
+    destRemoved: '{email} removed.',
+    destInUse: 'In use',
+    destErrInUse: 'That address is still in use (a route, a notification or the deployment). Take it out there first.',
     destErrInvalid: 'Not a valid address, or one that cannot be managed here (church addresses neither).',
     destErrExists: 'That address is already a destination.',
-    destErrLimit: 'The daily limit is reached. Try again tomorrow.',
+    destErrLimit: 'The limit of 5 adds per 24 hours is reached. Try again later.',
     destErrUpstream: 'Cloudflare did not answer. Try again.',
     destErrLoad: 'Could not load the destination addresses.',
     fieldErrors: {

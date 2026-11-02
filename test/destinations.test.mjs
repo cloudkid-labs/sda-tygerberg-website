@@ -64,12 +64,13 @@ let calls;
 let failPost;
 const realFetch = globalThis.fetch;
 beforeEach(() => {
+  const id = (n) => String(n).repeat(32).slice(0, 32);
   account = [
-    { email: 'clerk-inbox@example.co.za', verified: '2026-01-01T00:00:00Z' },
-    { email: 'treasurer@example.co.za', verified: '2026-01-01T00:00:00Z' },
-    { email: 'pending@example.co.za', verified: null },
-    { email: 'other-ministry@example.org', verified: '2026-01-01T00:00:00Z' },
-    { email: `archive@${D}`, verified: '2026-01-01T00:00:00Z' },
+    { id: id(1), email: 'clerk-inbox@example.co.za', verified: '2026-01-01T00:00:00Z' },
+    { id: id(2), email: 'treasurer@example.co.za', verified: '2026-01-01T00:00:00Z' },
+    { id: id(3), email: 'pending@example.co.za', verified: null },
+    { id: id(4), email: 'other-ministry@example.org', verified: '2026-01-01T00:00:00Z' },
+    { id: id(5), email: `archive@${D}`, verified: '2026-01-01T00:00:00Z' },
   ];
   calls = [];
   failPost = false;
@@ -78,10 +79,15 @@ beforeEach(() => {
     if (!u.startsWith('https://api.cloudflare.com/')) return realFetch(url, init);
     calls.push({ url: u, method: init.method, auth: init.headers?.Authorization, body: init.body });
     assert.ok(u.includes(`/accounts/${ACCOUNT}/email/routing/addresses`));
+    if (init.method === 'DELETE') {
+      const gone = u.split('/').pop();
+      account = account.filter((a) => a.id !== gone);
+      return Response.json({ success: true, result: { id: gone } });
+    }
     if (init.method === 'POST') {
       if (failPost) return Response.json({ success: false, errors: [{ code: 1000 }] }, { status: 500 });
       const { email } = JSON.parse(init.body);
-      account.push({ email, verified: null });
+      account.push({ id: 'f'.repeat(32), email, verified: null });
       return Response.json({ success: true, result: { email, verified: null } });
     }
     return Response.json({ success: true, result: account, result_info: { total_pages: 1 } });
@@ -126,10 +132,11 @@ describe('/api/cms/destinations', () => {
     const r = await call(e, 'GET', '/api/cms/destinations');
     assert.equal(r.status, 200);
     assert.deepEqual(r.data.items, [
-      { email: 'clerk-inbox@example.co.za', verified: true, notify: true },
-      { email: 'pending@example.co.za', verified: false, notify: false },
-      { email: 'treasurer@example.co.za', verified: true, notify: false },
+      { email: 'clerk-inbox@example.co.za', verified: true, notify: true, inUse: true },
+      { email: 'pending@example.co.za', verified: false, notify: false, inUse: false },
+      { email: 'treasurer@example.co.za', verified: true, notify: false, inUse: false },
     ]);
+    assert.equal(r.text.includes('1111111111'), false, 'Cloudflare ids stay in the Worker');
     assert.equal(r.data.remaining, ADD_LIMIT);
     assert.equal(calls[0].auth, `Bearer ${TOKEN}`);
     assert.equal(r.text.includes(TOKEN), false, 'the token never reaches the page');
@@ -143,7 +150,7 @@ describe('/api/cms/destinations', () => {
     assert.equal(r.status, 200);
     const post = calls.find((c) => c.method === 'POST');
     assert.deepEqual(JSON.parse(post.body), { email: 'new@example.com' });
-    assert.deepEqual(r.data.items.find((d) => d.email === 'new@example.com'), { email: 'new@example.com', verified: false, notify: false });
+    assert.deepEqual(r.data.items.find((d) => d.email === 'new@example.com'), { email: 'new@example.com', verified: false, notify: false, inUse: false });
     assert.equal(r.data.remaining, ADD_LIMIT - 1);
     const auditKeys = e.CMS.keys().filter((k) => k.startsWith('audit/'));
     assert.equal(auditKeys.length, 1);
@@ -195,6 +202,52 @@ describe('/api/cms/destinations', () => {
     const r = await quiet(() => call(env(), 'GET', '/api/cms/destinations'));
     assert.equal(r.status, 502);
     assert.equal(r.data.outcome, 'upstream');
+  });
+});
+
+describe('removing a destination address', () => {
+  const del = (e, email, as = SUPER) => quiet(() => call(e, 'DELETE', '/api/cms/destinations', { body: { email }, as }));
+
+  test('removes an unused address by its Cloudflare id, and audits it', async () => {
+    const e = env();
+    const r = await del(e, 'pending@example.co.za');
+    assert.equal(r.status, 200);
+    const call1 = calls.find((c) => c.method === 'DELETE');
+    assert.ok(call1.url.endsWith('/email/routing/addresses/' + '3'.repeat(32)));
+    assert.equal(r.data.items.some((d) => d.email === 'pending@example.co.za'), false);
+    const auditKeys = e.CMS.keys().filter((k) => k.startsWith('audit/'));
+    const line = await (await e.CMS.get(auditKeys[0])).json();
+    assert.equal(line.action, 'destination.remove');
+    assert.deepEqual(line.changes, [{ op: 'removed', label: 'pending@example.co.za' }]);
+  });
+
+  test('refuses an address still in use: deploy config, or a saved route', async () => {
+    const e = env();
+    assert.equal((await del(e, 'clerk-inbox@example.co.za')).data.outcome, 'in-use', 'MAIL_DESTINATIONS');
+    await e.CMS.put(
+      SETTINGS_KEY,
+      JSON.stringify({
+        rev: 1,
+        settings: { members: [], routes: [{ address: `tesourier@${D}`, to: 'treasurer@example.co.za' }], notify: ['clerk-inbox@example.co.za'], profiles: [] },
+        updatedBy: SUPER,
+        updatedAt: '2026-01-01T00:00:00Z',
+      }),
+    );
+    const r = await del(e, 'treasurer@example.co.za');
+    assert.equal(r.status, 409);
+    assert.equal(r.data.outcome, 'in-use', 'a saved route');
+    const listed = await call(e, 'GET', '/api/cms/destinations');
+    assert.equal(listed.data.items.find((d) => d.email === 'treasurer@example.co.za').inUse, true);
+    assert.equal(calls.filter((c) => c.method === 'DELETE').length, 0);
+  });
+
+  test('hidden, church-domain and unknown addresses, and non-SuperAdmins, cannot remove', async () => {
+    const e = env();
+    assert.equal((await del(e, 'other-ministry@example.org')).status, 400);
+    assert.equal((await del(e, `archive@${D}`)).status, 400);
+    assert.equal((await del(e, 'nobody@example.com')).status, 404);
+    assert.equal((await del(e, 'pending@example.co.za', ADMIN)).status, 403);
+    assert.equal(calls.filter((c) => c.method === 'DELETE').length, 0);
   });
 });
 

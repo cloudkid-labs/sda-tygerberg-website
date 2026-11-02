@@ -1922,12 +1922,16 @@ still spends its slot. Every add is an audit line (`destination.add`). Church
 addresses are refused (they would loop through the Worker).
 `MAIL_DESTINATIONS_HIDDEN` lists account addresses this site does not manage;
 they are never listed, added or offered as route targets unless already in
-`MAIL_DESTINATIONS`. The Worker only lists and creates — it has no delete.
+`MAIL_DESTINATIONS`. Removing an address (`destination.remove`, audited,
+confirmed in the page) is refused while anything delivers to it: the deploy
+config's destinations, forward and archive, or a route or notification in
+force or saved.
 
 **The token reaches the whole account.** Destination addresses are
 account-level and the permission cannot be narrowed to one zone or to create
 only. `EMAIL_ROUTING_API_TOKEN` (Worker secret, Email Routing Addresses Write
 on the one account) could therefore list or delete other projects' addresses
-if leaked. Rotate it as SETUP-INSTRUCTIONS §4 says. Without the token or
+if leaked; the Worker itself only touches manageable addresses. Rotate it as
+SETUP-INSTRUCTIONS §4 says. Without the token or
 `EMAIL_ROUTING_ACCOUNT_ID` the section is hidden and Settings behaves as in
 C-71.

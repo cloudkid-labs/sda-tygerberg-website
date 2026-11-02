@@ -25,7 +25,7 @@ import { STATIC_PAGE_SLUGS, validateEvents, validateHeads, validatePage, isValid
 import type { ChurchEvent, DepartmentHead, Page } from '../lib/cms/types';
 import { diffEvents, diffHeads, diffPage, eventsOrder, headsOrder, isMoveOnly, pageOrder } from '../lib/cms/auditDiff';
 import { destinationsRoute } from './destinations';
-import { profileRoute, settingsRoute, type SettingsEnv } from './settings';
+import { destinationsInUse, profileRoute, settingsRoute, type SettingsEnv } from './settings';
 
 /**
  * /api/cms/* — the members area's content API (C-70).
@@ -312,7 +312,7 @@ export async function handleCms(request: Request, env: CmsEnv): Promise<Response
     case '/api/cms/settings':
       return settingsRoute(request, env, g, () => readBody(request));
     case '/api/cms/destinations':
-      return destinationsRoute(request, env, g, () => readBody(request));
+      return destinationsRoute(request, env, g, () => readBody(request), () => destinationsInUse(env, g.bucket));
     case '/api/cms/audit':
     {
       if (request.method !== 'GET') return json({ ok: false, outcome: 'invalid', errors: ['method'] }, 405);

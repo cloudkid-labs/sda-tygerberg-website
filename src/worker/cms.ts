@@ -24,6 +24,7 @@ import { handleMediaUpload, type MediaEnv } from './cmsMedia';
 import { STATIC_PAGE_SLUGS, validateEvents, validateHeads, validatePage, isValidSlug } from '../lib/cms/validate';
 import type { ChurchEvent, DepartmentHead, Page } from '../lib/cms/types';
 import { diffEvents, diffHeads, diffPage, eventsOrder, headsOrder, isMoveOnly, pageOrder } from '../lib/cms/auditDiff';
+import { destinationsRoute } from './destinations';
 import { profileRoute, settingsRoute, type SettingsEnv } from './settings';
 
 /**
@@ -310,6 +311,8 @@ export async function handleCms(request: Request, env: CmsEnv): Promise<Response
       return profileRoute(request, g);
     case '/api/cms/settings':
       return settingsRoute(request, env, g, () => readBody(request));
+    case '/api/cms/destinations':
+      return destinationsRoute(request, env, g, () => readBody(request));
     case '/api/cms/audit':
     {
       if (request.method !== 'GET') return json({ ok: false, outcome: 'invalid', errors: ['method'] }, 405);

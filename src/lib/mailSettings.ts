@@ -31,8 +31,17 @@ export type SettingsOptions = {
   superAdmins: string[];
   /** Role addresses members may send as (admin-only identities excluded). */
   senders: string[];
-  /** Verified destinations: delivery targets for routes and notifications. */
+  /**
+   * Notification targets: the deploy's verified destinations, which the
+   * send_email binding is fenced to (changing them takes a deploy).
+   */
   destinations: string[];
+  /**
+   * Inbound-route targets: `destinations` plus any address verified in
+   * Cloudflare since (C-72). Forwarding needs only a verified destination, not
+   * the send fence, so these work without a deploy. Absent: `destinations`.
+   */
+  routeDestinations?: string[];
   /** The church domain every routed address is on. */
   domain: string;
   /** Where mail to an address with no route goes, and the archive copy. */
@@ -60,6 +69,7 @@ export function validateSettings(input: unknown, o: SettingsOptions): Result {
   const admins = new Set(o.superAdmins.map(normEmail));
   const senders = new Set(o.senders.map(normEmail));
   const destinations = new Set(o.destinations.map(normEmail));
+  const routeTargets = new Set((o.routeDestinations ?? o.destinations).map(normEmail));
   const archive = normEmail(o.archive);
 
   const members: MemberSetting[] = [];
@@ -95,7 +105,7 @@ export function validateSettings(input: unknown, o: SettingsOptions): Result {
         errors.push(`routes.${i}.address`);
       }
       seen.add(address);
-      if (!destinations.has(to) || to === address) errors.push(`routes.${i}.to`);
+      if (!routeTargets.has(to) || to === address) errors.push(`routes.${i}.to`);
       routes.push({ address, to });
     });
   }

@@ -353,6 +353,8 @@ Set them in the Cloudflare dashboard — **Workers & Pages →
 npx wrangler secret put YOUTUBE_API_KEY
 npx wrangler secret put YOUTUBE_CHANNEL_ID
 npx wrangler secret put CONTACT_WEBHOOK_URL
+npx wrangler secret put EMAIL_ROUTING_API_TOKEN
+npx wrangler secret put EMAIL_ROUTING_ACCOUNT_ID
 ```
 
 | Secret | Required for | Value |
@@ -360,6 +362,8 @@ npx wrangler secret put CONTACT_WEBHOOK_URL
 | `YOUTUBE_API_KEY` | LIVE badge | A Google Cloud API key with YouTube Data API v3 enabled (step 5) |
 | `YOUTUBE_CHANNEL_ID` | LIVE badge | `UCtZlioPBBORWMMMSJ9BE1Wg` |
 | `CONTACT_WEBHOOK_URL` | Contact form (fallback only) | Where submissions go if email fails (step 6.4) |
+| `EMAIL_ROUTING_API_TOKEN` | Settings → Destination addresses (optional, C-72) | An API token with **Account → Email Routing Addresses → Edit** on this account only. Not the deploy token |
+| `EMAIL_ROUTING_ACCOUNT_ID` | Settings → Destination addresses (optional, C-72) | The account ID from step 3.1 |
 
 The contact form's **email** addresses are not secrets — they are committed in
 `wrangler.jsonc` and arrive with the deploy. That is a temporary decision; see

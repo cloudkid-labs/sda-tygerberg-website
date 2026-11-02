@@ -51,6 +51,24 @@ type SettingsCopy = {
   photoUploading: string;
   photoRemove: string;
   photoError: string;
+  destHeading: string;
+  destNote: string;
+  destPending: string;
+  destRoutesOnly: string;
+  destRoutesAndNotify: string;
+  destAddLabel: string;
+  destAdd: string;
+  destAdding: string;
+  destAdded: string;
+  destRemaining: string;
+  destRefresh: string;
+  destEmpty: string;
+  destDeployNote: string;
+  destErrInvalid: string;
+  destErrExists: string;
+  destErrLimit: string;
+  destErrUpstream: string;
+  destErrLoad: string;
   fieldErrors: Record<string, string>;
 };
 
@@ -72,7 +90,7 @@ export const settingsCopy: Record<'af' | 'en', SettingsCopy> = {
     addMember: 'Voeg lid by',
     addMemberLabel: 'Nuwe lid se Google-e-posadres',
     routesHeading: 'Inkomende pos',
-    routesNote: 'Pos aan ’n adres hier gaan na sy bestemming in plaas van die algemene posbus.',
+    routesNote: 'Pos aan ’n adres hier gaan na sy bestemming in plaas van die algemene posbus. Enige geverifieerde bestemming kan gekies word.',
     routeAddress: 'Kerkadres',
     routeTo: 'Stuur aan na',
     addRoute: 'Voeg roete by',
@@ -81,7 +99,7 @@ export const settingsCopy: Record<'af' | 'en', SettingsCopy> = {
     notifyHeading: 'Webwerf-navrae',
     notifyNote: 'Wie ’n kennisgewing kry wanneer iemand die webwerf se vorms invul.',
     destinationsNote:
-      'Net geverifieerde bestemmings kan gekies word. Om een by te voeg: verifieer dit in Cloudflare Email Routing en voeg dit by MAIL_DESTINATIONS in die ontplooiing.',
+      'Net bestemmings in die ontplooiing kan kennisgewings kry. ’n Nuwe een word onder Bestemmingsadresse bygevoeg en het dan ook ’n ontplooiing nodig.',
     save: 'Stoor instellings',
     saving: 'Stoor…',
     saved: 'Gestoor. Dit geld nou.',
@@ -110,6 +128,24 @@ export const settingsCopy: Record<'af' | 'en', SettingsCopy> = {
     photoUploading: 'Laai op…',
     photoRemove: 'Verwyder foto',
     photoError: 'Kon nie die foto oplaai nie (JPG of PNG, tot 5 MB).',
+    destHeading: 'Bestemmingsadresse',
+    destNote: 'Waarheen Cloudflare kerkpos mag aflewer. As jy een byvoeg, e-pos Cloudflare daardie adres ’n bevestigingskakel; dit kan gebruik word sodra die eienaar daarop klik.',
+    destPending: 'Wag vir bevestiging',
+    destRoutesOnly: 'Geverifieer — net inkomende roetes',
+    destRoutesAndNotify: 'Geverifieer — roetes en kennisgewings',
+    destAddLabel: 'Nuwe bestemmingsadres',
+    destAdd: 'Voeg bestemming by',
+    destAdding: 'Voeg by…',
+    destAdded: 'Bygevoeg. Cloudflare het ’n bevestigingskakel aan {email} gestuur.',
+    destRemaining: 'Nog {n} kan vandag bygevoeg word.',
+    destRefresh: 'Kyk weer',
+    destEmpty: 'Nog geen bestemmingsadresse nie.',
+    destDeployNote: 'Om ’n geverifieerde adres vir webwerf-navrae te gebruik, voeg dit by MAIL_DESTINATIONS en allowed_destination_addresses in die ontplooiing.',
+    destErrInvalid: 'Nie ’n geldige adres nie, of een wat nie hier bestuur kan word nie (kerkadresse ook nie).',
+    destErrExists: 'Daardie adres is reeds ’n bestemming.',
+    destErrLimit: 'Die daaglikse perk is bereik. Probeer môre weer.',
+    destErrUpstream: 'Cloudflare het nie geantwoord nie. Probeer weer.',
+    destErrLoad: 'Kon nie die bestemmingsadresse laai nie.',
     fieldErrors: {
       email: 'Nie ’n geldige adres nie, ’n duplikaat, of ’n administrateur.',
       sendAs: 'Een van die adresse is nie meer beskikbaar nie.',
@@ -136,7 +172,7 @@ export const settingsCopy: Record<'af' | 'en', SettingsCopy> = {
     addMember: 'Add member',
     addMemberLabel: 'New member’s Google email address',
     routesHeading: 'Incoming mail',
-    routesNote: 'Mail to an address listed here goes to its destination instead of the general inbox.',
+    routesNote: 'Mail to an address listed here goes to its destination instead of the general inbox. Any verified destination can be chosen.',
     routeAddress: 'Church address',
     routeTo: 'Forward to',
     addRoute: 'Add route',
@@ -145,7 +181,7 @@ export const settingsCopy: Record<'af' | 'en', SettingsCopy> = {
     notifyHeading: 'Website enquiries',
     notifyNote: 'Who is notified when someone fills in one of the website’s forms.',
     destinationsNote:
-      'Only verified destinations can be chosen. To add one, verify it in Cloudflare Email Routing and add it to MAIL_DESTINATIONS in the deployment.',
+      'Only destinations in the deployment can be notified. A new one is added under Destination addresses and then also needs a deploy.',
     save: 'Save settings',
     saving: 'Saving…',
     saved: 'Saved. It applies now.',
@@ -174,6 +210,24 @@ export const settingsCopy: Record<'af' | 'en', SettingsCopy> = {
     photoUploading: 'Uploading…',
     photoRemove: 'Remove photo',
     photoError: 'Could not upload the photo (JPG or PNG, up to 5 MB).',
+    destHeading: 'Destination addresses',
+    destNote: 'Where Cloudflare may deliver church mail. Adding one makes Cloudflare email that address a confirmation link; it can be used once the owner clicks it.',
+    destPending: 'Waiting for confirmation',
+    destRoutesOnly: 'Verified — inbound routes only',
+    destRoutesAndNotify: 'Verified — routes and notifications',
+    destAddLabel: 'New destination address',
+    destAdd: 'Add destination',
+    destAdding: 'Adding…',
+    destAdded: 'Added. Cloudflare has emailed {email} a confirmation link.',
+    destRemaining: '{n} more can be added today.',
+    destRefresh: 'Check again',
+    destEmpty: 'No destination addresses yet.',
+    destDeployNote: 'To use a verified address for website enquiries, add it to MAIL_DESTINATIONS and allowed_destination_addresses in the deployment.',
+    destErrInvalid: 'Not a valid address, or one that cannot be managed here (church addresses neither).',
+    destErrExists: 'That address is already a destination.',
+    destErrLimit: 'The daily limit is reached. Try again tomorrow.',
+    destErrUpstream: 'Cloudflare did not answer. Try again.',
+    destErrLoad: 'Could not load the destination addresses.',
     fieldErrors: {
       email: 'Not a valid address, a duplicate, or an admin.',
       sendAs: 'One of the addresses is no longer available.',

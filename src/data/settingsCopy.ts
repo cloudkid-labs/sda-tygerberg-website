@@ -63,6 +63,9 @@ type SettingsCopy = {
   destRemaining: string;
   destRefresh: string;
   destEmpty: string;
+  destAskHeading: string;
+  destAskBody: string;
+  destAskConfirm: string;
   destRemove: string;
   destConfirm: string;
   destCancel: string;
@@ -141,10 +144,13 @@ export const settingsCopy: Record<'af' | 'en', SettingsCopy> = {
     destAddLabel: 'Nuwe bestemmingsadres',
     destAdd: 'Voeg bestemming by',
     destAdding: 'Voeg by…',
-    destAdded: 'Bygevoeg. Cloudflare het ’n bevestigingskakel aan {email} gestuur.',
+    destAdded: 'Bygevoeg. Cloudflare het ’n bevestigingskakel aan {email} gestuur; dit wys as “Wag vir bevestiging” tot die eienaar dit klik.',
     destRemaining: 'Hoogstens 5 byvoegings per 24 uur (ook mislukte) — nog {n} oor.',
     destRefresh: 'Kyk weer',
     destEmpty: 'Nog geen bestemmingsadresse nie.',
+    destAskHeading: 'Laat die eienaar eers weet',
+    destAskBody: 'Cloudflare gaan ’n registrasie-e-pos aan {email} stuur. Laat die eienaar weet om dit oop te maak en die bevestigingskakel te klik — tot hulle dit doen, kan geen pos daarheen gaan nie. Kyk ook in hul strooiposvouer.',
+    destAskConfirm: 'Ek het hulle laat weet — voeg by',
     destRemove: 'Verwyder',
     destConfirm: 'Ja, verwyder {email}',
     destCancel: 'Kanselleer',
@@ -228,10 +234,13 @@ export const settingsCopy: Record<'af' | 'en', SettingsCopy> = {
     destAddLabel: 'New destination address',
     destAdd: 'Add destination',
     destAdding: 'Adding…',
-    destAdded: 'Added. Cloudflare has emailed {email} a confirmation link.',
+    destAdded: 'Added. Cloudflare has emailed {email} a confirmation link; it shows as “Waiting for confirmation” until the owner clicks it.',
     destRemaining: 'At most 5 adds per 24 hours (failed ones count) — {n} left.',
     destRefresh: 'Check again',
     destEmpty: 'No destination addresses yet.',
+    destAskHeading: 'Let the owner know first',
+    destAskBody: 'Cloudflare will send a registration email to {email}. Tell the owner to open it and click the confirmation link — until they do, no mail can go there. Ask them to check their spam folder too.',
+    destAskConfirm: 'I have told them — add it',
     destRemove: 'Remove',
     destConfirm: 'Yes, remove {email}',
     destCancel: 'Cancel',

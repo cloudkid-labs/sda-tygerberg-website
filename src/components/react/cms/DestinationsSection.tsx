@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { fill } from '../../../data/cmsCopy';
 import { settingsCopy } from '../../../data/settingsCopy';
 import { isEmail, normEmail } from '../../../lib/mailSettings';
@@ -25,6 +25,12 @@ export function DestinationsSection({ lang, onChanged }: { lang: 'af' | 'en'; on
   const [done, setDone] = useState('');
   /** The address whose Remove was pressed, awaiting confirmation. */
   const [confirming, setConfirming] = useState('');
+  /** The address to add, waiting for the SuperAdmin to confirm the owner knows. */
+  const [pending, setPending] = useState('');
+  const confirmAdd = useRef<HTMLButtonElement>(null);
+  useEffect(() => {
+    if (pending) confirmAdd.current?.focus();
+  }, [pending]);
 
   const load = useCallback(async () => {
     setError('');
@@ -39,12 +45,19 @@ export function DestinationsSection({ lang, onChanged }: { lang: 'af' | 'en'; on
     void load();
   }, [load]);
 
-  async function add() {
+  /** Add pressed: check the address, then ask before Cloudflare emails anyone. */
+  function ask() {
     const address = normEmail(email);
     setDone('');
     setError('');
     if (!isEmail(address)) return setInvalid(true);
     setInvalid(false);
+    if (listing?.items.some((d) => d.email === address)) return setError(t.destErrExists);
+    setPending(address);
+  }
+
+  async function add(address: string) {
+    setPending('');
     setBusy(true);
     const res = await cmsApi<Listing>('POST', '/api/cms/destinations', { email: address });
     setBusy(false);
@@ -149,19 +162,46 @@ export function DestinationsSection({ lang, onChanged }: { lang: 'af' | 'en'; on
                 value={email}
                 aria-invalid={invalid || undefined}
                 disabled={busy || listing.remaining === 0}
-                onChange={(e) => setEmail(e.target.value)}
+                onChange={(e) => {
+                  setEmail(e.target.value);
+                  setPending('');
+                }}
                 onKeyDown={(e) => {
                   if (e.key === 'Enter') {
                     e.preventDefault();
-                    void add();
+                    ask();
                   }
                 }}
               />
             </div>
-            <button type="button" className={buttonAdd} disabled={busy || listing.remaining === 0} onClick={() => void add()}>
+            <button type="button" className={buttonAdd} disabled={busy || Boolean(pending) || listing.remaining === 0} onClick={ask}>
               {busy ? t.destAdding : t.destAdd}
             </button>
           </div>
+          {pending && (
+            <div
+              role="alertdialog"
+              aria-labelledby="st-dest-ask-h"
+              aria-describedby="st-dest-ask-p"
+              className="grid gap-3 rounded-[10px] border-[1.5px] border-[#e8a25a] bg-[#fdf3e7] px-4 py-3.5"
+              onKeyDown={(e) => {
+                if (e.key === 'Escape') setPending('');
+              }}
+            >
+              <p id="st-dest-ask-h" className="text-[15px] font-bold text-ink">{t.destAskHeading}</p>
+              <p id="st-dest-ask-p" className="break-words text-[14px] leading-relaxed text-slate">
+                {fill(t.destAskBody, { email: pending })}
+              </p>
+              <div className="flex flex-wrap items-center gap-2">
+                <button ref={confirmAdd} type="button" className={buttonAdd} onClick={() => void add(pending)}>
+                  {t.destAskConfirm}
+                </button>
+                <button type="button" className="min-h-11 px-2 text-[13px] font-bold text-navy underline" onClick={() => setPending('')}>
+                  {t.destCancel}
+                </button>
+              </div>
+            </div>
+          )}
           <div className="flex flex-wrap items-center gap-3">
             <p className="text-[12.5px] text-slate-muted">
               {listing.remaining === 0 ? t.destErrLimit : fill(t.destRemaining, { n: String(listing.remaining) })}

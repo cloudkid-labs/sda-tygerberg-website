@@ -158,6 +158,11 @@
     // Adding one: verify it in Email Routing first, then list it here and in
     // send_email.allowed_destination_addresses (a test keeps the two equal).
     "MAIL_DESTINATIONS": "sdatygerbergklerk@gmail.com,sdatygerbergkerk@gmail.com,muller31jp@gmail.com,rainiersvn1@gmail.com,archive@sdatygerberg.co.za",
+    // Destination addresses on the Cloudflare account that Settings →
+    // Destination addresses never shows, adds or offers as a route target
+    // (C-72): addresses not this site's to manage, and the archive. Any of
+    // them in MAIL_DESTINATIONS stays usable as configured here.
+    "MAIL_DESTINATIONS_HIDDEN": "korbanministries@gmail.com,johanemomberg@gmail.com,rainiersvn1@gmail.com,archive@sdatygerberg.co.za",
     "MAIL_ARCHIVE_TO": "archive@sdatygerberg.co.za",
     // Per-address exceptions to MAIL_FORWARD_TO, archived and rejected on
     // failure the same way. tesourier@ is the address on the Zapper merchant

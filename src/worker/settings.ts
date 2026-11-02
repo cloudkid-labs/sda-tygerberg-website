@@ -1,7 +1,8 @@
 /// <reference types="@cloudflare/workers-types" />
 
-import { allowedFrom, isAdmin, isAdminOnlyEmail, senders, type AuthEnv } from './auth';
+import { allowedFrom, isAdmin, isAdminOnlyEmail, isSuperAdmin, senders } from './auth';
 import { audit, keepHistory, readHeads, readJson, writeJson } from './cmsStore';
+import { currentVerified, destinationsConfigured, readVerified, type DestinationsEnv } from './destinations';
 import type { AuditChange } from '../lib/cms/auditDiff';
 import { normEmail, validateSettings, type MailSettings, type SettingsOptions } from '../lib/mailSettings';
 
@@ -18,15 +19,12 @@ import { normEmail, validateSettings, type MailSettings, type SettingsOptions } 
  * Nothing saved yet: the vars are the settings, exactly as before.
  */
 
-export type SettingsEnv = AuthEnv & {
-  CMS?: R2Bucket;
+export type SettingsEnv = DestinationsEnv & {
   MAIL_ROUTES?: Record<string, string>;
   CONTACT_EMAIL_TO?: string;
   CONTACT_EMAIL_FROM?: string;
   MAIL_FORWARD_TO?: string;
   MAIL_ARCHIVE_TO?: string;
-  /** Verified destination addresses (comma-separated); deploy config only. */
-  MAIL_DESTINATIONS?: string;
 };
 
 export const SETTINGS_KEY = 'settings/mail.json';
@@ -41,12 +39,18 @@ const list = (v: string | undefined) =>
 /** Deploy config's admins, before the overlay widened BOARD_ADMIN_EMAILS. */
 const superAdmins = (env: SettingsEnv) => list(env.BOARD_SUPER_ADMIN_EMAILS ?? env.BOARD_ADMIN_EMAILS);
 
-/** What settings may choose from — deploy config, never editable here. */
-export function settingsOptions(env: SettingsEnv): SettingsOptions {
+/**
+ * What settings may choose from — deploy config, never editable here, plus
+ * the addresses verified in Cloudflare since (`verified`, C-72), which only
+ * inbound routes may use.
+ */
+export function settingsOptions(env: SettingsEnv, verified: string[] = []): SettingsOptions {
+  const destinations = list(env.MAIL_DESTINATIONS);
   return {
     superAdmins: superAdmins(env),
     senders: [...senders(env)].filter((a) => !isAdminOnlyEmail(env, a)),
-    destinations: list(env.MAIL_DESTINATIONS),
+    destinations,
+    routeDestinations: [...new Set([...destinations, ...verified])],
     domain: normEmail(env.CONTACT_EMAIL_FROM).split('@')[1] || 'sdatygerberg.co.za',
     forwardTo: normEmail(env.MAIL_FORWARD_TO),
     archive: normEmail(env.MAIL_ARCHIVE_TO),
@@ -78,10 +82,11 @@ export async function readSettings(bucket: R2Bucket): Promise<{ doc: SettingsDoc
  * trusted because it once validated; with nothing left to notify, the var's
  * recipients stand.
  */
-export function applySettings<E extends SettingsEnv>(env: E, s: MailSettings): E {
-  const o = settingsOptions(env);
+export function applySettings<E extends SettingsEnv>(env: E, s: MailSettings, verified: string[] = []): E {
+  const o = settingsOptions(env, verified);
   const regular = new Set(o.senders);
   const dest = new Set(o.destinations);
+  const routeDest = new Set(o.routeDestinations);
   const supers = o.superAdmins;
   const members = s.members.filter((m) => m.email && !supers.includes(m.email));
   const notify = s.notify.filter((a) => dest.has(a) && a !== o.archive);
@@ -93,7 +98,7 @@ export function applySettings<E extends SettingsEnv>(env: E, s: MailSettings): E
     // An entry with no addresses fences that member to nothing (fail closed).
     BOARD_SEND_AS: members.map((m) => `${m.email}=${m.sendAs.filter((a) => regular.has(a)).join(',')}`).join(';'),
     MAIL_ROUTES: Object.fromEntries(
-      s.routes.filter((r) => dest.has(r.to) && r.address.endsWith(`@${o.domain}`) && r.address !== o.archive).map((r) => [r.address, r.to]),
+      s.routes.filter((r) => routeDest.has(r.to) && r.address.endsWith(`@${o.domain}`) && r.address !== o.archive).map((r) => [r.address, r.to]),
     ),
     CONTACT_EMAIL_TO: notify.length ? notify.join(',') : env.CONTACT_EMAIL_TO,
   };
@@ -106,8 +111,8 @@ export function applySettings<E extends SettingsEnv>(env: E, s: MailSettings): E
 export async function withSettings<E extends SettingsEnv>(env: E): Promise<E> {
   if (!env.CMS) return env;
   try {
-    const hit = await readSettings(env.CMS);
-    return hit ? applySettings(env, hit.doc.settings) : env;
+    const [hit, verified] = await Promise.all([readSettings(env.CMS), readVerified(env.CMS)]);
+    return hit ? applySettings(env, hit.doc.settings, verified) : env;
   } catch {
     console.error('settings: read FAILED, using wrangler vars');
     return env;
@@ -167,7 +172,9 @@ export async function settingsRoute(
   body: () => Promise<{ ok: true; body: Record<string, unknown> } | { ok: false; response: Response }>,
 ): Promise<Response> {
   if (!isAdmin(env, g.email)) return json({ ok: false, outcome: 'forbidden' }, 403);
-  const options = settingsOptions(env);
+  const options = settingsOptions(env, await currentVerified(env, g.bucket));
+  // Whether this admin sees Settings → Email settings → Destination addresses.
+  const manageDestinations = isSuperAdmin(env, g.email) && destinationsConfigured(env);
   const current = await readSettings(g.bucket);
   const inForce = current?.doc.settings ?? settingsFromConfig(env);
   if (request.method === 'GET') {
@@ -180,6 +187,7 @@ export async function settingsRoute(
         source: current ? 'saved' : 'config',
         settings: { ...inForce, profiles: inForce.profiles ?? [] },
         options,
+        manageDestinations,
         heads: heads.items.map((h) => ({ id: h.id, name: h.name, photo: h.photo?.src ?? null })),
         updatedBy: current?.doc.updatedBy ?? null,
         updatedAt: current?.doc.updatedAt ?? null,
@@ -201,7 +209,7 @@ export async function settingsRoute(
   if (current) await keepHistory(g.bucket, 'settings', current.doc);
   const changes = diffSettings(inForce, next.settings);
   if (changes.length) await audit(g.bucket, { by: g.email, action: 'settings.save', target: 'settings', changes });
-  return json({ ok: true, rev: next.rev, source: 'saved', settings: next.settings, options, updatedBy: next.updatedBy, updatedAt: next.updatedAt }, 200);
+  return json({ ok: true, rev: next.rev, source: 'saved', settings: next.settings, options, manageDestinations, updatedBy: next.updatedBy, updatedAt: next.updatedAt }, 200);
 }
 
 /**

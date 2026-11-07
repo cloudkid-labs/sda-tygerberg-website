@@ -9,6 +9,7 @@ import type {
   PublicPage,
 } from './types';
 import { isExpired } from './time';
+import { FEATURE_FLAGS } from '../../data/featureFlags';
 
 /**
  * The only way CMS content reaches a visitor. Drafts and hidden heads are
@@ -47,7 +48,13 @@ export function homePayload(
   build: HomePayload['build'],
   eventPages: PublicEventPage[] = [],
 ): HomePayload {
-  return { asOf, build, events: publicEvents(events, asOf), heads: publicHeads(heads), eventPages };
+  return {
+    asOf,
+    build,
+    events: FEATURE_FLAGS.weekEvents ? publicEvents(events, asOf) : [],
+    heads: FEATURE_FLAGS.departmentHeads ? publicHeads(heads) : [],
+    eventPages,
+  };
 }
 
 /**

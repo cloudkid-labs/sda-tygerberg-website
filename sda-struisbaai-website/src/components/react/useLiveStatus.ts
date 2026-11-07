@@ -25,12 +25,12 @@ export type LiveStatus = { isLive: boolean; watchUrl: string | null };
 
 const OFFLINE: LiveStatus = { isLive: false, watchUrl: null };
 
-export function useLiveStatus(): LiveStatus {
+export function useLiveStatus(enabled: boolean): LiveStatus {
   const [status, setStatus] = useState<LiveStatus>(OFFLINE);
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
-    if (import.meta.env.PUBLIC_HAS_API === 'false') return;
+    if (!enabled || import.meta.env.PUBLIC_HAS_API === 'false') return;
 
     let cancelled = false;
 
@@ -61,7 +61,7 @@ export function useLiveStatus(): LiveStatus {
       cancelled = true;
       if (timeoutRef.current) clearTimeout(timeoutRef.current);
     };
-  }, []);
+  }, [enabled]);
 
   return status;
 }

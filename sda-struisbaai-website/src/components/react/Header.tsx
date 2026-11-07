@@ -4,11 +4,12 @@ import { homeCopy } from '../../data/homeCopy';
 import { Logo } from './Logo';
 import { LanguageToggle } from './LanguageToggle';
 import { withBase } from '../../lib/base';
+import { FEATURE_FLAGS } from '../../data/featureFlags';
 
 type NavKey = 'navAbout' | 'navBeliefs' | 'navMinistries' | 'navEvents' | 'navVisit' | 'navConnect' | 'navResources';
 
 const navLinks: { key: NavKey; href: string }[] = [
-  { key: 'navAbout', href: '#oor' },
+  ...(FEATURE_FLAGS.departmentHeads ? [{ key: 'navAbout' as const, href: '#oor' }] : []),
   { key: 'navBeliefs', href: '#glo' },
   { key: 'navMinistries', href: '#week' },
   { key: 'navEvents', href: '#geleenthede' },
@@ -77,7 +78,7 @@ export function Header() {
           <div className="leading-tight">
             <div className="font-serif text-2xl font-semibold leading-tight text-navy">Struisbaai</div>
             <div className="text-[10.5px] uppercase tracking-[.14em] text-slate-muted">
-              SDA Kerk · Kaapstad
+              Sewendedag Adventiste Kerk · Struisbaai
             </div>
           </div>
         </a>

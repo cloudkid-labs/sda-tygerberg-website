@@ -15,6 +15,7 @@ import { Resources } from './Resources';
 import { FirstVisit } from './FirstVisit';
 import { VisitMap } from './VisitMap';
 import { Footer } from './Footer';
+import { FEATURE_FLAGS } from '../../data/featureFlags';
 
 export function Home({ latestVideo = null }: { latestVideo?: LatestVideo | null }) {
   // The week and the department heads come from the page's payload, never a
@@ -30,11 +31,15 @@ export function Home({ latestVideo = null }: { latestVideo?: LatestVideo | null 
         {/* The landmark starts after the header so the skip link actually skips
             the nav — that is the whole point of it. */}
         <main id="main" className="flex-1">
-          <Hero latestVideo={latestVideo} />
+          <Hero latestVideo={latestVideo} youtubeEnabled={FEATURE_FLAGS.youtubeSection} />
           <ServiceTimesStrip />
           <ThisWeek data={cms} />
           <EventPages data={cms} />
-          <AboutCarousel heads={cms.heads} cdnEnabled={cms.build.imageCdn} />
+          {FEATURE_FLAGS.departmentHeads ? (
+            <AboutCarousel heads={cms.heads} cdnEnabled={cms.build.imageCdn} />
+          ) : (
+            <section id="oor" hidden aria-hidden="true" />
+          )}
           <BeliefsSummary />
           <GetInvolved />
           <Resources />

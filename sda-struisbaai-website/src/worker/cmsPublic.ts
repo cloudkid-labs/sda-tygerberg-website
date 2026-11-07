@@ -2,6 +2,7 @@
 
 import { homePayload, publicPage, scriptJson } from '../lib/cms/public';
 import { johannesburgDate } from '../lib/cms/time';
+import { FEATURE_FLAGS } from '../data/featureFlags';
 import { HOME_PAYLOAD_ID, PAGE_PAYLOAD_ID } from '../lib/cms/ids';
 import type { ChurchEvent, DepartmentHead, HomePayload, Page, PublicEventPage, PublicPage } from '../lib/cms/types';
 import { liveSlugs, readEventPages, readEvents, readHeads, readPageLive, type CmsStoreEnv } from './cmsStore';
@@ -172,7 +173,17 @@ export async function serveHome(
   const asset = await env.ASSETS.fetch(env.CMS ? unconditional(request, '/') : request);
   if (!env.CMS || request.method !== 'GET' || asset.status !== 200) return asset;
   try {
-    const [{ doc: events }, { doc: heads }, eventPages] = await Promise.all([readEvents(env.CMS), readHeads(env.CMS), readEventPages(env.CMS)]);
+    const eventsPromise = FEATURE_FLAGS.weekEvents
+      ? readEvents(env.CMS)
+      : Promise.resolve({ doc: { rev: 0, items: [] as ChurchEvent[] }, etag: null });
+    const headsPromise = FEATURE_FLAGS.departmentHeads
+      ? readHeads(env.CMS)
+      : Promise.resolve({ doc: { rev: 0, items: [] as DepartmentHead[] }, etag: null });
+    const [{ doc: events }, { doc: heads }, eventPages] = await Promise.all([
+      eventsPromise,
+      headsPromise,
+      readEventPages(env.CMS),
+    ]);
     const html = await asset.clone().text();
     const out = rewriteHome(html, { events: events.items, heads: heads.items, eventPages }, johannesburgDate(now), render);
     if (out === null) {

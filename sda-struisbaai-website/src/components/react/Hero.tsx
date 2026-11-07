@@ -67,11 +67,12 @@ function useEmbedVerdict(videoId: string | null): EmbedVerdict {
 function useLatestVideo(
   seed: LatestVideo | null,
   frozen: RefObject<boolean>,
+  enabled: boolean,
 ): LatestVideo | null {
   const [video, setVideo] = useState(seed);
 
   useEffect(() => {
-    if (import.meta.env.PUBLIC_HAS_API === 'false') return;
+    if (!enabled || import.meta.env.PUBLIC_HAS_API === 'false') return;
     let cancelled = false;
     (async () => {
       try {
@@ -92,22 +93,22 @@ function useLatestVideo(
     return () => {
       cancelled = true;
     };
-  }, [frozen]);
+  }, [frozen, enabled]);
 
   return video;
 }
 
-export function Hero({ latestVideo = null }: { latestVideo?: LatestVideo | null }) {
+export function Hero({ latestVideo = null, youtubeEnabled }: { latestVideo?: LatestVideo | null; youtubeEnabled: boolean }) {
   const { lang } = useLanguage();
   const t = homeCopy[lang];
-  const { isLive, watchUrl } = useLiveStatus();
+  const { isLive, watchUrl } = useLiveStatus(youtubeEnabled);
 
   // A ref, not state: it must be readable inside useLatestVideo's async
   // refresh (to stop swapping a playing video) and settable synchronously in
   // the click handler alongside setPlaying, without adding a render.
   const playingRef = useRef(false);
-  const video = useLatestVideo(latestVideo, playingRef);
-  const verdict = useEmbedVerdict(video?.videoId ?? null);
+  const video = useLatestVideo(youtubeEnabled ? latestVideo : null, playingRef, youtubeEnabled);
+  const verdict = useEmbedVerdict(youtubeEnabled ? video?.videoId ?? null : null);
   const [playing, setPlaying] = useState(false);
 
   const watchHref = video
@@ -140,7 +141,7 @@ export function Hero({ latestVideo = null }: { latestVideo?: LatestVideo | null 
               this invited people to a stream that was not there. It links to
               the broadcast the API named, falling back to the channel's live
               tab when the answer arrived without an id. */}
-          {isLive && (
+          {youtubeEnabled && isLive && (
             <a
               href={watchUrl ?? SITE.youtubeLiveUrl}
               target="_blank"
@@ -154,7 +155,7 @@ export function Hero({ latestVideo = null }: { latestVideo?: LatestVideo | null 
         </div>
       </div>
 
-      <div id="stroom" className="scroll-mt-24">
+      {youtubeEnabled && <div id="stroom" className="scroll-mt-24">
         <div className="overflow-hidden rounded-card-lg bg-navy-deep shadow-deep">
           {/* An adaptive preview, not a bare iframe, and the shape is forced by
               measurement rather than taste. Google's consent flow redirect-
@@ -269,7 +270,7 @@ export function Hero({ latestVideo = null }: { latestVideo?: LatestVideo | null 
             )}
           </div>
           <div className="flex items-center gap-3 p-4">
-            {isLive && (
+            {youtubeEnabled && isLive && (
               /* Status, not an action — so no orange fill, which in this bar
                  would read as a second button beside the real one. */
               <div className="flex items-center gap-2 rounded-pill bg-white/10 px-3 py-1.5 text-[11px] font-extrabold tracking-[.08em] text-white">
@@ -292,7 +293,7 @@ export function Hero({ latestVideo = null }: { latestVideo?: LatestVideo | null 
             </a>
           </div>
         </div>
-      </div>
+      </div>}
     </section>
   );
 }

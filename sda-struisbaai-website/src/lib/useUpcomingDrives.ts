@@ -32,9 +32,12 @@ const DRIVES_AT_BUILD = BLOOD_DRIVES.filter((d) => d >= import.meta.env.PUBLIC_B
  * re-renders per request (C-70). Same date on both sides of hydration either
  * way.
  */
-export function useUpcomingDrives(asOf?: string): readonly string[] {
+export function useUpcomingDrives(asOf?: string, enabled = true): readonly string[] {
   const [now, setNow] = useState<string | null>(null);
-  useEffect(() => setNow(today()), []);
+  useEffect(() => {
+    if (enabled) setNow(today());
+  }, [enabled]);
+  if (!enabled) return [];
   if (now) return BLOOD_DRIVES.filter((d) => d >= now);
   return asOf ? BLOOD_DRIVES.filter((d) => d >= asOf) : DRIVES_AT_BUILD;
 }

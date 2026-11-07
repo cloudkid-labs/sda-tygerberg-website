@@ -97,6 +97,9 @@ export type HomeCopy = {
   giveCta: string;
   connectCta: string;
   studyCta: string;
+  prayerTitle: string;
+  prayerDesc: string;
+  prayerCta: string;
   resourcesHeading: string;
   resourcesSub: string;
   visitEyebrow: string;
@@ -109,7 +112,6 @@ export type HomeCopy = {
   saturdayShort: string;
   mapTitle: string;
   directionsCta: string;
-  appleMapsCta: string;
   footerBlurb: string;
   footerVisit: string;
   footerTimesLabel: string;
@@ -136,10 +138,10 @@ export const homeCopy: Record<Lang, HomeCopy> = {
     navResources: 'Hulpbronne',
     navLogin: 'Teken in',
     give: 'Skenk',
-    heroEyebrow: 'Sewendedag Adventiste Kerk · Tygerberg',
+    heroEyebrow: 'Sewendedag Adventiste Kerk · Struisbaai',
     heroTitle: 'Vind rus, hoop en genesing in Jesus',
     heroSub:
-      'Sluit elke Sabbat by ons aan in Boston, Kaapstad — of kyk lewendig van waar jy ook al is.',
+      'Sluit elke Sabbat by ons aan by Struisbaai Library Hall.',
     ctaVisit: 'Besoek ons gemeente',
     ctaWatch: 'Kyk Lewendig',
     liveLabel: 'LEWENDIG',
@@ -219,6 +221,9 @@ export const homeCopy: Record<Lang, HomeCopy> = {
     giveCta: 'Bankbesonderhede',
     connectCta: 'Kontak ons',
     studyCta: 'Vra studie aan',
+    prayerTitle: 'Gebedsversoek',
+    prayerDesc: 'Het jy iets waarvoor ons saam met jou kan bid? Stuur jou gebedsversoek.',
+    prayerCta: 'Stuur ’n gebedsversoek',
     resourcesHeading: 'Voed jou geloof daagliks',
     resourcesSub: 'Amptelike Adventiste hulpbronne vir studie en aanbidding.',
     visitEyebrow: 'Besoek Ons',
@@ -228,10 +233,9 @@ export const homeCopy: Record<Lang, HomeCopy> = {
     addressCopied: 'Gekopieer!',
     addressCopyFailed: 'Kon nie kopieer nie',
     saturdayShort: 'Sa',
-    mapTitle: 'Tygerberg SDA Kerk — kaart',
+    mapTitle: 'SDA Struisbaai — kaart',
     directionsCta: 'Kry Aanwysings',
-    appleMapsCta: 'Maak oop in Apple Maps',
-    footerBlurb: '’n Gemeente wat hoop, genesing en die liefde van Jesus met die Tygerberg-omgewing deel.',
+    footerBlurb: '’n Gemeente wat hoop, genesing en die liefde van Jesus met die Struisbaai-omgewing deel.',
     footerVisit: 'Besoek ons',
     footerTimesLabel: 'Dienstye',
     followUs: 'Volg ons',
@@ -253,9 +257,9 @@ export const homeCopy: Record<Lang, HomeCopy> = {
     navResources: 'Resources',
     navLogin: 'Sign in',
     give: 'Give',
-    heroEyebrow: 'Seventh-day Adventist Church · Tygerberg',
+    heroEyebrow: 'Seventh-day Adventist Church · Struisbaai',
     heroTitle: 'Find rest, hope and healing in Jesus',
-    heroSub: 'Join us every Sabbath in Boston, Cape Town — or watch live from wherever you are.',
+    heroSub: 'Join us each Sabbath at Struisbaai Library Hall.',
     ctaVisit: 'Visit our church',
     ctaWatch: 'Watch Live',
     liveLabel: 'LIVE',
@@ -332,6 +336,9 @@ export const homeCopy: Record<Lang, HomeCopy> = {
     giveCta: 'Banking details',
     connectCta: 'Contact us',
     studyCta: 'Request study',
+    prayerTitle: 'Prayer Request',
+    prayerDesc: 'Is there something we can pray about with you? Share your prayer request.',
+    prayerCta: 'Send a prayer request',
     resourcesHeading: 'Feed your faith daily',
     resourcesSub: 'Official Adventist resources for study and worship.',
     visitEyebrow: 'Visit Us',
@@ -341,10 +348,9 @@ export const homeCopy: Record<Lang, HomeCopy> = {
     addressCopied: 'Copied!',
     addressCopyFailed: 'Copy failed',
     saturdayShort: 'Sat',
-    mapTitle: 'Tygerberg SDA Church — map',
+    mapTitle: 'SDA Struisbaai — map',
     directionsCta: 'Get Directions',
-    appleMapsCta: 'Open in Apple Maps',
-    footerBlurb: 'A congregation sharing hope, healing and the love of Jesus with the Tygerberg community.',
+    footerBlurb: 'A congregation sharing hope, healing and Jesus’ love with the Struisbaai community.',
     footerVisit: 'Visit us',
     footerTimesLabel: 'Service times',
     followUs: 'Follow us',

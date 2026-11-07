@@ -1,24 +1,16 @@
+import { FEATURE_FLAGS } from './featureFlags';
+
 export type Lang = 'af' | 'en';
 
-// The address, the service times and the opening hours below are mirrored by
-// hand in `public/llms.txt`, which is a flat file and cannot import them.
-// Change anything here and change it there too — CONCERNS.md C-35.
 /**
- * The address in parts, so the flat string every component prints and the
- * JSON-LD PostalAddress are built from the same values. They were separate
- * before, and had drifted: structuredData.ts said "Boston, Bellville" where
- * this file said "Boston, Cape Town", and a comment claimed both read from
- * here. Boston is the suburb, Bellville the town, Cape Town the metro — all
- * three are true, and each field below is the one schema.org asks for. C-49
+ * Struisbaai Library Hall is the destination supplied for this site. The
+ * visitor-facing address and structured data share these parts.
  */
 const ADDRESS = {
-  street: '54 Boston St',
-  suburb: 'Boston',
-  town: 'Bellville',
-  city: 'Cape Town',
+  street: 'Struisbaai Library Hall',
+  suburb: 'Struisbaai',
+  town: 'Struisbaai',
   region: 'Western Cape',
-  postalCode: '7530',
-  /** ISO 3166-1 alpha-2, which is what schema.org's addressCountry expects. */
   country: 'ZA',
 } as const;
 
@@ -32,16 +24,12 @@ export const MEMBERS_SITES = {
 } as const;
 
 export const SITE = {
-  name: 'Tygerberg SDA',
+  name: 'SDA Struisbaai',
   /** The congregation's full name, for the map popup and the page titles. */
-  fullName: 'Tygerberg SDA Church',
+  fullName: 'SDA Struisbaai Church',
   addressParts: ADDRESS,
-  address: `${ADDRESS.street}, ${ADDRESS.suburb}, ${ADDRESS.city}, ${ADDRESS.postalCode}`,
-  lat: -33.8974,
-  lng: 18.6235,
-  directionsUrl:
-    'https://www.google.com/maps/dir//Tygerberg+SDA+Kerk,+54+Boston+St,+Boston,+Cape+Town,+7530',
-  appleMapsUrl: 'https://maps.apple.com/?address=54%20Boston%20St,%20Boston,%20Cape%20Town,%207530',
+  address: `${ADDRESS.street}, ${ADDRESS.suburb}`,
+  directionsUrl: 'https://maps.app.goo.gl/2iestQRD6bgygWqt6?g_st=ic',
   youtubeChannelUrl: 'https://www.youtube.com/@SDATygerberg',
   // /streams, by the church's instruction: the services are streamed, so the
   // streams tab is where the latest content actually is — /featured and
@@ -74,7 +62,7 @@ export const SITE = {
 export type SocialLink = { id: 'youtube' | 'instagram' | 'facebook'; label: string; url: string };
 
 export const SOCIAL_LINKS: readonly SocialLink[] = [
-  { id: 'youtube', label: 'YouTube', url: SITE.youtubeStreamsUrl },
+  ...(FEATURE_FLAGS.youtubeSection ? [{ id: 'youtube' as const, label: 'YouTube', url: SITE.youtubeStreamsUrl }] : []),
   { id: 'instagram', label: 'Instagram', url: 'https://www.instagram.com/sdatygerberg' },
   // TODO(board): confirm SDATygerbergStream is the church's main Facebook page,
   // not a stream-only page. URL is verbatim from the brief.

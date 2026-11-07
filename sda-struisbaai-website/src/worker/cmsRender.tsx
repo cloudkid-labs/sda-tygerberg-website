@@ -3,6 +3,7 @@ import { LanguageProvider } from '../context/LanguageContext';
 import { ThisWeek } from '../components/react/ThisWeek';
 import { EventPages } from '../components/react/EventPages';
 import { AboutCarousel } from '../components/react/AboutCarousel';
+import { FEATURE_FLAGS } from '../data/featureFlags';
 import { CmsPageView } from '../components/react/CmsPageView';
 import type { HomePayload, PublicPage } from '../lib/cms/types';
 
@@ -42,6 +43,7 @@ export function renderEventsSection(payload: HomePayload): string {
 }
 
 export function renderAboutSection(payload: HomePayload): string {
+  if (!FEATURE_FLAGS.departmentHeads) return '<section id="oor" hidden aria-hidden="true"></section>';
   return withoutHoistedHints(renderToString(
     <LanguageProvider>
       <AboutCarousel heads={payload.heads} cdnEnabled={payload.build.imageCdn} />

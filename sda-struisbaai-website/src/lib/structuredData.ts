@@ -1,4 +1,5 @@
 import { SITE, SABBATH_HOURS } from '../data/site';
+import { FEATURE_FLAGS } from '../data/featureFlags';
 
 /**
  * The name Google prints above the URL in a search result.
@@ -20,8 +21,8 @@ export function websiteJsonLd(site: URL) {
   return {
     '@type': 'WebSite',
     '@id': new URL('#website', site).href,
-    name: 'Tygerberg SDA Kerk',
-    alternateName: ['Tygerberg Sewendedag Adventiste Kerk', 'Tygerberg SDA Church'],
+    name: 'SDA Struisbaai',
+    alternateName: ['SDA Struisbaai Church'],
     url: site.href,
     inLanguage: 'af-ZA',
     publisher: { '@id': new URL('#church', site).href },
@@ -30,7 +31,7 @@ export function websiteJsonLd(site: URL) {
 
 /**
  * schema.org description of the congregation, emitted on every page, so a search
- * engine can answer "when does Tygerberg SDA meet". Restates what is already on
+ * engine can answer "when does SDA Struisbaai meet". Restates what is already on
  * the page; both read from src/data/site.ts, so there is nothing to sync.
  *
  * That last sentence used to be false. Every address field was a literal here,
@@ -42,8 +43,8 @@ export function churchJsonLd(site: URL) {
     '@type': 'Church',
     // The congregation, not the page — every page emits the same node.
     '@id': new URL('#church', site).href,
-    name: 'Tygerberg Sewendedag Adventiste Kerk',
-    alternateName: ['Tygerberg SDA Kerk', 'Tygerberg Seventh-day Adventist Church'],
+    name: 'SDA Struisbaai Church',
+    alternateName: ['SDA Struisbaai'],
     url: site.href,
     address: {
       '@type': 'PostalAddress',
@@ -51,16 +52,10 @@ export function churchJsonLd(site: URL) {
       streetAddress: `${SITE.addressParts.street}, ${SITE.addressParts.suburb}`,
       addressLocality: SITE.addressParts.town,
       addressRegion: SITE.addressParts.region,
-      postalCode: SITE.addressParts.postalCode,
       addressCountry: SITE.addressParts.country,
     },
-    geo: {
-      '@type': 'GeoCoordinates',
-      latitude: SITE.lat,
-      longitude: SITE.lng,
-    },
     hasMap: SITE.directionsUrl,
-    sameAs: [SITE.youtubeChannelUrl],
+    ...(FEATURE_FLAGS.youtubeSection ? { sameAs: [SITE.youtubeChannelUrl] } : {}),
     // One span, not three: three would claim the building shuts between
     // services. This describes when the place is open.
     openingHoursSpecification: [

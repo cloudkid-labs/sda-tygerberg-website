@@ -22,6 +22,7 @@ import { serveMedia } from './cmsMedia';
 import { serveCmsPage, serveHome, serveSitemap } from './cmsPublic';
 import { renderAboutSection, renderEventsSection, renderPageRoot, renderWeekSection } from './cmsRender';
 import { withSettings } from './settings';
+import { FEATURE_FLAGS } from '../data/featureFlags';
 
 export type Env = LiveStatusEnv &
   LatestVideoEnv &
@@ -215,6 +216,14 @@ async function route(request: Request, env: Env, ctx: ExecutionContext): Promise
 
   if (pathname === '/sitemap.xml') {
     return serveSitemap(request, env);
+  }
+
+  if (pathname === '/api/live-status' && !FEATURE_FLAGS.youtubeSection) {
+    return new Response(null, { status: 404, headers: { 'Cache-Control': 'no-store' } });
+  }
+
+  if (pathname === '/api/latest-video' && !FEATURE_FLAGS.youtubeSection) {
+    return new Response(null, { status: 404, headers: { 'Cache-Control': 'no-store' } });
   }
 
   if (pathname === '/api/live-status') {

@@ -2,6 +2,7 @@
 import Layout from '../layouts/Layout.astro';
 import { Home } from '../components/react/Home';
 import { SITE } from '../data/site';
+import { FEATURE_FLAGS } from '../data/featureFlags';
 import { embedPageUrl, parseLatestFromEmbedHtml, type LatestVideo } from '../lib/latestVideo';
 import { buildHomePayload, HOME_PAYLOAD_ID } from '../lib/cms/payload';
 import { scriptJson } from '../lib/cms/public';
@@ -20,24 +21,23 @@ import { scriptJson } from '../lib/cms/public';
  * and the card falls back to a generic link to the streams tab.
  */
 let latestVideo: LatestVideo | null = null;
-try {
-  const list = new URL(SITE.youtubeUploadsEmbedUrl).searchParams.get('list') ?? '';
-  // The Referer is required: without one YouTube answers Error 153 and the
-  // playlist panel this parses is absent (C-60). Taken from Astro.site so the
-  // production origin is named in one place (astro.config.mjs) — C-61.
-  const res = await fetch(embedPageUrl(list), {
-    headers: { Referer: new URL('/', Astro.site).href },
-    signal: AbortSignal.timeout(8000),
-  });
-  if (res.ok) latestVideo = parseLatestFromEmbedHtml(await res.text());
-} catch {
-  // Offline or blocked build environment — the card degrades gracefully.
+if (FEATURE_FLAGS.youtubeSection) {
+  try {
+    const list = new URL(SITE.youtubeUploadsEmbedUrl).searchParams.get('list') ?? '';
+    const res = await fetch(embedPageUrl(list), {
+      headers: { Referer: new URL('/', Astro.site).href },
+      signal: AbortSignal.timeout(8000),
+    });
+    if (res.ok) latestVideo = parseLatestFromEmbedHtml(await res.text());
+  } catch {
+    // Offline or blocked build environment — the card degrades gracefully.
+  }
 }
 ---
 
 <Layout
   title="SDA Struisbaai · Sewendedag Adventiste Kerk, Struisbaai"
-  description="Sluit elke Sabbat by SDA Struisbaai aan in Struisbaai — of kyk lewendig van waar jy ook al is."
+  description="SDA Struisbaai kom elke Sabbat by Struisbaai Library Hall bymekaar, Wes-Kaap."
 >
   {/* The CMS payload: the seed as at the build. The Worker swaps in live
       content per request and re-renders #week and #oor to match (C-70). It

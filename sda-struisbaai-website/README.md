@@ -320,7 +320,7 @@ Everything else is under `src/data/`, away from components:
 | `departmentHeads.ts` | Seed for the CMS's department heads — 22 people, 14 with headshots |
 | `requestCopy.ts` | `/connect` and `/bible-studies` copy, incl. POPIA wording |
 | `resources.ts` | External resource links (logos in `public/logos/`) |
-| `giving.ts` | `/giving` page copy, EFT banking details, Zapper link |
+| `giving.ts` | `/giving` copy; payment options are currently unpublished |
 | `youthGroups.ts` | Sabbath age groups, the Friday evening, the Sabbath window |
 | `youthCopy.ts` | `/youth` page copy |
 
@@ -335,43 +335,9 @@ until it does. CMS pages are added to the sitemap by the Worker.
 Social links (YouTube, Instagram, Facebook) live once, in `SOCIAL_LINKS` in
 `site.ts`.
 
-### Zapper on `/giving`
+### Giving options
 
-`ZAPPER` in `src/data/giving.ts` has two independent halves, and the section
-renders whichever exist. Empty both and the card disappears, along with the
-mention of Zapper in the page description.
-
-| Field | Today | Meaning |
-|---|---|---|
-| `qr` | `zapper-qr.png` | Filename in `public/images/`. Shows a scannable code. |
-| `url` | *empty* | A tap-to-pay link. Shows a button. |
-
-**The QR ships; the button does not, deliberately.** The church's code decodes
-to `http://2.zap.pe?t=6&i=…`, which is not usable as a link from this site:
-it is plain `http` where the site is `https` — a downgrade no payment link
-should make — and `2.zap.pe` is not `zapper.com`, so the
-`apple-app-site-association` and `assetlinks.json` that let a Zapper link open
-the app do not cover it. A code that scans beats a button that might not work.
-
-To add the button, get a current `https://zapper.com/…` payment link from the
-merchant portal and set `url`. **Never guess it**: a wrong link sends people's
-giving to a stranger's merchant account and nothing on the page would look
-wrong.
-
-Replacing the code: export it from the church's Zapper account, then
-
-```sh
-node --input-type=module -e "import sharp from 'sharp';
-  await sharp('NEW.jpeg').resize(600,600,{kernel:'nearest'})
-    .png({compressionLevel:9,palette:true}).toFile('public/images/zapper-qr.png')"
-```
-
-PNG rather than JPEG because a QR is two-tone: it compresses better and carries
-none of the ringing around the modules that makes a code harder to scan. Decode
-the result before committing it and check the payload still names the church.
-
-The homepage video always embeds the channel's auto-generated uploads playlist,
-newest-first, no API key. Which video plays never depends on `YOUTUBE_API_KEY`.
+The `/giving` page currently displays a bilingual unavailable notice. Banking details and Zapper options are unpublished; the payment values in `src/data/giving.ts` are intentionally empty and the QR asset is not shipped.
 
 ### Adding a department-head photo
 

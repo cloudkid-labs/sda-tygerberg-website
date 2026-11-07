@@ -419,7 +419,7 @@ export function CmsHeads() {
 
             <div className="grid content-start gap-4">
               <Field id="hd-name" label={t.hdName}>
-                <TextInput id="hd-name" value={current.name} maxLength={80} placeholder="bv. Jaco van Niekerk" onChange={(e) => patch((h) => ({ ...h, name: e.target.value }))} invalid={bad('name')} />
+                <TextInput id="hd-name" value={current.name} maxLength={80} placeholder="Naam / Name, bv. Jaco van Niekerk" onChange={(e) => patch((h) => ({ ...h, name: e.target.value }))} invalid={bad('name')} />
               </Field>
               <div>
                 <span className={labelClass}>{t.hdPositions}</span>

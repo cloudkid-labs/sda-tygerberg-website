@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
 import { withBase } from '../../lib/base';
 import { Logo } from './Logo';
+import { useLanguage } from '../../context/LanguageContext';
 import { LanguageToggle } from './LanguageToggle';
 
 /**
@@ -10,6 +11,7 @@ import { LanguageToggle } from './LanguageToggle';
  * signed-in badge, beside the language toggle.
  */
 export function SubPageHeader({ backHome, account }: { backHome: string; account?: ReactNode }) {
+  const { lang } = useLanguage();
   return (
     <header className="sticky top-0 z-50 border-b border-subtle bg-cream/95 backdrop-blur">
       <div className="mx-auto flex max-w-content-narrow items-center justify-between gap-2 sm:gap-4 px-3 sm:px-7 py-2.5 sm:py-3.5">
@@ -18,7 +20,7 @@ export function SubPageHeader({ backHome, account }: { backHome: string; account
           <div className="leading-tight min-w-0">
             <div className="font-serif text-xl sm:text-2xl font-semibold leading-tight text-navy truncate">Struisbaai</div>
             <div className="hidden min-[400px]:block text-[10px] uppercase tracking-[.14em] text-slate-muted">
-              SDA Kerk · Kaapstad
+              {lang === 'af' ? 'Sewendedag Adventiste Kerk' : 'Seventh-day Adventist Church'}
             </div>
           </div>
         </a>

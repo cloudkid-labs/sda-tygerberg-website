@@ -3,12 +3,12 @@ import Layout from '../../layouts/Layout.astro';
 import { YouthPage } from '../../components/react/YouthPage';
 import { youthCopy } from '../../data/youthCopy';
 
-// Meta comes from the Afrikaans copy — the document ships as lang="af" and the
-// toggle swaps the body text client-side, so the crawlable title stays
-// Afrikaans. Same call as /bible-studies.
-const copy = youthCopy.af;
+const copy = youthCopy;
 ---
 
-<Layout title={copy.pageTitle} description={copy.pageDescription}>
+<Layout
+  title={`${copy.af.pageTitle} / ${copy.en.pageTitle}`}
+  description={`${copy.af.pageDescription} / ${copy.en.pageDescription}`}
+>
   <YouthPage client:load />
 </Layout>

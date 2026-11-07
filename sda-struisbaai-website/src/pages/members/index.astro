@@ -4,10 +4,13 @@ import { MembersPage } from '../../components/react/MembersPage';
 import { boardCopy } from '../../data/boardCopy';
 
 // Private page: the Worker serves it only to a signed-in board member (C-70),
-// and robots.txt disallows it. Meta from the Afrikaans copy, like every page.
-const copy = boardCopy.af;
+// and robots.txt disallows it.
+const copy = boardCopy;
 ---
 
-<Layout title={copy.pageTitle} description={copy.pageDescription}>
+<Layout
+  title={`${copy.af.pageTitle} / ${copy.en.pageTitle}`}
+  description={`${copy.af.pageDescription} / ${copy.en.pageDescription}`}
+>
   <MembersPage client:load />
 </Layout>

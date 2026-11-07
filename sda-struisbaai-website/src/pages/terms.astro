@@ -3,9 +3,12 @@ import Layout from '../layouts/Layout.astro';
 import { LegalPage } from '../components/react/LegalPage';
 import { termsCopy } from '../data/legalCopy';
 
-const copy = termsCopy.af;
+const copy = termsCopy;
 ---
 
-<Layout title={copy.pageTitle} description={copy.pageDescription}>
+<Layout
+  title={`${copy.af.pageTitle} / ${copy.en.pageTitle}`}
+  description={`${copy.af.pageDescription} / ${copy.en.pageDescription}`}
+>
   <LegalPage kind="terms" client:load />
 </Layout>

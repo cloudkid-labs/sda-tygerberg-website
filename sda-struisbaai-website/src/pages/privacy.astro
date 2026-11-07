@@ -3,9 +3,12 @@ import Layout from '../layouts/Layout.astro';
 import { LegalPage } from '../components/react/LegalPage';
 import { privacyCopy } from '../data/legalCopy';
 
-const copy = privacyCopy.af;
+const copy = privacyCopy;
 ---
 
-<Layout title={copy.pageTitle} description={copy.pageDescription}>
+<Layout
+  title={`${copy.af.pageTitle} / ${copy.en.pageTitle}`}
+  description={`${copy.af.pageDescription} / ${copy.en.pageDescription}`}
+>
   <LegalPage kind="privacy" client:load />
 </Layout>

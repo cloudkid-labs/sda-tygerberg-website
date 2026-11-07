@@ -219,11 +219,17 @@ async function route(request: Request, env: Env, ctx: ExecutionContext): Promise
   }
 
   if (pathname === '/api/live-status' && !FEATURE_FLAGS.youtubeSection) {
-    return new Response(null, { status: 404, headers: { 'Cache-Control': 'no-store' } });
+    return Response.json(
+      { isLive: false, source: 'feature-disabled', cached: false },
+      { headers: { 'Cache-Control': 'no-store' } },
+    );
   }
 
   if (pathname === '/api/latest-video' && !FEATURE_FLAGS.youtubeSection) {
-    return new Response(null, { status: 404, headers: { 'Cache-Control': 'no-store' } });
+    return Response.json(
+      { video: null, cached: false },
+      { headers: { 'Cache-Control': 'no-store' } },
+    );
   }
 
   if (pathname === '/api/live-status') {

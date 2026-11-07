@@ -299,35 +299,42 @@ if (noEdge) {
 console.log('\nheadshots');
 try {
   const home = await (await get('/')).text();
-  /*
-   * Two shapes, because the markup depends on PUBLIC_IMAGE_CDN. With the
-   * transformer on (devtest) the cards point at
-   * `/cdn-cgi/image/<opts>/images/hod/NAME.jpg`; with it off (production,
-   * whose zone has no Image Resizing) they point straight at
-   * `/images/hod/fallback/NAME.jpg`. Matching only the
-   * second is how the first draft of this check skipped silently against
-   * production while reporting a pass.
-   */
-  const m =
-    home.match(/\/images\/hod\/fallback\/([^"' ]+\.jpe?g)/i) ??
-    home.match(/\/images\/hod\/([^"'/ ]+\.jpe?g)/i);
-  if (!m) {
-    fail('headshot markup', 'no headshot URL on the homepage in either the transform or the fallback shape — the cards are not rendering');
-  } else {
-    const fb = await get(`/images/hod/fallback/${m[1]}`);
-    if (!fb.ok) fail('headshot fallback', `HTTP ${fb.status}`);
-    else pass('headshot fallback', `${fb.headers.get('content-length') ?? '?'}b`);
+  // The Struisbaai devtest can keep the HOD section off while Flagship is
+  // pending. Its empty hidden anchor is the expected disabled shape; do not
+  // demand a headshot from a section the feature flag deliberately removed.
+  const hiddenHodSection = /<section id="oor" hidden(?:="")? aria-hidden="true"><\/section>/.test(home);
+  if (hiddenHodSection) pass('HOD section hidden by feature flag');
+  else {
+    /*
+     * Two shapes, because the markup depends on PUBLIC_IMAGE_CDN. With the
+     * transformer on (devtest) the cards point at
+     * `/cdn-cgi/image/<opts>/images/hod/NAME.jpg`; with it off (production,
+     * whose zone has no Image Resizing) they point straight at
+     * `/images/hod/fallback/NAME.jpg`. Matching only the
+     * second is how the first draft of this check skipped silently against
+     * production while reporting a pass.
+     */
+    const m =
+      home.match(/\/images\/hod\/fallback\/([^"' ]+\.jpe?g)/i) ??
+      home.match(/\/images\/hod\/([^"'/ ]+\.jpe?g)/i);
+    if (!m) {
+      fail('headshot markup', 'no headshot URL on the homepage in either the transform or the fallback shape — the cards are not rendering');
+    } else {
+      const fb = await get(`/images/hod/fallback/${m[1]}`);
+      if (!fb.ok) fail('headshot fallback', `HTTP ${fb.status}`);
+      else pass('headshot fallback', `${fb.headers.get('content-length') ?? '?'}b`);
 
-    if (!noEdge) {
-      // C-51: the plain master URL must answer with the fallback, not the
-      // 21-megapixel original. Compared by size, which is the only signal a
-      // plain GET gives.
-      const plain = await get(`/images/hod/${m[1]}`);
-      const plainLen = Number(plain.headers.get('content-length') ?? 0);
-      const fbLen = Number(fb.headers.get('content-length') ?? 0);
-      if (!plain.ok) fail('headshot master guard', `plain URL returned HTTP ${plain.status}`);
-      else if (fbLen && plainLen > fbLen * 1.5) fail('headshot master guard', `plain URL served ${plainLen}b against the fallback's ${fbLen}b — the master is exposed (C-51)`);
-      else pass('headshot master guard', `plain URL serves ${plainLen}b, the fallback`);
+      if (!noEdge) {
+        // C-51: the plain master URL must answer with the fallback, not the
+        // 21-megapixel original. Compared by size, which is the only signal a
+        // plain GET gives.
+        const plain = await get(`/images/hod/${m[1]}`);
+        const plainLen = Number(plain.headers.get('content-length') ?? 0);
+        const fbLen = Number(fb.headers.get('content-length') ?? 0);
+        if (!plain.ok) fail('headshot master guard', `plain URL returned HTTP ${plain.status}`);
+        else if (fbLen && plainLen > fbLen * 1.5) fail('headshot master guard', `plain URL served ${plainLen}b against the fallback's ${fbLen}b — the master is exposed (C-51)`);
+        else pass('headshot master guard', `plain URL serves ${plainLen}b, the fallback`);
+      }
     }
   }
 

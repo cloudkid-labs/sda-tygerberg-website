@@ -1,0 +1,136 @@
+@import 'tailwindcss';
+
+/* Design tokens ported from the design handoff (reference/tokens/*.css) */
+@theme {
+  --color-navy: #0b3d54;
+  --color-navy-deep: #072a3b;
+  /* The handoff orange, one value everywhere, restored at the church's request
+     after the darkened pair shipped to devtest and was rejected on looks.
+
+     This is a knowing trade, not an oversight: #e8862c measures 2.39:1 as text
+     on cream and 2.67:1 under a white button label, so the light grounds miss
+     WCAG AA (SC 1.4.3, 4.5:1). It clears on the navy bands at 5.31:1, which is
+     why one token serves again. C-59 records the decision and what it costs;
+     do not "fix" this by editing the value. */
+  --color-orange: #e8862c;
+  --color-orange-hover: #c06a1a;
+  --color-cream: #f6f2e9;
+  --color-cream-card: #fffdf8;
+  --color-tan: #eee7d8;
+  --color-tan-border: #e2d5bd;
+  --color-ink: #17252e;
+  --color-slate: #3f4d55;
+  /* Darkened from #5c6b73, which measured 4.48:1 on tan — the only ground it
+     is used on where it missed 4.5:1. C-39 */
+  --color-slate-muted: #55646b;
+  --color-blue-muted: #9fc3d4;
+  --color-blue-pale: #cfe0e8;
+  --color-subtle: rgba(23, 37, 46, 0.1);
+  --color-strong: rgba(23, 37, 46, 0.25);
+  /* The "on air" dot. Not in the handoff palette: green is the one colour that
+     reads as *live now* rather than as brand, and the brand orange is already
+     the colour of the buttons beside it. */
+  --color-live: #3ddc84;
+
+  --font-serif: 'Newsreader', serif;
+  --font-sans: 'Public Sans', system-ui, sans-serif;
+
+  --radius-pill: 999px;
+  --radius-card: 14px;
+  --radius-card-lg: 16px;
+
+  --shadow-card: 0 20px 40px -30px rgba(23, 37, 46, 0.25);
+  --shadow-deep: 0 30px 60px -30px rgba(7, 42, 59, 0.6);
+
+  --container-content: 1180px;
+  --container-content-narrow: 1020px;
+}
+
+/*
+ * Scoped to Tailwind's base layer so component utility classes (text-orange,
+ * text-white, etc.) can override these defaults as normal — unlayered CSS
+ * would otherwise win over every utility class regardless of specificity.
+ */
+@layer base {
+  html {
+    /*
+     * Kept on html, not a descendant wrapper: overflow-x on an ancestor of a
+     * `position: sticky` element breaks stickiness in WebKit, so this must
+     * not sit between the sticky header and the viewport.
+     */
+    overflow-x: hidden;
+  }
+
+  body {
+    margin: 0;
+    background-color: var(--color-cream);
+    color: var(--color-ink);
+    font-family: var(--font-sans);
+  }
+
+  a {
+    color: var(--color-navy);
+    text-decoration: none;
+  }
+
+  /*
+   * Two rules, not one. A single token cannot carry this: the ring has to reach
+   * 3:1 against whatever sits next to it (SC 1.4.11), and the site has both
+   * cream and navy grounds. Navy covers every light surface at 9.43:1 or
+   * better; inside a dark section it inverts to cream, which is 10.39:1 on navy
+   * and 13.39:1 on navy-deep.
+   *
+   * The offset matters as much as the colour: the ring is drawn 2px clear of
+   * the element, so what it must contrast with is the ground behind it, not the
+   * button fill it surrounds. C-40
+   *
+   * :focus-visible, not :focus — a mouse click on an accordion shouldn't leave
+   * a ring behind, but a Tab press must.
+   */
+  :focus-visible {
+    outline: 3px solid var(--color-navy);
+    outline-offset: 2px;
+    border-radius: 2px;
+  }
+
+  /*
+   * Keyed off the background utility rather than a hand-applied marker class:
+   * these three are the only dark grounds on the site, and a section that gets
+   * one of them gets the right ring without anyone remembering to say so.
+   * `bg-navy/10` and `hover:bg-navy` are different class tokens and correctly
+   * do not match — neither is a dark ground.
+   */
+  :is(.bg-navy, .bg-navy-deep, .bg-black) :focus-visible {
+    outline-color: var(--color-cream);
+  }
+}
+
+@layer components {
+  /*
+   * Off-screen until focused. Not `display: none` or `visibility: hidden`,
+   * which would take it out of the tab order and defeat the purpose.
+   */
+  .skip-link {
+    /*
+     * Fixed, not absolute: absolute positions it against the document, so on a
+     * page scrolled past the fold it slides into a spot that is nowhere near
+     * the viewport and the visitor tabs to something they cannot see.
+     */
+    position: fixed;
+    left: 8px;
+    top: -100px;
+    z-index: 100;
+    padding: 10px 16px;
+    border-radius: var(--radius-pill);
+    background-color: var(--color-navy);
+    color: var(--color-cream);
+    font-family: var(--font-sans);
+    font-size: 14px;
+    font-weight: 600;
+    transition: top 120ms ease-out;
+  }
+
+  .skip-link:focus {
+    top: 8px;
+  }
+}

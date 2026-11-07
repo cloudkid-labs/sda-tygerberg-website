@@ -1,0 +1,9 @@
+# Copy to backend.hcl (gitignored). No keys here: auth is your `az login`
+# identity, which needs "Storage Blob Data Contributor" on the container.
+# Subscription ID is an identifier, not a secret. Tenant resolves from the
+# `az login` session — set it first:
+#   az account set --subscription "SDA Tygerberg"
+subscription_id      = "7c82f89f-003d-4abf-ba00-0cb5731d7341"
+resource_group_name  = "sda-tygerberg-prod"
+storage_account_name = "sdatygerbergtfstate"
+container_name       = "sda-tygerberg"

@@ -1,0 +1,31 @@
+# Copy to terraform.tfvars (gitignored). Secrets are better passed as
+# TF_VAR_brevo_api_key and TF_VAR_google_oauth_client_secret.
+
+# Brevo -> Senders, domains & dedicated IPs -> Domains -> sdatygerberg.co.za
+brevo_code = "<brevo-code value>"
+brevo_dkim_records = {
+  dkim1 = { type = "CNAME", name = "<name from Brevo>", content = "<target from Brevo>" }
+  dkim2 = { type = "CNAME", name = "<name from Brevo>", content = "<target from Brevo>" }
+}
+
+# Brevo -> Senders, domains & dedicated IPs -> Domains -> sdatygerberg.co.za
+# -> branding records. Without these CNAMEs every link and image Brevo
+# rewrites (including the signature logo's) dies with NXDOMAIN. Leave empty
+# only if tracking is switched off in Brevo instead.
+brevo_branding_cnames = {
+  branded = { name = "mail", target = "mail-sdatygerberg-co-za.brand.brevosend.com" }
+  redirect = { name = "r.mail", target = "mail-sdatygerberg-co-za.r.brand.brevosend.com" }
+  img = { name = "img.mail", target = "mail-sdatygerberg-co-za.img.brand.brevosend.com" }
+}
+
+# New Google Cloud project, created by this configuration.
+google_project_id = "<globally-unique-id>"
+# google_org_id   = "<numeric org id>"   # only if you have a Cloud organisation
+
+# Leave both out for the first apply. After creating the Web client in Google
+# Auth Platform, add them and apply again.
+# google_oauth_client_id = "<digits>-<id>.apps.googleusercontent.com"
+
+# Cloudflare dashboard -> any zone -> Overview -> Account ID. Owns the CMS R2
+# buckets in r2.tf.
+cloudflare_account_id = "<32-hex account id>"

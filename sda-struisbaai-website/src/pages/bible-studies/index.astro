@@ -1,0 +1,13 @@
+---
+import Layout from '../../layouts/Layout.astro';
+import { RequestPage } from '../../components/react/RequestPage';
+import { requestTopics } from '../../data/requestCopy';
+
+// Meta comes from the Afrikaans copy — the document ships as lang="af" and the
+// toggle swaps the body text client-side, so the crawlable title stays Afrikaans.
+const copy = requestTopics['bible-study'].af;
+---
+
+<Layout title={copy.pageTitle} description={copy.pageDescription}>
+  <RequestPage topic="bible-study" client:load />
+</Layout>

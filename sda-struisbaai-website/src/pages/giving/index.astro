@@ -1,0 +1,18 @@
+---
+import Layout from '../../layouts/Layout.astro';
+import { GivingPage } from '../../components/react/GivingPage';
+import { ZAPPER, givingCopy } from '../../data/giving';
+
+// Meta comes from the Afrikaans copy — the document ships as lang="af" and the
+// toggle swaps the body text client-side, so the crawlable title stays Afrikaans.
+const copy = givingCopy.af;
+
+// Only advertise Zapper once the page actually offers it. Naming a payment
+// method the page does not show would be indexed and wrong.
+const offersZapper = Boolean(ZAPPER.url || ZAPPER.qr);
+const description = offersZapper ? copy.pageDescription + copy.pageDescriptionZapper : copy.pageDescription;
+---
+
+<Layout title={copy.pageTitle} description={description}>
+  <GivingPage client:load />
+</Layout>

@@ -29,6 +29,10 @@ name: Deploy devtest (Cloudflare)
 on:
   push:
     branches: [dev]
+    paths-ignore:
+      - 'sda-struisbaai-website/**'
+      - '.github/workflows/deploy-struisbaai-devtest.yml'
+      - '.github/workflows/deploy-devtest-cloudflare.yml'
   workflow_dispatch:
 
 permissions:

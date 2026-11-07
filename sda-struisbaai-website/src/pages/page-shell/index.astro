@@ -1,0 +1,16 @@
+---
+import Layout from '../../layouts/Layout.astro';
+import { CmsPageView } from '../../components/react/CmsPageView';
+import { PAGE_PAYLOAD_ID } from '../../lib/cms/ids';
+import { scriptJson } from '../../lib/cms/public';
+
+// The shell every CMS page is served from. Never served at this address: the
+// Worker answers /page-shell/ with 404, and for /<slug>/ fills the payload,
+// the page root and the head tags with one live page (C-70). Not in the
+// sitemap; the Worker appends live pages there instead.
+---
+
+<Layout title="SDA Struisbaai" description="SDA Struisbaai">
+  <script is:inline type="application/json" id={PAGE_PAYLOAD_ID} set:html={scriptJson({ page: null })} />
+  <CmsPageView client:load />
+</Layout>

@@ -1,0 +1,47 @@
+# Copy to `.dev.vars` (gitignored) to exercise the LIVE badge under
+# `npm run worker:dev`. In production these two are Worker *secrets*, set in
+# the Cloudflare dashboard under Workers & Pages -> tygerberg-sda-website ->
+# Settings -> Variables and Secrets. They must never be build-time/Actions
+# variables — that would bake the API key into the public JS bundle.
+YOUTUBE_API_KEY=
+YOUTUBE_CHANNEL_ID=UCtZlioPBBORWMMMSJ9BE1Wg
+
+# Optional local override — widen the window so you can test without waiting
+# for Saturday morning. `* * * * *` means "always open".
+# LIVE_CHECK_CRON=* * * * *
+
+# /api/contact's first delivery channel: email, via the `send_email` binding.
+# `wrangler dev` simulates the binding rather than sending anything — it prints
+# the From/To/Subject and writes the body to .wrangler/tmp/email/, so you can
+# read exactly what the church would receive without a Cloudflare account.
+# In production both are plain vars in wrangler.jsonc, not secrets — both are
+# the church's role address welkom@sdatygerberg.co.za (To and From are the same
+# address now), and ADR-0001 (Accepted) records
+# why publishing it is the cheaper trade. Setting a Worker secret of the same
+# name is the way back, with no code change. CONTACT_EMAIL_TO must be a
+# *verified destination address* on the account either way — CONCERNS.md C-31.
+CONTACT_EMAIL_TO=
+CONTACT_EMAIL_FROM=
+
+# Optional blind copy — an archive or monitoring inbox. Leave unset for none.
+# If you do set it in production, verify that address too: every recipient is
+# checked, so an unverified BCC fails the whole send, not just the copy.
+CONTACT_EMAIL_BCC=
+
+# The fallback channel, used only when email is unconfigured or fails. Also a
+# Worker secret in production. Point it at any local server that returns 200 to
+# watch what the church's inbox would receive; leave every channel unset and the
+# form reports `not-configured` instead of pretending.
+CONTACT_WEBHOOK_URL=
+
+# Bot protection for /api/contact (Cloudflare Turnstile, CONCERNS.md C-21).
+# Create a widget in the Cloudflare dashboard (Turnstile) for sdatygerberg.co.za.
+# The secret lives here as a Worker secret in production (`wrangler secret put
+# TURNSTILE_SECRET_KEY`); the site key is public and reaches the form as a
+# build-time var instead: PUBLIC_TURNSTILE_SITE_KEY=<site key> in the build env.
+# Leave both unset and the form submits exactly as before — the check runs only
+# where the secret is set.
+# TURNSTILE_SECRET_KEY=
+# Where the widget is solved must match what siteverify echoes back. For
+# `npm run worker:dev` on localhost, set this alongside the secret:
+# TURNSTILE_HOSTNAMES=localhost

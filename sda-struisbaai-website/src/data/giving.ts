@@ -1,48 +1,19 @@
 import type { Lang } from './site';
 
-// Real EFT banking details supplied by the church board.
+/**
+ * Payment options are temporarily unpublished. Keep these values empty while
+ * the /giving page displays its unavailable notice.
+ */
 export const BANKING_DETAILS = {
-  organisation: 'Sewendedag Adventiste Kerk Tygerberg Gemeente',
-  bank: 'ABSA',
-  accountNumber: '1450750251',
-  branchCode: '632005',
+  organisation: '',
+  bank: '',
+  accountNumber: '',
+  branchCode: '',
 };
 
-/**
- * Zapper, the second giving option.
- *
- * `qr` is a file in `public/images/`, filename only — the church's own code,
- * which scans to a payload naming "SDA Tygerberg Gemeente" with the reference
- * "Offergawe Tygerberg". Regenerate it from the church's Zapper account, never
- * by hand.
- *
- * `url` is a tap-to-pay link and is **deliberately empty**. The church's QR
- * encodes `http://2.zap.pe?t=6&i=...`, which cannot be used as a link here:
- *
- *   - It is plain `http`, and the site is served over `https`. Linking out to
- *     an insecure scheme for a *payment* is a downgrade no giving page should
- *     make.
- *   - `2.zap.pe` is not `zapper.com`, so the deep-link manifests that make a
- *     Zapper link open the app — the apple-app-site-association and
- *     assetlinks.json published for `zapper.com` — do not cover it. A tap would
- *     have no reason to reach the app.
- *   - The payload carries `|` and `[`, which a browser percent-encodes on
- *     navigation. Whether Zapper still parses it after that is unknown.
- *
- * A code that scans is worth more than a button that might not work, so the
- * page ships the QR alone. To add the button, get a current `https://zapper.com`
- * payment link from the merchant portal and put it here — the section renders
- * it automatically. **Do not guess that link.** A wrong one sends people's
- * giving to a stranger's merchant account, and nothing on the page would look
- * wrong.
- *
- * The section hides itself when both are empty, so clearing them unpublishes
- * Zapper rather than shipping a broken card — same approach as the first-visit
- * answers in homeCopy.ts.
- */
 export const ZAPPER: { url: string; qr: string } = {
   url: '',
-  qr: 'zapper-qr.png',
+  qr: '',
 };
 
 export type GivingCopy = {

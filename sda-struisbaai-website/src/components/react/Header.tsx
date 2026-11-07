@@ -78,7 +78,7 @@ export function Header() {
           <div className="leading-tight">
             <div className="font-serif text-2xl font-semibold leading-tight text-navy">Struisbaai</div>
             <div className="text-[10.5px] uppercase tracking-[.14em] text-slate-muted">
-              Sewendedag Adventiste Kerk · Struisbaai
+              {lang === 'af' ? 'Sewendedag Adventiste Kerk' : 'Seventh-day Adventist Church'}
             </div>
           </div>
         </a>

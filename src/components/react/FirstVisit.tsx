@@ -1,4 +1,6 @@
 import { useLanguage } from '../../context/LanguageContext';
+import { isVisible } from '@cloudkid-labs/sda-church-site-core/config';
+import { CHURCH_SITE } from '../../data/churchSite';
 import { homeCopy } from '../../data/homeCopy';
 
 /**
@@ -11,8 +13,11 @@ import { homeCopy } from '../../data/homeCopy';
 export function FirstVisit() {
   const { lang } = useLanguage();
   const t = homeCopy[lang];
+  const entries = t.firstVisit.filter((entry) =>
+    isVisible(CHURCH_SITE, `home.first-visit.${entry.id}`),
+  );
 
-  if (t.firstVisit.length === 0) return null;
+  if (entries.length === 0) return null;
 
   return (
     <section id="eerste-besoek" className="scroll-mt-24 bg-tan py-16">
@@ -24,8 +29,8 @@ export function FirstVisit() {
         {/* 320px rather than 260px so five entries settle at 3+2 on a wide
             screen instead of 4+1, which leaves a lone card stranded. */}
         <div className="grid grid-cols-[repeat(auto-fit,minmax(min(320px,100%),1fr))] gap-4">
-          {t.firstVisit.map((entry) => (
-            <div key={entry.q} className="rounded-card border border-subtle bg-cream-card p-5">
+          {entries.map((entry) => (
+            <div key={entry.id} className="rounded-card border border-subtle bg-cream-card p-5">
               <div className="mb-1.5 font-serif text-xl text-ink">{entry.q}</div>
               <div className="text-[15px] leading-relaxed text-slate">{entry.a}</div>
             </div>

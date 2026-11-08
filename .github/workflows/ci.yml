@@ -15,6 +15,7 @@ on:
 
 permissions:
   contents: read
+  packages: read
 
 # A new push supersedes the run in flight for the same ref.
 concurrency:
@@ -36,6 +37,8 @@ jobs:
 
       - name: Install dependencies
         run: npm ci --prefer-offline --no-audit --fund=false
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GH_PACKAGES_READ_TOKEN || github.token }}
 
       # Astro generates .astro/types.d.ts, which tsconfig includes. Without it
       # the typecheck fails on a clean checkout for a reason that has nothing to
@@ -115,6 +118,8 @@ jobs:
 
       - name: Install dependencies
         run: npm ci --prefer-offline --no-audit --fund=false
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GH_PACKAGES_READ_TOKEN || github.token }}
 
       # `wrangler dev` serves `dist/`, so the build has to happen first. Not
       # shared with the `check` job: passing dist between jobs costs an artifact

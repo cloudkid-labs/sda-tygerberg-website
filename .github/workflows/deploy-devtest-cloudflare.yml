@@ -29,10 +29,15 @@ name: Deploy devtest (Cloudflare)
 on:
   push:
     branches: [dev]
+    paths-ignore:
+      - 'sda-struisbaai-website/**'
+      - '.github/workflows/deploy-struisbaai-devtest.yml'
+      - '.github/workflows/deploy-devtest-cloudflare.yml'
   workflow_dispatch:
 
 permissions:
   contents: read
+  packages: read
 
 concurrency:
   group: devtest-deploy
@@ -58,6 +63,8 @@ jobs:
 
       - name: Install dependencies
         run: npm ci --prefer-offline --no-audit --fund=false
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GH_PACKAGES_READ_TOKEN || github.token }}
 
       - name: Build (root base path)
         run: npm run build

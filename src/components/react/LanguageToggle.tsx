@@ -1,4 +1,6 @@
 import { useLanguage } from '../../context/LanguageContext';
+import { isVisible } from '@cloudkid-labs/sda-church-site-core/config';
+import { CHURCH_SITE } from '../../data/churchSite';
 import type { Lang } from '../../data/site';
 
 type LanguageToggleProps = {
@@ -7,6 +9,7 @@ type LanguageToggleProps = {
 
 export function LanguageToggle({ variant = 'light' }: LanguageToggleProps) {
   const { lang, setLang } = useLanguage();
+  if (!isVisible(CHURCH_SITE, 'language.switcher')) return null;
   const pick = (l: Lang) => () => setLang(l);
 
   const isNavy = variant === 'navy';

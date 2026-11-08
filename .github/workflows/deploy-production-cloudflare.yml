@@ -27,6 +27,7 @@ on:
 permissions:
   # `contents: write` so a successful deploy can create the release tag.
   contents: write
+  packages: read
 
 concurrency:
   group: production-deploy
@@ -69,6 +70,8 @@ jobs:
         # every package against the registry. --no-audit/--fund: drop two
         # network round-trips whose output nothing here reads.
         run: npm ci --prefer-offline --no-audit --fund=false
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GH_PACKAGES_READ_TOKEN || github.token }}
 
       # `package.json` is the single source of truth for the released version,
       # and it follows semver — see README "Versioning and releases".

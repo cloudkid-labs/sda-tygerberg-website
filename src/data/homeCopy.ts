@@ -31,7 +31,11 @@ export type WeekEntry = {
 };
 
 /** A practical question a first-time visitor has, and its answer. */
-export type FirstVisitEntry = { q: string; a: string };
+export type FirstVisitEntry = {
+  id: 'parking' | 'children' | 'accessibility' | 'dress' | 'language';
+  q: string;
+  a: string;
+};
 
 export type HomeCopy = {
   navAbout: string;
@@ -174,22 +178,27 @@ export const homeCopy: Record<Lang, HomeCopy> = {
     bloodBankName: 'Bloedbank',
     firstVisit: [
       {
+        id: 'parking',
         q: 'Waar parkeer ek?',
         a: 'Daar is beveiligde parkering op die perseel, maar dit is beperk. Kom gerus ’n bietjie vroeër as jy seker wil wees van ’n plek.',
       },
       {
+        id: 'children',
         q: 'Is daar iets vir die kinders?',
         a: `Ja — kinderprogramme loop van ${SABBATH_GROUPS.start} tot ${SABBATH_GROUPS.end}, terwyl Sabbatskool en Lesstudie aan die gang is. Daarna sluit die kinders by die gemeente aan vir die ${DIVINE_SERVICE.af}.`,
       },
       {
+        id: 'accessibility',
         q: 'Is die gebou rolstoeltoeganklik?',
         a: 'Ja, die gebou is rolstoeltoeganklik.',
       },
       {
+        id: 'dress',
         q: 'Wat trek mense aan?',
         a: 'Formeel tot semi-formeel — kerkdrag. Jy sal nie uit plek voel in ’n baadjie of ’n rok nie.',
       },
       {
+        id: 'language',
         q: 'In watter taal is die diens?',
         a: 'Hoofsaaklik Afrikaans, met Engels van tyd tot tyd. Daar is nie tolkdienste beskikbaar nie.',
       },
@@ -287,22 +296,27 @@ export const homeCopy: Record<Lang, HomeCopy> = {
     bloodBankName: 'Blood Bank',
     firstVisit: [
       {
+        id: 'parking',
         q: 'Where do I park?',
         a: 'There is secured parking on the premises, but it is limited. Arrive a little early if you want to be sure of a bay.',
       },
       {
+        id: 'children',
         q: 'Is there anything for the children?',
         a: `Yes — children’s programmes run from ${SABBATH_GROUPS.start} to ${SABBATH_GROUPS.end}, while Sabbath School and Lesson Study are on. The children then join the congregation for the ${DIVINE_SERVICE.en}.`,
       },
       {
+        id: 'accessibility',
         q: 'Is the building wheelchair accessible?',
         a: 'Yes, the building is wheelchair accessible.',
       },
       {
+        id: 'dress',
         q: 'What do people wear?',
         a: 'Formal to semi-formal — church attire. You will not feel out of place in a jacket or a dress.',
       },
       {
+        id: 'language',
         q: 'What language is the service in?',
         a: 'Primarily Afrikaans, with English from time to time. Translation is not available.',
       },

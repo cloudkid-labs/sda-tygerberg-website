@@ -37,6 +37,7 @@ on:
 
 permissions:
   contents: read
+  packages: read
 
 concurrency:
   group: devtest-deploy
@@ -62,6 +63,8 @@ jobs:
 
       - name: Install dependencies
         run: npm ci --prefer-offline --no-audit --fund=false
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GH_PACKAGES_READ_TOKEN || github.token }}
 
       - name: Build (root base path)
         run: npm run build

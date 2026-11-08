@@ -23,6 +23,7 @@
     "version:major": "npm version major --no-git-tag-version"
   },
   "dependencies": {
+    "@cloudkid-labs/sda-church-site-core": "^1.2.0",
     "@astrojs/react": "7.1.1",
     "astro": "^7.4.2",
     "react": "19.3.1",

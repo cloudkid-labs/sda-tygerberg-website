@@ -1,4 +1,5 @@
-import { useEffect, useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { createPortal } from 'react-dom';
 import { useLanguage } from '../../../context/LanguageContext';
 import { cmsCopy, fill } from '../../../data/cmsCopy';
 import { BLOCK_TYPES, type Block, type BlockType, type L10n, type Page } from '../../../lib/cms/types';
@@ -27,6 +28,14 @@ type Content = Omit<Page, 'status' | 'updatedBy' | 'updatedAt'>;
 type Loaded = { rev: number; page: Page; live: Page | null; dirty: boolean };
 
 export const PREVIEW_STORAGE_PREFIX = 'cms-preview:';
+
+function loadDetail(res: { status: number; outcome: string; errors: string[] }): string {
+  const parts: string[] = [];
+  if (res.status === 0) parts.push('network');
+  if (Array.isArray(res.errors) && res.errors.length) parts.push(res.errors.join(', '));
+  if (res.outcome && res.outcome !== 'error') parts.push(res.outcome);
+  return parts.join(' · ');
+}
 
 const L = (af = '', en = ''): L10n => ({ af, en });
 
@@ -327,6 +336,77 @@ function BlockFields({ block, id, onChange, bad }: { block: Block; id: string; o
   }
 }
 
+function LoadErrorModal({
+  open,
+  title,
+  body,
+  status,
+  detail,
+  retryLabel,
+  closeLabel,
+  onRetry,
+  onClose,
+}: {
+  open: boolean;
+  title: string;
+  body: string;
+  status?: number;
+  detail?: string;
+  retryLabel: string;
+  closeLabel: string;
+  onRetry: () => void;
+  onClose: () => void;
+}) {
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!open) return;
+    const prev = document.activeElement as HTMLElement | null;
+    ref.current?.focus();
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => {
+      window.removeEventListener('keydown', onKey);
+      prev?.focus?.();
+    };
+  }, [open, onClose]);
+  if (!open || typeof document === 'undefined') return null;
+  return createPortal(
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4" role="presentation">
+      <div className="absolute inset-0 bg-ink/40" onClick={onClose} aria-hidden="true" />
+      <div
+        ref={ref}
+        tabIndex={-1}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="cms-load-err-title"
+        className="relative w-full max-w-md rounded-card-lg border border-subtle bg-cream-card p-5 shadow-card outline-none sm:p-7"
+      >
+        <h2 id="cms-load-err-title" className="font-serif text-[22px] font-medium text-ink">
+          {title}
+        </h2>
+        <p className="mt-2 text-[14px] text-ink">{body}</p>
+        {typeof status === 'number' && (
+          <p className="mt-2 font-mono text-[12.5px] text-slate-muted">
+            HTTP {status}
+            {detail ? ` · ${detail}` : ''}
+          </p>
+        )}
+        <div className="mt-5 flex flex-wrap gap-2">
+          <button type="button" className={buttonPrimary} onClick={onRetry}>
+            {retryLabel}
+          </button>
+          <button type="button" className={buttonSecondary} onClick={onClose}>
+            {closeLabel}
+          </button>
+        </div>
+      </div>
+    </div>,
+    document.body,
+  );
+}
+
 /** Pages editor — CMS-Pages artboard. Every page uses the standard template. */
 export function CmsPages({ initialSlug }: { initialSlug?: string | null }) {
   const { lang } = useLanguage();
@@ -346,10 +426,15 @@ export function CmsPages({ initialSlug }: { initialSlug?: string | null }) {
   // Live This week cards that link here; the page cannot be unpublished under them.
   const [liveLinks, setLiveLinks] = useState(0);
   const [confirming, setConfirming] = useState(false);
+  const [loadErr, setLoadErr] = useState<{ status: number; detail: string; kind: 'list' | 'page'; slug: string | null } | null>(null);
 
   async function openPage(s: string) {
+    setLoadErr(null);
     const res = await cmsApi<Loaded>('GET', `/api/cms/pages?slug=${encodeURIComponent(s)}`);
-    if (!res.ok) return setError(t.errLoad);
+    if (!res.ok) {
+      setLoadErr({ status: res.status, detail: loadDetail(res), kind: 'page', slug: s });
+      return setError(t.errLoad);
+    }
     setSlug(s);
     setLoaded(res.data);
     setContent(contentOf(res.data.page));
@@ -362,21 +447,38 @@ export function CmsPages({ initialSlug }: { initialSlug?: string | null }) {
     setNote('');
   }
 
-  useEffect(() => {
-    (async () => {
-      const res = await cmsApi<{ items: Summary[] }>('GET', '/api/cms/pages');
-      if (!res.ok) {
-        setLoadState(res.status === 503 ? 'not-configured' : 'error');
+  async function loadList() {
+    setLoadState('loading');
+    setLoadErr(null);
+    const res = await cmsApi<{ items: Summary[] }>('GET', '/api/cms/pages');
+    if (!res.ok) {
+      if (res.status === 503) {
+        setLoadState('not-configured');
         return;
       }
-      setList(res.data.items);
-      setLoadState('ready');
-      const first = (initialSlug && res.data.items.find((p) => p.slug === initialSlug)) || res.data.items[0];
-      if (first) await openPage(first.slug);
-    })();
+      setLoadState('error');
+      setLoadErr({ status: res.status, detail: loadDetail(res), kind: 'list', slug: null });
+      return;
+    }
+    setList(res.data.items);
+    setLoadState('ready');
+    const first = (initialSlug && res.data.items.find((p) => p.slug === initialSlug)) || res.data.items[0];
+    if (first) await openPage(first.slug);
+  }
+
+  useEffect(() => {
+    loadList();
     // Loads once; switching language must not drop edits.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initialSlug]);
+
+  function retryLoad() {
+    if (!loadErr) return;
+    const { kind, slug: s } = loadErr;
+    setLoadErr(null);
+    if (kind === 'list') loadList();
+    else if (s) openPage(s);
+  }
 
   useEffect(() => {
     if (!dirty) return;
@@ -484,7 +586,26 @@ export function CmsPages({ initialSlug }: { initialSlug?: string | null }) {
   }
 
   if (loadState === 'loading') return <div aria-hidden="true" className="h-64 rounded-card border border-subtle bg-cream-card" />;
-  if (loadState !== 'ready') return <Alert>{loadState === 'not-configured' ? t.errNotConfigured : t.errLoad}</Alert>;
+  if (loadState !== 'ready') {
+    return (
+      <>
+        <Alert>{loadState === 'not-configured' ? t.errNotConfigured : t.errLoad}</Alert>
+        {loadErr && (
+          <LoadErrorModal
+            open
+            title={t.pgLoadErrTitle}
+            body={t.pgLoadErrBody}
+            status={loadErr.status}
+            detail={loadErr.detail}
+            retryLabel={t.pgRetry}
+            closeLabel={t.pgClose}
+            onRetry={retryLoad}
+            onClose={() => setLoadErr(null)}
+          />
+        )}
+      </>
+    );
+  }
 
   const isLive = Boolean(loaded?.live);
   const statusLine = !loaded ? t.pgStatusDraft : isLive ? (loaded.dirty || dirty ? t.pgStatusLiveDirty : t.pgStatusLive) : t.pgStatusDraft;
@@ -691,6 +812,19 @@ export function CmsPages({ initialSlug }: { initialSlug?: string | null }) {
             </div>
           )}
         </section>
+      )}
+      {loadErr && (
+        <LoadErrorModal
+          open
+          title={t.pgLoadErrTitle}
+          body={t.pgLoadErrBody}
+          status={loadErr.status}
+          detail={loadErr.detail}
+          retryLabel={t.pgRetry}
+          closeLabel={t.pgClose}
+          onRetry={retryLoad}
+          onClose={() => setLoadErr(null)}
+        />
       )}
     </div>
   );

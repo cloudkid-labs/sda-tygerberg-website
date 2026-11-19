@@ -214,6 +214,10 @@ export const cmsCopy = {
     pgRemoveItem: 'Verwyder',
     pgErrSlugTaken: 'Daardie webadres is reeds gebruik.',
     pgUpload: 'Laai prent op',
+    pgLoadErrTitle: 'Kon nie bladsy laai nie',
+    pgLoadErrBody: 'Herlaai die bladsy en probeer weer.',
+    pgRetry: 'Probeer weer',
+    pgClose: 'Sluit',
     blocks: {
       infoCard: 'Inligtingskaart',
       cardGrid: 'Kaartrooster',
@@ -454,6 +458,10 @@ export const cmsCopy = {
     pgRemoveItem: 'Remove',
     pgErrSlugTaken: 'That web address is already taken.',
     pgUpload: 'Upload image',
+    pgLoadErrTitle: 'Could not load page',
+    pgLoadErrBody: 'Reload the page and try again.',
+    pgRetry: 'Retry',
+    pgClose: 'Close',
     blocks: {
       infoCard: 'Info card',
       cardGrid: 'Card grid',

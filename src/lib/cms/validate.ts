@@ -51,7 +51,6 @@ export const RESERVED_SLUGS = new Set([
   'no-access',
   'og-image',
   'page-shell',
-  'personal-ministry',
   'privacy',
   'robots',
   'sitemap',
@@ -307,12 +306,15 @@ export function validatePage(input: unknown): Result<Omit<Page, 'status' | 'upda
       if (block) blocks.push(block);
     });
   }
+  const defaultLang: Page['defaultLang'] = o.defaultLang === 'af' || o.defaultLang === 'en' ? o.defaultLang : undefined;
+  if (o.defaultLang !== undefined && !defaultLang) c.errors.push('defaultLang');
   const page = {
     slug,
     title: c.l10n(o.title, 'title', LIMITS.short),
     eyebrow: c.l10n(o.eyebrow, 'eyebrow', LIMITS.short, false),
     intro: c.l10n(o.intro, 'intro', 400, false),
     blocks,
+    ...(defaultLang ? { defaultLang } : {}),
     ...(o.showInEvents === true ? { showInEvents: true } : {}),
   };
   return c.errors.length ? { ok: false, errors: c.errors } : { ok: true, value: page };

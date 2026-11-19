@@ -1,5 +1,6 @@
 import { homeCopy, type WeekEntry } from '../../data/homeCopy';
 import { departmentHeads } from '../../data/departmentHeads';
+import { personalMinistryCopy } from '../../data/personalMinistryCopy';
 import { WEEKDAYS_AF, type ChurchEvent, type DepartmentHead, type Page, type WeekdayAf } from './types';
 
 /**
@@ -143,5 +144,50 @@ export function seedPages(): Page[] {
       updatedBy: SEED_BY,
       updatedAt: SEED_AT,
     },
+    seedPersonalMinistry(),
   ];
+}
+
+/**
+ * The clothing-bin page, live and English-first: QR scanners land here cold.
+ * Copy comes from the same source the static page read, so the switch changes
+ * who owns the content, not a word of it. The thank-you is its own text block —
+ * callout.text is capped at LIMITS.medium and ctaText + thanks exceeds it.
+ */
+export function seedPersonalMinistry(): Page {
+  const c = personalMinistryCopy;
+  const l10n = (pick: (t: (typeof c)['af']) => string) => ({ af: pick(c.af), en: pick(c.en) });
+  return {
+    slug: 'personal-ministry',
+    // heading, not pageTitle: the Worker appends the church name itself.
+    title: l10n((t) => t.heading),
+    eyebrow: l10n((t) => t.eyebrow),
+    intro: l10n((t) => t.sub),
+    blocks: [
+      {
+        type: 'cardGrid',
+        heading: l10n((t) => t.acceptHeading),
+        intro: l10n((t) => t.acceptIntro),
+        cards: c.af.acceptItems.map((_, i) => ({
+          label: { af: '', en: '' },
+          title: { af: c.af.acceptItems[i].title, en: c.en.acceptItems[i].title },
+          text: { af: c.af.acceptItems[i].text, en: c.en.acceptItems[i].text },
+        })),
+      },
+      { type: 'text', heading: l10n((t) => t.noHeading), body: l10n((t) => t.noBody) },
+      { type: 'text', heading: l10n((t) => t.processHeading), body: l10n((t) => t.processBody) },
+      { type: 'text', heading: l10n((t) => t.binHeading), body: l10n((t) => t.binBody) },
+      {
+        type: 'callout',
+        heading: l10n((t) => t.ctaHeading),
+        text: l10n((t) => t.ctaText),
+        button: { label: l10n((t) => t.ctaLabel), href: '/connect/' },
+      },
+      { type: 'text', heading: { af: '', en: '' }, body: l10n((t) => t.thanks) },
+    ],
+    defaultLang: 'en',
+    status: 'live',
+    updatedBy: SEED_BY,
+    updatedAt: SEED_AT,
+  };
 }

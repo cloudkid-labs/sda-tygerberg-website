@@ -3,9 +3,10 @@ import type { ReactNode } from 'react';
 import { CHURCH_SITE } from '../data/churchSite';
 import type { Lang } from '../data/site';
 
-// English-first variant for pages whose audience arrives cold (QR stickers) —
-// currently only /personal-ministry. A stored visitor choice still wins, so
-// this only decides the first paint and the SSR HTML, never overrides anyone.
+// English-first variant for pages whose audience arrives cold (QR stickers).
+// CMS-managed pages opt in via Page.defaultLang (currently /personal-ministry).
+// A stored visitor choice still wins, so this only decides the first paint and
+// the SSR HTML, never overrides anyone.
 const EN_SITE = { ...CHURCH_SITE, defaultLocale: 'en' as const };
 
 export function LanguageProvider({

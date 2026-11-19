@@ -184,7 +184,7 @@ describe('pages', () => {
     const e = env();
     const cookie = await cookieFor(BOARD);
     const list = await call(e, 'GET', '/api/cms/pages', { cookie });
-    assert.deepEqual(list.data.items.map((p) => [p.slug, p.status]), [['pastoral-counselling', 'draft']]);
+    assert.deepEqual(list.data.items.map((p) => [p.slug, p.status]), [['pastoral-counselling', 'draft'], ['personal-ministry', 'live']]);
 
     const one = await call(e, 'GET', '/api/cms/pages?slug=pastoral-counselling', { cookie });
     assert.equal(one.data.live, null);
@@ -198,6 +198,21 @@ describe('pages', () => {
     const off = await call(e, 'PUT', '/api/cms/pages', { cookie, body: { action: 'unpublish', slug: 'pastoral-counselling' } });
     assert.equal(off.status, 200);
     assert.ok(!e.CMS.keys().includes('pages/live/pastoral-counselling.json'));
+  });
+
+  test('personal-ministry is a normal slug now: the API reads and edits it, no 400', async () => {
+    const e = env();
+    const cookie = await cookieFor(BOARD);
+    await call(e, 'GET', '/api/cms/pages', { cookie });
+    const one = await call(e, 'GET', '/api/cms/pages?slug=personal-ministry', { cookie });
+    assert.equal(one.status, 200);
+    assert.equal(one.data.page.defaultLang, 'en');
+    assert.equal(one.data.page.status, 'live');
+    assert.equal(one.data.dirty, false, 'seed draft and live copy agree');
+    const { status: _s, updatedBy: _b, updatedAt: _a, ...page } = one.data.page;
+    const saved = await call(e, 'PUT', '/api/cms/pages', { cookie, body: { rev: one.data.rev, page: { ...page, intro: { af: 'Nuut', en: 'New' } } } });
+    assert.equal(saved.status, 200);
+    assert.equal(saved.data.page.defaultLang, 'en', 'a board save keeps the page English-first');
   });
 
   test('a reserved slug is refused; a taken slug conflicts', async () => {

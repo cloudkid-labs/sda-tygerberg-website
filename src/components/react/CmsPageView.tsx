@@ -22,7 +22,7 @@ const SHELL: PublicPage = {
 export function CmsPageView({ page }: { page?: PublicPage }) {
   const [current] = useState<PublicPage>(() => page ?? readJsonScript<PagePayload>(PAGE_PAYLOAD_ID)?.page ?? SHELL);
   return (
-    <LanguageProvider>
+    <LanguageProvider defaultLocale={current.defaultLang ?? 'af'}>
       <StandardPage
         rootId="cms-page-root"
         header={{ eyebrow: current.eyebrow, title: current.title, intro: current.intro }}

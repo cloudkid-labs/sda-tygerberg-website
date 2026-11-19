@@ -108,6 +108,10 @@ export async function writePageLive(bucket: R2Bucket, page: Page): Promise<void>
   await bucket.put(pageLiveKey(page.slug), JSON.stringify({ page }), JSON_META);
 }
 
+export async function deletePageDraft(bucket: R2Bucket, slug: string): Promise<void> {
+  await bucket.delete(pageDraftKey(slug));
+}
+
 export async function deletePageLive(bucket: R2Bucket, slug: string): Promise<void> {
   await bucket.delete(pageLiveKey(slug));
 }

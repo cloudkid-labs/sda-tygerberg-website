@@ -3,6 +3,7 @@
 import { isAdmin, verifySession, type AuthEnv } from './auth';
 import {
   audit,
+  deletePageDraft,
   deletePageLive,
   EVENTS_KEY,
   HEADS_KEY,
@@ -222,6 +223,25 @@ async function pagesRoute(request: Request, env: CmsEnv, g: { email: string; buc
   if (request.method !== 'PUT') return json({ ok: false, outcome: 'invalid', errors: ['method'] }, 405);
   const body = await readBody(request);
   if (!body.ok) return body.response;
+
+  if (body.body.action === 'delete') {
+    const slug = body.body.slug;
+    if (!isValidSlug(slug)) return json({ ok: false, outcome: 'invalid', errors: ['slug'] }, 400);
+    const draft = await readPageDraft(g.bucket, slug);
+    if (!draft) return json({ ok: false, outcome: 'invalid', errors: ['slug'] }, 404);
+    // A live page must be unpublished first — and a linked page not at all
+    // until its cards are unlinked. Mirrors the unpublish guards below.
+    if (await readPageLive(g.bucket, slug)) {
+      return json({ ok: false, outcome: 'invalid', errors: ['live'] }, 409);
+    }
+    const { doc: events } = await readEvents(g.bucket);
+    if (events.items.some((e) => e.status === 'live' && e.link?.pageSlug === slug)) {
+      return json({ ok: false, outcome: 'invalid', errors: ['linked'] }, 409);
+    }
+    await deletePageDraft(g.bucket, slug);
+    await audit(g.bucket, { by: g.email, action: 'page.delete', target: `/${slug}/` });
+    return json({ ok: true }, 200);
+  }
 
   if (body.body.action === 'unpublish') {
     const slug = body.body.slug;

@@ -9,9 +9,13 @@ interface Props {
   /** Absolute or root-relative image for the social card. Defaults to the site card. */
   image?: string;
   ogType?: string;
+  /** First-paint document language. The whole site ships Afrikaans except pages
+   *  whose audience lands there first (QR stickers) — currently only
+   *  /personal-ministry, which renders its English copy by default. */
+  lang?: 'af' | 'en';
 }
 
-const { title, description, image = '/og-image.png', ogType = 'website' } = Astro.props;
+const { title, description, image = '/og-image.png', ogType = 'website', lang = 'af' } = Astro.props;
 
 // Production origin on every build, devtest included — C-23.
 const site = Astro.site!;
@@ -37,7 +41,7 @@ const jsonLd = {
 ---
 
 <!doctype html>
-<html lang="af">
+<html lang={lang}>
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -62,9 +66,10 @@ const jsonLd = {
     <meta property="og:image:height" content="630" />
     <meta property="og:image:alt" content="Tygerberg SDA Kerk — 54 Boston St, Boston, Kaapstad" />
     <meta property="og:site_name" content="Tygerberg SDA Kerk" />
-    <!-- Ships as Afrikaans and swaps client-side, so that is what crawlers get. -->
-    <meta property="og:locale" content="af_ZA" />
-    <meta property="og:locale:alternate" content="en_ZA" />
+    <!-- Ships in the page's first-paint language and swaps client-side, so that
+         is what crawlers get. -->
+    <meta property="og:locale" content={lang === 'en' ? 'en_ZA' : 'af_ZA'} />
+    <meta property="og:locale:alternate" content={lang === 'en' ? 'af_ZA' : 'en_ZA'} />
 
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:title" content={title} />

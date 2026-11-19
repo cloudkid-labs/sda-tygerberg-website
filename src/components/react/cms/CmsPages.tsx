@@ -9,6 +9,7 @@ import {
   ArrowDown,
   ArrowUp,
   buttonAdd,
+  buttonDanger,
   buttonPrimary,
   buttonSecondary,
   cardClass,
@@ -344,6 +345,7 @@ export function CmsPages({ initialSlug }: { initialSlug?: string | null }) {
   const [fieldErrors, setFieldErrors] = useState<Set<string>>(new Set());
   // Live This week cards that link here; the page cannot be unpublished under them.
   const [liveLinks, setLiveLinks] = useState(0);
+  const [confirming, setConfirming] = useState(false);
 
   async function openPage(s: string) {
     const res = await cmsApi<Loaded>('GET', `/api/cms/pages?slug=${encodeURIComponent(s)}`);
@@ -354,6 +356,7 @@ export function CmsPages({ initialSlug }: { initialSlug?: string | null }) {
     setOpen(0);
     setDirty(false);
     setError('');
+    setConfirming(false);
     setFieldErrors(new Set());
     // The status line already says Live or Draft.
     setNote('');
@@ -395,6 +398,7 @@ export function CmsPages({ initialSlug }: { initialSlug?: string | null }) {
     setOpen(0);
     setDirty(true);
     setError('');
+    setConfirming(false);
     setFieldErrors(new Set());
     setNote(t.notSaved);
   }
@@ -413,6 +417,7 @@ export function CmsPages({ initialSlug }: { initialSlug?: string | null }) {
     setBusy(false);
     if (res.ok) {
       setLoaded(res.data);
+      setConfirming(false);
       setContent(contentOf(res.data.page));
       setSlug(res.data.page.slug);
       setDirty(false);
@@ -444,6 +449,27 @@ export function CmsPages({ initialSlug }: { initialSlug?: string | null }) {
     setLoaded(res.data);
     setList((l) => l.map((p) => (p.slug === slug ? { ...p, status: 'draft' } : p)));
     setNote(t.draftSaved);
+  }
+
+  async function remove() {
+    if (!slug) return;
+    setBusy(true);
+    const res = await cmsApi<unknown>('PUT', '/api/cms/pages', { action: 'delete', slug });
+    setBusy(false);
+    setConfirming(false);
+    if (!res.ok) {
+      if (res.errors.includes('linked')) return setError(t.pgErrLinked);
+      if (res.errors.includes('live')) return setError(t.pgErrLive);
+      if (res.status === 409) return setError(t.errConflict);
+      return setError(t.errSave);
+    }
+    setList((l) => l.filter((p) => p.slug !== slug));
+    setSlug(null);
+    setLoaded(null);
+    setContent(null);
+    setDirty(false);
+    setError('');
+    setNote(t.removed);
   }
 
   function preview() {
@@ -638,12 +664,30 @@ export function CmsPages({ initialSlug }: { initialSlug?: string | null }) {
             </div>
           </div>
 
-          {isLive && (
-            <div className="mt-6 border-t border-subtle pt-4">
-              <button type="button" className="min-h-11 text-[13.5px] font-bold text-[#9a4f0f] underline disabled:opacity-50" disabled={busy || liveLinks > 0} onClick={unpublish}>
-                {t.pgUnpublish}
-              </button>
-              {liveLinks > 0 && <p className="mt-1 text-[12.5px] text-slate-muted">{t.pgErrLinked}</p>}
+          {loaded && slug && (
+            <div className="mt-6 flex flex-wrap items-center gap-3 border-t border-subtle pt-4">
+              {isLive ? (
+                <>
+                  <button type="button" className="min-h-11 text-[13.5px] font-bold text-[#9a4f0f] underline disabled:opacity-50" disabled={busy || liveLinks > 0} onClick={unpublish}>
+                    {t.pgUnpublish}
+                  </button>
+                  {liveLinks > 0 && <p className="mt-1 text-[12.5px] text-slate-muted">{t.pgErrLinked}</p>}
+                </>
+              ) : confirming ? (
+                <span className="flex flex-wrap items-center gap-2 text-[14px] font-bold text-ink">
+                  {t.pgConfirmDelete}
+                  <button type="button" className={buttonDanger} onClick={remove} disabled={busy}>
+                    {t.pgYesDelete}
+                  </button>
+                  <button type="button" className={buttonSecondary} onClick={() => setConfirming(false)}>
+                    {t.cancel}
+                  </button>
+                </span>
+              ) : (
+                <button type="button" className={buttonDanger} onClick={() => setConfirming(true)}>
+                  {t.pgDelete}
+                </button>
+              )}
             </div>
           )}
         </section>

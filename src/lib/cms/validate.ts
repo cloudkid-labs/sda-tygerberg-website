@@ -51,6 +51,7 @@ export const RESERVED_SLUGS = new Set([
   'no-access',
   'og-image',
   'page-shell',
+  'personal-ministry',
   'privacy',
   'robots',
   'sitemap',

@@ -1,0 +1,14 @@
+---
+import Layout from '../../layouts/Layout.astro';
+import { PersonalMinistryPage } from '../../components/react/PersonalMinistryPage';
+import { personalMinistryCopy } from '../../data/personalMinistryCopy';
+
+// English-first: QR scanners land here cold, so the crawlable meta, the
+// <html lang> and the SSR body are English. The toggle still offers the full
+// Afrikaans copy — every string below exists in both languages, no placeholders.
+const copy = personalMinistryCopy.en;
+---
+
+<Layout title={copy.pageTitle} description={copy.pageDescription} lang="en">
+  <PersonalMinistryPage client:load />
+</Layout>

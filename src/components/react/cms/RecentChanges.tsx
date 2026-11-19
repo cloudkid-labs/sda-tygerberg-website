@@ -12,7 +12,7 @@ type AuditPage = { items: Entry[]; next: string | null };
 type Entry = MergeableEntry;
 
 /** Events and heads are named by the action; pages and photos by the target. */
-const SHOWS_TARGET = new Set(['page.create', 'page.save', 'page.publish', 'page.unpublish', 'media.upload']);
+const SHOWS_TARGET = new Set(['page.create', 'page.save', 'page.publish', 'page.unpublish', 'page.delete', 'media.upload']);
 
 function list(words: string[], and: string): string {
   return words.length < 2 ? words.join('') : `${words.slice(0, -1).join(', ')} ${and} ${words[words.length - 1]}`;

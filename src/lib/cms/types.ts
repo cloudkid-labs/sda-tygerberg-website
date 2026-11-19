@@ -101,6 +101,8 @@ export type Page = {
   eyebrow: L10n;
   intro: L10n;
   blocks: Block[];
+  /** First-paint language when no visitor choice is stored. Afrikaans unless set. */
+  defaultLang?: 'af' | 'en';
   /** Listed in the homepage's Events section (#geleenthede) while live. */
   showInEvents?: boolean;
   status: 'draft' | 'live';

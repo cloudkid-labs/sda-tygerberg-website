@@ -1,7 +1,7 @@
 import { strict as assert } from 'node:assert';
 import { test, describe } from 'node:test';
 import { r2Mock } from './r2Mock.mjs';
-import { seedEvents, seedHeads, seedPages } from '../src/lib/cms/seed.ts';
+import { seedEvents, seedHeads, seedPages, seedPersonalMinistry } from '../src/lib/cms/seed.ts';
 import { publicEvents, scriptJson } from '../src/lib/cms/public.ts';
 import { johannesburgDate, isExpired } from '../src/lib/cms/time.ts';
 
@@ -14,8 +14,8 @@ import { johannesburgDate, isExpired } from '../src/lib/cms/time.ts';
 
 const { buildHomePayload } = await import('../src/lib/cms/payload.ts');
 const { renderWeekSection, renderEventsSection, renderAboutSection, renderPageRoot } = await import('../src/worker/cmsRender.tsx');
-const { rebuildEventPages } = await import('../src/worker/cmsStore.ts');
-const { rewriteHome, serveHome, serveCmsPage, findElement } = await import('../src/worker/cmsPublic.ts');
+const { rebuildEventPages, ensureSeedPage, ensureSeedPages, migratePersonalMinistry } = await import('../src/worker/cmsStore.ts');
+const { rewriteHome, rewritePage, serveHome, serveCmsPage, findElement } = await import('../src/worker/cmsPublic.ts');
 
 const RENDER = { week: renderWeekSection, events: renderEventsSection, about: renderAboutSection, page: renderPageRoot };
 
@@ -195,5 +195,106 @@ describe('CMS pages at /<slug>/', () => {
     assert.equal(res.headers.get('location'), '/pastoral-counselling/');
     assert.equal(await serveCmsPage(new Request('https://x/onbekend/'), { ASSETS: assets, CMS }, RENDER), null);
     assert.equal(await serveCmsPage(new Request('https://x/a/b/'), { ASSETS: assets, CMS }, RENDER), null);
+  });
+
+  test("head tags survive `$'` and `$&` in content: no breakout, no swallowed title", () => {
+    const base = seedPages()[0];
+    const nasty = {
+      ...base,
+      status: 'live',
+      title: { af: "Titel $' & $& einde", en: "Title $' & $& end" },
+      intro: { af: "Inleiding $' en $& klaar", en: "Intro $' and $& done" },
+    };
+    const html = rewritePage(builtShell(), nasty, RENDER);
+    assert.ok(html, 'the shell rewrote');
+    // `$` sequences are literal; only `&` is entity-escaped. The title closes.
+    assert.ok(html.includes("<title>Titel $' &amp; $&amp; einde · Tygerberg SDA Kerk</title>"), 'title intact, $ literal');
+    // The description attribute holds the escaped intro and closes cleanly —
+    // `$'` did not splice the rest of the document into the attribute.
+    assert.ok(html.includes('<meta name="description" content="Inleiding $\' en $&amp; klaar">'), 'description intact, no breakout');
+    assert.ok(html.includes('<meta property="og:title" content="Titel $\' &amp; $&amp; einde · Tygerberg SDA Kerk">'), 'og:title intact');
+    assert.ok(html.endsWith('</body></html>'), 'the document was not swallowed');
+    assert.ok(html.includes('id="cms-page"'), 'the payload script survived');
+  });
+});
+
+describe('personal-ministry — CMS-managed, English-first', () => {
+  const request = () => new Request('https://x/personal-ministry/');
+
+  test('a fresh bucket serves it on first visit: English head tags, draft and live written', async () => {
+    const CMS = r2Mock();
+    const res = await serveCmsPage(request(), { ASSETS: assets, CMS }, RENDER);
+    assert.equal(res.status, 200);
+    const html = await res.text();
+    assert.match(html, /<html lang="en">/);
+    assert.match(html, /<title>Personal Ministry · Tygerberg SDA Kerk<\/title>/);
+    assert.match(html, /<meta name="description" content="Have clothes you no longer wear\?/);
+    assert.match(html, /<h1[^>]*>Personal Ministry<\/h1>/);
+    assert.ok(CMS.keys().includes('pages/draft/personal-ministry.json'));
+    assert.ok(CMS.keys().includes('pages/live/personal-ministry.json'));
+    const payload = JSON.parse(/id="cms-page">([\s\S]*?)<\/script>/.exec(html)[1]);
+    assert.equal(payload.page.defaultLang, 'en', 'the client receives the default language');
+    const root = html.slice(...findElement(html, /<div id="cms-page-root"/, 'div'));
+    assert.equal(root, renderPageRoot(payload.page), 'Worker HTML matches the island render');
+  });
+
+  test('once seeded, an unpublished or deleted page never resurrects', async () => {
+    const CMS = r2Mock();
+    assert.equal((await serveCmsPage(request(), { ASSETS: assets, CMS }, RENDER)).status, 200);
+    await CMS.delete('pages/live/personal-ministry.json');
+    assert.equal(await serveCmsPage(request(), { ASSETS: assets, CMS }, RENDER), null, 'unpublish stays unpublished');
+    await CMS.delete('pages/draft/personal-ministry.json');
+    assert.equal(await serveCmsPage(request(), { ASSETS: assets, CMS }, RENDER), null, 'delete stays deleted');
+  });
+
+  test('a stale stub is overwritten once by the migration; later board edits are preserved', async () => {
+    const CMS = r2Mock();
+    // Production as it stands: the old global seed marker and a stub draft+live.
+    await CMS.put('pages/.seeded', '2026-10-31T00:00:00.000Z');
+    const stub = { ...seedPersonalMinistry(), title: { af: 'Ou stub', en: 'Old stub' }, updatedBy: 'someone@example.co.za', updatedAt: '2026-01-01T00:00:00.000Z' };
+    await CMS.put('pages/draft/personal-ministry.json', JSON.stringify({ rev: 7, page: stub }));
+    await CMS.put('pages/live/personal-ministry.json', JSON.stringify({ page: stub }));
+
+    await ensureSeedPage(CMS, 'personal-ministry');
+    const draft = JSON.parse(await (await CMS.get('pages/draft/personal-ministry.json')).text());
+    assert.equal(draft.rev, 8, 'the stub revision is carried forward, not reset');
+    assert.equal(draft.page.title.en, 'Personal Ministry');
+    assert.equal(draft.page.defaultLang, 'en');
+    const live = JSON.parse(await (await CMS.get('pages/live/personal-ministry.json')).text());
+    assert.equal(live.page.title.en, 'Personal Ministry');
+    assert.ok(CMS.keys().some((k) => k.startsWith('history/pages/personal-ministry/')), 'the replaced stub is kept');
+
+    // A board edit after the migration must survive every later seed pass.
+    const edited = { ...draft.page, title: { af: 'Deur die raad', en: 'Board edit' }, updatedBy: 'boss@example.co.za' };
+    await CMS.put('pages/draft/personal-ministry.json', JSON.stringify({ rev: 9, page: edited }));
+    await CMS.put('pages/live/personal-ministry.json', JSON.stringify({ page: edited }));
+    await ensureSeedPages(CMS);
+    await ensureSeedPage(CMS, 'personal-ministry');
+    const after = JSON.parse(await (await CMS.get('pages/live/personal-ministry.json')).text());
+    assert.equal(after.page.title.en, 'Board edit');
+    assert.equal((await serveCmsPage(request(), { ASSETS: assets, CMS }, RENDER)).status, 200);
+  });
+
+  test('concurrent migrations claim the marker once: a single overwrite, board edits safe', async () => {
+    const CMS = r2Mock();
+    const stub = { ...seedPersonalMinistry(), title: { af: 'Ou stub', en: 'Old stub' } };
+    await CMS.put('pages/draft/personal-ministry.json', JSON.stringify({ rev: 7, page: stub }));
+    await CMS.put('pages/live/personal-ministry.json', JSON.stringify({ page: stub }));
+
+    // Two isolates race; the create-only claim lets exactly one force-write.
+    await Promise.all([migratePersonalMinistry(CMS), migratePersonalMinistry(CMS)]);
+    const draft = JSON.parse(await (await CMS.get('pages/draft/personal-ministry.json')).text());
+    assert.equal(draft.rev, 8, 'one overwrite, not two');
+    assert.equal(draft.page.title.en, 'Personal Ministry');
+    const history = CMS.keys().filter((k) => k.startsWith('history/pages/personal-ministry/'));
+    assert.equal(history.length, 1, 'the replaced stub is kept exactly once');
+
+    // Once claimed, a board edit is never clobbered by a later migration pass.
+    const edited = { ...draft.page, title: { af: 'Deur die raad', en: 'Board edit' } };
+    await CMS.put('pages/draft/personal-ministry.json', JSON.stringify({ rev: 9, page: edited }));
+    await CMS.put('pages/live/personal-ministry.json', JSON.stringify({ page: edited }));
+    await migratePersonalMinistry(CMS);
+    const after = JSON.parse(await (await CMS.get('pages/live/personal-ministry.json')).text());
+    assert.equal(after.page.title.en, 'Board edit', 'the claim blocks any re-run');
   });
 });

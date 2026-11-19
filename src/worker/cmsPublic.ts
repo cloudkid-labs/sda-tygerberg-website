@@ -4,7 +4,7 @@ import { homePayload, publicPage, scriptJson } from '../lib/cms/public';
 import { johannesburgDate } from '../lib/cms/time';
 import { HOME_PAYLOAD_ID, PAGE_PAYLOAD_ID } from '../lib/cms/ids';
 import type { ChurchEvent, DepartmentHead, HomePayload, Page, PublicEventPage, PublicPage } from '../lib/cms/types';
-import { liveSlugs, readEventPages, readEvents, readHeads, readPageLive, type CmsStoreEnv } from './cmsStore';
+import { ensureSeedPage, liveSlugs, readEventPages, readEvents, readHeads, readPageLive, type CmsStoreEnv } from './cmsStore';
 
 /**
  * Where live CMS content meets the static build (C-70).
@@ -117,8 +117,9 @@ export function rewritePage(html: string, page: Page, render: Pick<Renderers, 'p
   const root = findElement(html, /<div id="cms-page-root"/, 'div');
   if (!script || !root) return null;
 
-  const title = `${pub.title.af} · Tygerberg SDA Kerk`;
-  const description = pub.intro.af || pub.title.af;
+  const lang = page.defaultLang ?? 'af';
+  const title = `${pub.title[lang]} · Tygerberg SDA Kerk`;
+  const description = pub.intro[lang] || pub.title[lang];
   const path = `/${pub.slug}/`;
   const edits: [[number, number], string][] = [
     [script.body, scriptJson({ page: pub })],
@@ -129,15 +130,19 @@ export function rewritePage(html: string, page: Page, render: Pick<Renderers, 'p
   for (const [range, content] of edits) out = replaceRange(out, range, content);
 
   // Head tags: the shell's own values are placeholders built for /page-shell/.
+  // Function replacers, never `$1…$2` strings: a value carrying `$'`, `$&` or
+  // `$1` would otherwise be read as a replacement pattern and break out of the
+  // attribute or swallow the document.
   out = out
-    .replace(/<title>[^<]*<\/title>/, `<title>${escapeText(title)}</title>`)
-    .replace(/(<meta name="description" content=")[^"]*(")/, `$1${escapeAttr(description)}$2`)
-    .replace(/(<meta property="og:title" content=")[^"]*(")/, `$1${escapeAttr(title)}$2`)
-    .replace(/(<meta property="og:description" content=")[^"]*(")/, `$1${escapeAttr(description)}$2`)
-    .replace(/(<meta name="twitter:title" content=")[^"]*(")/, `$1${escapeAttr(title)}$2`)
-    .replace(/(<meta name="twitter:description" content=")[^"]*(")/, `$1${escapeAttr(description)}$2`)
-    .replace(/(<link rel="canonical" href="https?:\/\/[^/"]+)\/page-shell\/(")/, `$1${path}$2`)
-    .replace(/(<meta property="og:url" content="https?:\/\/[^/"]+)\/page-shell\/(")/, `$1${path}$2`);
+    .replace(/(<html\b[^>]*\blang=")[^"]*(")/, (_m, a: string, b: string) => a + lang + b)
+    .replace(/<title>[^<]*<\/title>/, () => `<title>${escapeText(title)}</title>`)
+    .replace(/(<meta name="description" content=")[^"]*(")/, (_m, a: string, b: string) => a + escapeAttr(description) + b)
+    .replace(/(<meta property="og:title" content=")[^"]*(")/, (_m, a: string, b: string) => a + escapeAttr(title) + b)
+    .replace(/(<meta property="og:description" content=")[^"]*(")/, (_m, a: string, b: string) => a + escapeAttr(description) + b)
+    .replace(/(<meta name="twitter:title" content=")[^"]*(")/, (_m, a: string, b: string) => a + escapeAttr(title) + b)
+    .replace(/(<meta name="twitter:description" content=")[^"]*(")/, (_m, a: string, b: string) => a + escapeAttr(description) + b)
+    .replace(/(<link rel="canonical" href="https?:\/\/[^/"]+)\/page-shell\/(")/, (_m, a: string, b: string) => a + path + b)
+    .replace(/(<meta property="og:url" content="https?:\/\/[^/"]+)\/page-shell\/(")/, (_m, a: string, b: string) => a + path + b);
   return out;
 }
 
@@ -201,7 +206,19 @@ export async function serveCmsPage(
   const url = new URL(request.url);
   const m = PAGE_PATH.exec(url.pathname);
   if (!m) return null;
-  const page = await readPageLive(env.CMS, m[1]);
+  let page = await readPageLive(env.CMS, m[1]);
+  if (!page) {
+    // A seed page nobody has listed yet must not 404 between deploy and the
+    // first admin visit. After its marker exists this never resurrects a page.
+    // A seed failure must not 500 the request — fall through to the build's 404.
+    try {
+      await ensureSeedPage(env.CMS, m[1]);
+      page = await readPageLive(env.CMS, m[1]);
+    } catch (err) {
+      console.error(`cms: seed FAILED for /${m[1]}/ — serving 404: ${(err as Error).message}`);
+      return null;
+    }
+  }
   if (!page) return null;
   if (!url.pathname.endsWith('/')) {
     return new Response(null, { status: 301, headers: { Location: `/${m[1]}/${url.search}` } });

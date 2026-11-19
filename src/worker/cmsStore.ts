@@ -1,6 +1,6 @@
 /// <reference types="@cloudflare/workers-types" />
 
-import { seedEvents, seedHeads, seedPages } from '../lib/cms/seed';
+import { seedEvents, seedHeads, seedPages, seedPersonalMinistry } from '../lib/cms/seed';
 import type { ChurchEvent, DepartmentHead, Page } from '../lib/cms/types';
 import type { AuditChange, AuditOrder } from '../lib/cms/auditDiff';
 import type { PublicEventPage } from '../lib/cms/types';
@@ -13,7 +13,8 @@ import { eventPageSummary } from '../lib/cms/public';
  *   content/heads.json         { rev, items }   every department head
  *   pages/draft/<slug>.json    { rev, page }    the working copy of a page
  *   pages/live/<slug>.json     { page }         what /<slug>/ serves
- *   pages/.seeded                               marker: seed pages written once
+ *   pages/.seeded/<slug>                        marker: this seed page written once
+ *   pages/.migrated/<slug>-v1                   marker: one-time content migration done
  *   history/<doc>/<iso>-<r>    previous version before every write (rollback)
  *   audit/<newest-first>-<r>   who changed what, when
  *   media/{heads,pages}/...    processed images, served at /media/...
@@ -30,7 +31,8 @@ export const EVENTS_KEY = 'content/events.json';
 export const HEADS_KEY = 'content/heads.json';
 export const pageDraftKey = (slug: string) => `pages/draft/${slug}.json`;
 export const pageLiveKey = (slug: string) => `pages/live/${slug}.json`;
-const SEEDED_MARKER = 'pages/.seeded';
+const seededMarker = (slug: string) => `pages/.seeded/${slug}`;
+const MIGRATED_PM = 'pages/.migrated/personal-ministry-v1';
 
 const JSON_META = { httpMetadata: { contentType: 'application/json' } };
 
@@ -154,17 +156,65 @@ export async function rebuildEventPages(bucket: R2Bucket): Promise<PublicEventPa
 }
 
 /**
+ * One seed page, written once per slug: with a marker it is an ordinary page
+ * from then on — editing, unpublishing or deleting it never brings the seed
+ * back. An existing draft or live copy (even an unpublished one) is kept.
+ */
+export async function seedPage(bucket: R2Bucket, page: Page): Promise<void> {
+  if (await bucket.head(seededMarker(page.slug))) return;
+  const [draft, live] = await Promise.all([bucket.head(pageDraftKey(page.slug)), bucket.head(pageLiveKey(page.slug))]);
+  if (!draft && !live) {
+    await writeJson(bucket, pageDraftKey(page.slug), { rev: 1, page }, null);
+    if (page.status === 'live') await writePageLive(bucket, page);
+  }
+  await bucket.put(seededMarker(page.slug), new Date().toISOString());
+}
+
+/**
+ * One-time: production holds a stale stub for personal-ministry from before
+ * the page was CMS-managed. Overwrite draft and live with the polished seed
+ * once, keeping the replaced draft in history. The marker makes this a no-op
+ * forever after, so a later board edit — or an unpublish or delete — survives.
+ *
+ * The marker is CLAIMED first with a create-only put, so exactly one isolate
+ * wins even under concurrency or a later write failure. `etagDoesNotMatch: '*'`
+ * is If-None-Match: * — it commits only while the key is absent (the installed
+ * R2 types expose no `etagDoesNotExist`). A loser gets null and returns; only
+ * the winner force-writes. Claiming first means a failed force-write leaves the
+ * migration done-once rather than re-running and clobbering a later board edit.
+ */
+export async function migratePersonalMinistry(bucket: R2Bucket): Promise<void> {
+  const claimed = await bucket.put(MIGRATED_PM, new Date().toISOString(), { onlyIf: { etagDoesNotMatch: '*' } });
+  if (!claimed) return;
+  const page = seedPersonalMinistry();
+  const existing = await readPageDraft(bucket, page.slug);
+  if (existing) await keepHistory(bucket, `pages/${page.slug}`, existing.doc);
+  await writeJson(bucket, pageDraftKey(page.slug), { rev: (existing?.doc.rev ?? 0) + 1, page }, null);
+  await writePageLive(bucket, page);
+}
+
+/** Every seed page, once each. Runs the personal-ministry migration first. */
+export async function ensureSeedPages(bucket: R2Bucket): Promise<void> {
+  await migratePersonalMinistry(bucket);
+  for (const page of seedPages()) await seedPage(bucket, page);
+}
+
+/** One seed page by slug; a slug the seed does not know is left alone. */
+export async function ensureSeedPage(bucket: R2Bucket, slug: string): Promise<void> {
+  const page = seedPages().find((p) => p.slug === slug);
+  if (!page) return;
+  if (slug === 'personal-ministry') await migratePersonalMinistry(bucket);
+  await seedPage(bucket, page);
+}
+
+/**
  * Every page's working copy. The seed pages are written once, the first time
  * anyone lists pages, so they are ordinary drafts from then on — deleting one
  * does not bring it back.
  */
 export async function listPageDrafts(bucket: R2Bucket): Promise<PageDoc[]> {
-  let keys = await listKeys(bucket, 'pages/draft/');
-  if (keys.length === 0 && !(await bucket.head(SEEDED_MARKER))) {
-    for (const page of seedPages()) await writeJson(bucket, pageDraftKey(page.slug), { rev: 1, page }, null);
-    await bucket.put(SEEDED_MARKER, new Date().toISOString());
-    keys = await listKeys(bucket, 'pages/draft/');
-  }
+  await ensureSeedPages(bucket);
+  const keys = await listKeys(bucket, 'pages/draft/');
   const docs: PageDoc[] = [];
   for (const key of keys) {
     const hit = await readJson<PageDoc>(bucket, key);

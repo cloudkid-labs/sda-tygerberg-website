@@ -9,9 +9,9 @@ interface Props {
   /** Absolute or root-relative image for the social card. Defaults to the site card. */
   image?: string;
   ogType?: string;
-  /** First-paint document language. The whole site ships Afrikaans except pages
-   *  whose audience lands there first (QR stickers) — currently only
-   *  /personal-ministry, which renders its English copy by default. */
+  /** First-paint document language. The whole site ships Afrikaans; CMS pages
+   *  whose audience lands there first (QR stickers) are English-first via
+   *  Page.defaultLang — currently /personal-ministry, now CMS-managed. */
   lang?: 'af' | 'en';
 }
 

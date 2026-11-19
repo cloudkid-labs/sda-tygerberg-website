@@ -47,9 +47,14 @@ export function r2Mock() {
       return entry ? objectOf(key, entry) : null;
     },
     async put(key, value, opts = {}) {
+      const bytes = await toBytes(value);
+      // Check-and-set with no await between, mirroring R2's atomic conditional
+      // put: concurrent create-only claims must let exactly one win.
       const current = store.get(key);
       if (opts.onlyIf?.etagMatches && current?.etag !== opts.onlyIf.etagMatches) return null;
-      const entry = { bytes: await toBytes(value), etag: `e${++etagSeq}`, httpMetadata: opts.httpMetadata ?? {} };
+      const dnm = opts.onlyIf?.etagDoesNotMatch;
+      if (dnm && current && (dnm === '*' || current.etag === dnm)) return null;
+      const entry = { bytes, etag: `e${++etagSeq}`, httpMetadata: opts.httpMetadata ?? {} };
       store.set(key, entry);
       return objectOf(key, entry);
     },

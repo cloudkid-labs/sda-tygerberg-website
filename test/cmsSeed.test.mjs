@@ -49,10 +49,36 @@ describe('seed', () => {
     assert.deepEqual(slots.slots, ['13:00 – 13:45', '14:00 – 14:45', '15:00 – 15:45']);
   });
 
+  test('personal-ministry is second, live and English-first, within every limit', () => {
+    const page = seedPages()[1];
+    assert.equal(page.slug, 'personal-ministry');
+    assert.equal(page.status, 'live');
+    assert.equal(page.defaultLang, 'en');
+    assert.deepEqual(page.blocks.map((b) => b.type), ['cardGrid', 'text', 'text', 'text', 'callout', 'text']);
+    const [grid, no, process, bin, callout, thanks] = page.blocks;
+    // Every content string exists in both languages — no placeholders.
+    const pairs = [
+      page.title, page.eyebrow, page.intro,
+      grid.heading, grid.intro, ...grid.cards.flatMap((c) => [c.title, c.text]),
+      no.heading, no.body, process.heading, process.body, bin.heading, bin.body,
+      callout.heading, callout.text, callout.button.label, thanks.body,
+    ];
+    for (const p of pairs) {
+      assert.ok(p.af.trim(), `af missing: ${JSON.stringify(p)}`);
+      assert.ok(p.en.trim(), `en missing: ${JSON.stringify(p)}`);
+    }
+    // The thank-you is its own block so the callout stays under the cap.
+    assert.ok(callout.text.af.length <= 160 && callout.text.en.length <= 160);
+    assert.equal(callout.button.href, '/connect/');
+  });
+
   test('every seed passes API validation', () => {
     assert.ok(validateEvents(seedEvents()).ok);
     assert.ok(validateHeads(seedHeads()).ok);
     for (const page of seedPages()) assert.ok(validatePage(page).ok, JSON.stringify(validatePage(page)));
+    const pm = seedPages()[1];
+    assert.ok(validatePage({ ...pm, defaultLang: undefined }).ok, 'defaultLang is optional');
+    assert.deepEqual(validatePage({ ...pm, defaultLang: 'de' }), { ok: false, errors: ['defaultLang'] });
   });
 });
 

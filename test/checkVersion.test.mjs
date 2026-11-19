@@ -4,8 +4,9 @@ import { execFileSync, spawnSync } from 'node:child_process';
 import { mkdtempSync, mkdirSync, writeFileSync, cpSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
-const SCRIPT = new URL('../scripts/check-version.mjs', import.meta.url).pathname;
+const SCRIPT = fileURLToPath(new URL('../scripts/check-version.mjs', import.meta.url));
 
 /** A throwaway repo with `version` in package.json and the given tags. */
 function repo({ version, tags = [], shallow = false }) {

@@ -11,7 +11,7 @@ building is open 09:00–12:30. Children's programmes run 09:30–11:00 in five 
 groups from birth to eighteen, after which the children join the congregation
 for the Divine Service.
 
-Every page is bilingual, Afrikaans first with English alongside. Language is a
+Every page is bilingual, in Afrikaans and English. Language is a
 control on the page, not part of the URL — there are no `/af/` or `/en/`
 routes, and each address below serves both.
 
@@ -24,6 +24,7 @@ routes, and each address below serves both.
 - [Jeug / Youth](https://sdatygerberg.co.za/youth/): Junior Youth Evening every Friday 19:00–21:00 at rotating teens' homes (not at the church), and the five Sabbath morning age groups — 0-3, 4-6, 7-9, 10-12 and 13-18 — which run 09:30–11:00.
 - [Gee / Give](https://sdatygerberg.co.za/giving/): Tithe and offering — EFT banking details and Zapper.
 - [Bloedbank / Blood Bank](https://sdatygerberg.co.za/blood-bank/): Blood donation dates at the church, each with 45-minute slots starting on the hour from 13:00. Informational — there is no booking form.
+- [Personal Ministry / Persoonlike Bediening](https://sdatygerberg.co.za/personal-ministry/): Clothing bin — what clean clothes, shoes and blankets to drop off, what happens to them, and where the bin stands.
 
 ## Elsewhere
 
@@ -34,4 +35,4 @@ routes, and each address below serves both.
 ## Optional
 
 - [Live status](https://sdatygerberg.co.za/api/live-status): JSON — whether the channel is broadcasting right now, and the video to watch if it is. Answers "is the service on air" without loading a page.
-- [Sitemap](https://sdatygerberg.co.za/sitemap.xml): The seven indexable routes.
+- [Sitemap](https://sdatygerberg.co.za/sitemap.xml): The eight indexable routes.

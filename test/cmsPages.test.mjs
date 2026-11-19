@@ -140,6 +140,25 @@ describe('a page from the template', () => {
     assert.equal((await put({ action: 'unpublish', slug })).status, 200);
   });
 
+  test('a draft deletes outright; a live page must be unpublished first', async () => {
+    const slug = 'skrap-my';
+    const created = await put({ rev: 0, page: { ...page, slug } });
+    assert.equal(created.status, 200);
+    const gone = await put({ action: 'delete', slug });
+    assert.equal(gone.status, 200);
+    assert.equal((await put({ action: 'delete', slug })).status, 404, 'already gone');
+    assert.equal((await get(`/${slug}/`)).status, 404);
+
+    const live = 'bly-regstreeks';
+    await put({ rev: 0, page: { ...page, slug: live } });
+    await put({ rev: 1, page: { ...page, slug: live }, publish: true });
+    assert.equal((await put({ action: 'delete', slug: live })).status, 409);
+    assert.equal((await get(`/${live}/`)).status, 200, 'still live');
+    assert.equal((await put({ action: 'unpublish', slug: live })).status, 200);
+    assert.equal((await put({ action: 'delete', slug: live })).status, 200);
+    assert.equal((await get(`/${live}/`)).status, 404);
+  });
+
   test('publishing a page marked "Show under Events" lists it; unpublishing removes it', async () => {
     const slug = 'jeugkamp';
     const index = async () => JSON.parse((await (await env.CMS.get('index/event-pages.json'))?.text()) ?? '[]').map((p) => p.slug);

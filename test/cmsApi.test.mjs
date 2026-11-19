@@ -214,6 +214,79 @@ describe('pages', () => {
     assert.equal(taken.status, 409);
   });
 
+  test('a draft deletes; a live or linked page does not', async () => {
+    const e = env();
+    const cookie = await cookieFor(BOARD);
+    const base = { title: { af: 'T', en: 'T' }, eyebrow: { af: '', en: '' }, intro: { af: '', en: '' }, blocks: [] };
+
+    // Draft create → delete → GET 404.
+    const created = await call(e, 'PUT', '/api/cms/pages', { cookie, body: { rev: 0, page: { ...base, slug: 'weg-gooi' } } });
+    assert.equal(created.status, 200);
+    const gone = await call(e, 'PUT', '/api/cms/pages', { cookie, body: { action: 'delete', slug: 'weg-gooi' } });
+    assert.equal(gone.status, 200);
+    assert.deepEqual(gone.data, { ok: true });
+    const missing = await call(e, 'GET', '/api/cms/pages?slug=weg-gooi', { cookie });
+    assert.equal(missing.status, 404);
+    const absent = await call(e, 'PUT', '/api/cms/pages', { cookie, body: { action: 'delete', slug: 'weg-gooi' } });
+    assert.equal(absent.status, 404);
+
+    // Live pages are unpublish-first: delete is refused while live.
+    await call(e, 'PUT', '/api/cms/pages', { cookie, body: { rev: 0, page: { ...base, slug: 'bly-lewe' } } });
+    const live = await call(e, 'GET', '/api/cms/pages?slug=bly-lewe', { cookie });
+    await call(e, 'PUT', '/api/cms/pages', { cookie, body: { rev: live.data.rev, page: { ...base, slug: 'bly-lewe' }, publish: true } });
+    const blocked = await call(e, 'PUT', '/api/cms/pages', { cookie, body: { action: 'delete', slug: 'bly-lewe' } });
+    assert.equal(blocked.status, 409);
+    assert.deepEqual(blocked.data.errors, ['live']);
+    const list = await call(e, 'GET', '/api/cms/pages', { cookie });
+    assert.ok(list.data.items.some((p) => p.slug === 'bly-lewe' && p.status === 'live'), 'still listed as live');
+
+    // A bad slug is a 400, not a 404.
+    const bad = await call(e, 'PUT', '/api/cms/pages', { cookie, body: { action: 'delete', slug: 'Members' } });
+    assert.equal(bad.status, 400);
+
+    // The audit line names the deleted page.
+    const audit = await call(e, 'GET', '/api/cms/audit', { cookie });
+    assert.ok(audit.data.items.some((a) => a.action === 'page.delete' && a.target === '/weg-gooi/'));
+  });
+
+  test('a linked page cannot be deleted while a live card points at it', async () => {
+    const e = env();
+    const cookie = await cookieFor(BOARD);
+    // Publish the seed page, link a live card, then remove the live copy
+    // behind the API's back: the linked guard must still refuse the delete.
+    // Listing first writes the seed drafts (they appear on the first list).
+    await call(e, 'GET', '/api/cms/pages', { cookie });
+    const seed = await call(e, 'GET', '/api/cms/pages?slug=pastoral-counselling', { cookie });
+    const { status: _s, updatedBy: _b, updatedAt: _a, ...seedPage } = seed.data.page;
+    await call(e, 'PUT', '/api/cms/pages', { cookie, body: { rev: seed.data.rev, page: seedPage, publish: true } });
+    const { data: ev } = await call(e, 'GET', '/api/cms/events', { cookie });
+    const items = ev.items.map(({ updatedBy, updatedAt, ...rest }) => rest);
+    const i = items.findIndex((x) => x.status === 'live');
+    items[i] = { ...items[i], link: { pageSlug: 'pastoral-counselling', label: { af: 'Sien meer', en: 'See more' } } };
+    assert.equal((await call(e, 'PUT', '/api/cms/events', { cookie, body: { rev: ev.rev, items } })).status, 200);
+    await e.CMS.delete('pages/live/pastoral-counselling.json');
+    const linked = await call(e, 'PUT', '/api/cms/pages', { cookie, body: { action: 'delete', slug: 'pastoral-counselling' } });
+    assert.equal(linked.status, 409);
+    assert.deepEqual(linked.data.errors, ['linked']);
+    assert.ok(e.CMS.keys().includes('pages/draft/pastoral-counselling.json'), 'draft kept');
+  });
+
+  test('publish → unpublish → publish cycles at will', async () => {
+    const e = env();
+    const cookie = await cookieFor(BOARD);
+    const base = { title: { af: 'T', en: 'T' }, eyebrow: { af: '', en: '' }, intro: { af: '', en: '' }, blocks: [] };
+    const created = await call(e, 'PUT', '/api/cms/pages', { cookie, body: { rev: 0, page: { ...base, slug: 'wissel' } } });
+    assert.equal(created.data.page.status, 'draft');
+    const p1 = await call(e, 'PUT', '/api/cms/pages', { cookie, body: { rev: 1, page: { ...base, slug: 'wissel' }, publish: true } });
+    assert.equal(p1.data.page.status, 'live');
+    const off = await call(e, 'PUT', '/api/cms/pages', { cookie, body: { action: 'unpublish', slug: 'wissel' } });
+    assert.equal(off.status, 200);
+    assert.equal(off.data.live, null);
+    const p2 = await call(e, 'PUT', '/api/cms/pages', { cookie, body: { rev: off.data.rev, page: { ...base, slug: 'wissel' }, publish: true } });
+    assert.equal(p2.status, 200);
+    assert.equal(p2.data.page.status, 'live');
+  });
+
   test('a callout button may not carry a javascript: URL', async () => {
     const page = {
       slug: 'toets',

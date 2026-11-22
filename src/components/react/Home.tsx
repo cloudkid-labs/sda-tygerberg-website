@@ -7,6 +7,7 @@ import { Header } from './Header';
 import { Hero } from './Hero';
 import { ServiceTimesStrip } from './ServiceTimesStrip';
 import { ThisWeek } from './ThisWeek';
+import { Newsletter } from './Newsletter';
 import { EventPages } from './EventPages';
 import { AboutCarousel } from './AboutCarousel';
 import { BeliefsSummary } from './BeliefsSummary';
@@ -32,6 +33,7 @@ export function Home({ latestVideo = null }: { latestVideo?: LatestVideo | null 
         <main id="main" className="flex-1">
           <Hero latestVideo={latestVideo} />
           <ServiceTimesStrip />
+          <Newsletter />
           <ThisWeek data={cms} />
           <EventPages data={cms} />
           <AboutCarousel heads={cms.heads} cdnEnabled={cms.build.imageCdn} />

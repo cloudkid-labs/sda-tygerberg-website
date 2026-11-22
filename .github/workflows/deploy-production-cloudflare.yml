@@ -121,7 +121,7 @@ jobs:
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          command: deploy --var "APP_COMMIT:'${{ github.sha }}'"
+          command: deploy --var "APP_COMMIT:${{ github.sha }}"
           # Names only. The action runs `wrangler secret put` for each before
           # deploying, reading the value from this step's `env` below.
           #

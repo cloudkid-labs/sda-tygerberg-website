@@ -135,7 +135,7 @@ jobs:
       # able to print why it never came up.
       - name: Start the Worker
         run: |
-          npx wrangler dev --local --port 8787 --var "APP_COMMIT:'${GITHUB_SHA}'" > wrangler.log 2>&1 &
+          npx wrangler dev --local --port 8787 --var "APP_COMMIT:${GITHUB_SHA}" > wrangler.log 2>&1 &
           echo $! > wrangler.pid
         env:
           WRANGLER_SEND_METRICS: 'false'

@@ -7,7 +7,7 @@ const pkgVersion = JSON.parse(readFileSync(new URL('../package.json', import.met
 
 describe('healthBody', () => {
   test('answers with template and Core versions and a short commit', () => {
-    assert.deepEqual(healthBody('9.9.9', '1.3.0', 'abcdef0'), {
+    assert.deepEqual(healthBody('9.9.9', '1.3.0', 'abcdef012345'), {
       status: 204, version: '9.9.9', templateVersion: '9.9.9', coreVersion: '1.3.0', commit: 'abcdef0',
     });
   });

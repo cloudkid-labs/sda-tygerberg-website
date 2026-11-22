@@ -1575,7 +1575,7 @@ not re-propose it from scratch — re-read C-23 first.
 answers `{ "status": 204, "version": "X.Y.Z", "templateVersion": "X.Y.Z",
 "coreVersion": "X.Y.Z", "commit": "abcdef0" }`. The version comes from
 `package.json`, Core's resolved version from `package-lock.json`, and the
-seven-character commit from the GitHub Actions build environment.
+seven-character commit from the `APP_COMMIT` Worker binding supplied at deploy.
 `scripts/smoke.mjs --expect-version <v> --wait-version <seconds>` polls the API
 after a deploy; CI also checks it against `wrangler dev` on every PR.
 

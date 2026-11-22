@@ -45,11 +45,11 @@ export const privacyCopy: Record<Lang, LegalCopy> = {
         what: {
           af:
             'Die kerk insamel jou naam en e-posadres net wanneer jy selfelik dié by die kontak- of ' +
-            'kerkraadformulier verskaf, of jou e-posadres vir die nuusbrief inskryf. Brevo bestuur die lys en jou bevestiging. Die kerkraadpos blad hou ’n enregistrum van boodskappe wat as ' +
+            'kerkraadformulier verskaf, of jou e-posadres vir die nuusbrief inskryf. Brevo bestuur die nuusbrieflys. Die kerkraadpos blad hou ’n enregistrum van boodskappe wat as ' +
             'amptelike kerkadresse gestuur word, waaronder die afsender se e-posadres en die ontvanger.',
           en:
             'The church collects your name and email address only when you supply them through the ' +
-            'contact or board-mail forms, or enter your email address for the newsletter. Brevo manages the list and your confirmation. The board-mail page keeps a record of messages sent as official ' +
+            'contact or board-mail forms, or enter your email address for the newsletter. Brevo manages the newsletter list. The board-mail page keeps a record of messages sent as official ' +
             'church addresses, including the sender’s email address and the recipient.',
         },
         how: {
@@ -125,11 +125,11 @@ export const privacyCopy: Record<Lang, LegalCopy> = {
         what: {
           af:
             'Die kerk insamel jou naam en e-posadres net wanneer jy selfelik dié by die kontak- of ' +
-            'kerkraadformulier verskaf, of jou e-posadres vir die nuusbrief inskryf. Brevo bestuur die lys en jou bevestiging. Die kerkraadpos blad hou ’n enregistrum van boodskappe wat as ' +
+            'kerkraadformulier verskaf, of jou e-posadres vir die nuusbrief inskryf. Brevo bestuur die nuusbrieflys. Die kerkraadpos blad hou ’n enregistrum van boodskappe wat as ' +
             'amptelike kerkadresse gestuur word, waaronder die afsender se e-posadres en die ontvanger.',
           en:
             'The church collects your name and email address only when you supply them through the ' +
-            'contact or board-mail forms, or enter your email address for the newsletter. Brevo manages the list and your confirmation. The board-mail page keeps a record of messages sent as official ' +
+            'contact or board-mail forms, or enter your email address for the newsletter. Brevo manages the newsletter list. The board-mail page keeps a record of messages sent as official ' +
             'church addresses, including the sender’s email address and the recipient.',
         },
         how: {

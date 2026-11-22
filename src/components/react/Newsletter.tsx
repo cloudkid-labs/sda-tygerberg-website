@@ -4,8 +4,8 @@ import { withBase } from '../../lib/base';
 
 const siteKey = import.meta.env.PUBLIC_TURNSTILE_SITE_KEY;
 const copy = {
-  af: { title: 'Bly op hoogte', description: 'Ontvang maandelikse nuus oor die kerk en kwartaallikse terugvoer oor wat ons doen.', email: 'E-posadres', consent: 'Ek stem in om die maandelikse en kwartaallikse nuusbriewe te ontvang.', privacy: 'Privaatheidsbeleid', button: 'Teken in', sending: 'Besig om te stuur…', success: 'Kyk asseblief na jou e-pos en bevestig jou inskrywing.', error: 'Ons kon nie jou inskrywing verwerk nie. Probeer asseblief weer.', captcha: 'Voltooi asseblief die sekuriteitskontrole.' },
-  en: { title: 'Stay in touch', description: 'Receive monthly church news and quarterly updates on what we have been doing.', email: 'Email address', consent: 'I agree to receive the monthly and quarterly newsletters.', privacy: 'Privacy policy', button: 'Subscribe', sending: 'Sending…', success: 'Please check your email and confirm your subscription.', error: 'We could not process your subscription. Please try again.', captcha: 'Please complete the security check.' },
+  af: { title: 'Bly op hoogte', description: 'Ontvang maandelikse nuus oor die kerk en kwartaallikse terugvoer oor wat ons doen.', email: 'E-posadres', consent: 'Ek stem in om die maandelikse en kwartaallikse nuusbriewe te ontvang.', privacy: 'Privaatheidsbeleid', button: 'Teken in', sending: 'Besig om te stuur…', success: 'Dankie, ons het jou inskrywing ontvang.', error: 'Ons kon nie jou inskrywing verwerk nie. Probeer asseblief weer.', captcha: 'Voltooi asseblief die sekuriteitskontrole.' },
+  en: { title: 'Stay in touch', description: 'Receive monthly church news and quarterly updates on what we have been doing.', email: 'Email address', consent: 'I agree to receive the monthly and quarterly newsletters.', privacy: 'Privacy policy', button: 'Subscribe', sending: 'Sending…', success: 'Thank you, we have received your signup.', error: 'We could not process your subscription. Please try again.', captcha: 'Please complete the security check.' },
 };
 
 export function Newsletter() {

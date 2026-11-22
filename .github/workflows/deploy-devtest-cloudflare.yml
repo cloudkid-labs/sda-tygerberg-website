@@ -118,7 +118,7 @@ jobs:
       # production — but a mixed result is a real failure and the script exits 1
       # on it. The gating check remains the `worker` job in ci.yml (C-60).
       #
-      # `--expect-version` polls /health for up to 3 minutes for the version
+      # `--expect-version` polls /api/health for up to 3 minutes for the version
       # this deploy built (C-63) — the post-deploy indicator that the preview
       # is serving the new commit, not the previous one. The poll skips itself
       # with a note when the edge blocks this runner rather than burning the

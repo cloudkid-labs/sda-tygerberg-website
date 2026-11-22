@@ -124,8 +124,8 @@ async function route(request: Request, env: Env, ctx: ExecutionContext): Promise
     return env.ASSETS.fetch(new Request(rewritten, request));
   }
 
-  if (pathname === '/health') {
-    // Deployment-health signal: { status: 204, version }. A Worker branch
+  if (pathname === '/api/health') {
+    // Machine-readable deployment-health signal. A Worker branch
     // (not a prerendered static file) so the content-type is real JSON, and
     // listed in assets.run_worker_first in wrangler.jsonc or the Worker
     // never sees the request (C-60). Deliberately NOT in the sitemap — it is

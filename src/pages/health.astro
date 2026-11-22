@@ -1,6 +1,8 @@
 ---
 import Layout from '../layouts/Layout.astro';
-import { APP_COMMIT, APP_VERSION, CORE_VERSION } from '../worker/health';
+import { APP_VERSION, CORE_VERSION } from '../worker/health';
+
+const appCommit = (import.meta.env.PUBLIC_APP_COMMIT ?? 'unknown').slice(0, 7);
 ---
 
 <Layout title="Website status · Tygerberg SDA Kerk" description="Deployment and version information for the Tygerberg SDA Kerk website." noindex>
@@ -13,7 +15,7 @@ import { APP_COMMIT, APP_VERSION, CORE_VERSION } from '../worker/health';
       <dl class="mt-8 grid gap-5 border-t border-tan-border pt-6 sm:grid-cols-2">
         <div><dt class="text-sm text-slate-muted">Template version</dt><dd class="mt-1 font-mono text-ink">{APP_VERSION}</dd></div>
         <div><dt class="text-sm text-slate-muted">Core version</dt><dd class="mt-1 font-mono text-ink">{CORE_VERSION}</dd></div>
-        <div class="sm:col-span-2"><dt class="text-sm text-slate-muted">GitHub commit</dt><dd class="mt-1 font-mono text-ink">{APP_COMMIT}</dd></div>
+        <div class="sm:col-span-2"><dt class="text-sm text-slate-muted">GitHub commit</dt><dd class="mt-1 font-mono text-ink">{appCommit}</dd></div>
       </dl>
       <p class="mt-8 text-sm text-slate-muted">Machine-readable status: <a class="font-semibold underline" href="/api/health">/api/health</a></p>
     </section>

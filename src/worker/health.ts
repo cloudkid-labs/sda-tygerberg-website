@@ -15,8 +15,8 @@ export const HEALTH_STATUS = 204;
 export const APP_VERSION: string = packageJson.version;
 /** Resolved Core release installed by the lockfile (not its semver range). */
 export const CORE_VERSION: string = lockfile.packages['node_modules/@cloudkid-labs/sda-church-site-core'].version;
-/** GitHub Actions stamps the source SHA into production and devtest builds. */
-export const APP_COMMIT: string = (import.meta.env?.PUBLIC_APP_COMMIT ?? 'unknown').slice(0, 7);
+/** Local Worker runs have no deploy metadata; deploy workflows pass APP_COMMIT. */
+export const APP_COMMIT = 'unknown';
 
 export interface HealthBody {
   status: number;
@@ -31,11 +31,11 @@ export function healthBody(
   coreVersion: string = CORE_VERSION,
   commit: string = APP_COMMIT,
 ): HealthBody {
-  return { status: HEALTH_STATUS, version, templateVersion: version, coreVersion, commit };
+  return { status: HEALTH_STATUS, version, templateVersion: version, coreVersion, commit: commit.slice(0, 7) };
 }
 
-export function healthResponse(): Response {
-  return Response.json(healthBody(), {
+export function healthResponse(commit?: string): Response {
+  return Response.json(healthBody(APP_VERSION, CORE_VERSION, commit), {
     headers: {
       // No store anywhere: a post-deploy poll must read the just-deployed
       // version, never a cached stale one. Without this the CI gate below

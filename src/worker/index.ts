@@ -34,6 +34,7 @@ export type Env = LiveStatusEnv &
   InboxEnv &
   CmsEnv & {
     ASSETS: Fetcher;
+    APP_COMMIT?: string;
   };
 
 /** The React renders the Worker writes into built pages — C-70. */
@@ -130,7 +131,7 @@ async function route(request: Request, env: Env, ctx: ExecutionContext): Promise
     // listed in assets.run_worker_first in wrangler.jsonc or the Worker
     // never sees the request (C-60). Deliberately NOT in the sitemap — it is
     // infrastructure, not a page. C-63
-    return healthResponse();
+    return healthResponse(env.APP_COMMIT);
   }
 
   if (pathname === '/api/newsletter') return handleNewsletter(request, env);

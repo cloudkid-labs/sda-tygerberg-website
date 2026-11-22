@@ -24,4 +24,5 @@ export const CHURCH_SITE = defineChurchSite({
   })),
   theme: { primary: '#0b3d54', accent: '#e8862c' },
   visibility: UI_CONFIG.visibility,
+  newsletter: UI_CONFIG.newsletter,
 });

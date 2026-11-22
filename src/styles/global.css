@@ -1,4 +1,5 @@
 @import 'tailwindcss';
+@import '@cloudkid-labs/sda-church-site-core/styles.css';
 
 /* Design tokens ported from the design handoff (reference/tokens/*.css) */
 @theme {

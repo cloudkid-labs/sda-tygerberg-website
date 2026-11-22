@@ -92,7 +92,7 @@ jobs:
           # --env devtest selects the named environment in wrangler.jsonc:
           # a distinct Worker on tygerberg-sda.cloudkid.link with no email or
           # consent bindings.
-          command: deploy --env devtest
+          command: deploy --env devtest --var "APP_COMMIT:'${{ github.sha }}'"
           # Required as well as the --env above: the action uploads `secrets:`
           # with `wrangler secret bulk`, adding --env only from this input, never
           # from `command`. Without it the secrets land on the top-level Worker,

@@ -30,7 +30,8 @@ globalThis.fetch = realFetch;
 
 let assetHits;
 
-const env = () => ({
+const env = (APP_COMMIT) => ({
+  APP_COMMIT,
   ASSETS: {
     async fetch(req) {
       const pathname = new URL(req.url).pathname;
@@ -76,13 +77,13 @@ describe('headshot masters — C-51', () => {
 
 describe('worker branches — C-60, C-63', () => {
   test('/api/health answers the versioned JSON signal with no-store', async () => {
-    const res = await worker.fetch(new Request('https://x/api/health'), env(), ctx());
+    const res = await worker.fetch(new Request('https://x/api/health'), env('abcdef012345'), ctx());
     const json = await res.json();
     assert.equal(json.status, 204);
     assert.ok(json.version);
     assert.ok(json.templateVersion);
     assert.ok(json.coreVersion);
-    assert.match(json.commit, /^[a-f0-9]{7}$|^unknown$/);
+    assert.equal(json.commit, 'abcdef0');
     assert.match(res.headers.get('cache-control') ?? '', /no-store/i);
   });
 

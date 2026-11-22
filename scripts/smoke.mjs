@@ -50,6 +50,7 @@ const expectNoindex = process.argv.includes('--expect-noindex');
 // worker job, the resolved release version on production.
 const expectVersionIdx = process.argv.indexOf('--expect-version');
 const expectVersion = expectVersionIdx === -1 ? null : process.argv[expectVersionIdx + 1] ?? null;
+const expectCommit = process.env.GITHUB_SHA?.slice(0, 7);
 const waitVersionIdx = process.argv.indexOf('--wait-version');
 const waitVersionSecs = waitVersionIdx === -1 ? 120 : Number(process.argv[waitVersionIdx + 1]);
 
@@ -191,6 +192,8 @@ if (!expectVersion) {
           || typeof body.coreVersion !== 'string' || typeof body.templateVersion !== 'string'
           || typeof body.commit !== 'string') {
           lastSeen = `unexpected shape ${JSON.stringify(body).slice(0, 120)}`;
+        } else if (expectCommit && body.commit !== expectCommit) {
+          lastSeen = `commit ${body.commit}, want ${expectCommit}`;
         } else if (body.version !== expectVersion) {
           lastSeen = `version ${body.version}, want ${expectVersion}`;
         } else {

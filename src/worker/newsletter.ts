@@ -1,7 +1,7 @@
 import { verifyTurnstile } from './turnstile';
 
 export type NewsletterEnv = {
-  NEWSLETTER_BREVO_API_KEY?: string;
+  BREVO_API_KEY?: string;
   NEWSLETTER_LIST_ID?: string;
   TURNSTILE_SECRET_KEY?: string;
   TURNSTILE_HOSTNAMES?: string;
@@ -11,7 +11,7 @@ const json = (body: object, status = 200) => Response.json(body, { status, heade
 
 export async function handleNewsletter(request: Request, env: NewsletterEnv): Promise<Response> {
   const list = Number(env.NEWSLETTER_LIST_ID);
-  const configured = !!(env.NEWSLETTER_BREVO_API_KEY && Number.isSafeInteger(list) && list > 0 && env.TURNSTILE_SECRET_KEY && env.TURNSTILE_HOSTNAMES);
+  const configured = !!(env.BREVO_API_KEY && Number.isSafeInteger(list) && list > 0 && env.TURNSTILE_SECRET_KEY && env.TURNSTILE_HOSTNAMES);
   if (request.method === 'GET') return json({ enabled: configured });
   if (request.method !== 'POST') return json({ ok: false }, 405);
   if (!configured) return json({ ok: false }, 503);
@@ -28,7 +28,7 @@ export async function handleNewsletter(request: Request, env: NewsletterEnv): Pr
   try {
     const response = await fetch('https://api.brevo.com/v3/contacts', {
       method: 'POST',
-      headers: { 'api-key': env.NEWSLETTER_BREVO_API_KEY!, 'content-type': 'application/json' },
+      headers: { 'api-key': env.BREVO_API_KEY!, 'content-type': 'application/json' },
       body: JSON.stringify({ email, listIds: [list], updateEnabled: true }),
       signal: AbortSignal.timeout(10000),
     });

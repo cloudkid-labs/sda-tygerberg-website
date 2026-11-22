@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { handleNewsletter } from '../src/worker/newsletter.ts';
 
-const env = { NEWSLETTER_BREVO_API_KEY: 'secret', NEWSLETTER_LIST_ID: '3', TURNSTILE_SECRET_KEY: 'turnstile', TURNSTILE_HOSTNAMES: 'sdatygerberg.co.za' };
+const env = { BREVO_API_KEY: 'secret', NEWSLETTER_LIST_ID: '3', TURNSTILE_SECRET_KEY: 'turnstile', TURNSTILE_HOSTNAMES: 'sdatygerberg.co.za' };
 const post = (body) => new Request('https://sdatygerberg.co.za/api/newsletter', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });
 
 test('hidden and unavailable until configured', async () => {

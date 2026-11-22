@@ -2,8 +2,8 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { handleNewsletter } from '../src/worker/newsletter.ts';
 
-const env = { BREVO_API_KEY: 'secret', NEWSLETTER_LIST_ID: '3', TURNSTILE_SECRET_KEY: 'turnstile', TURNSTILE_HOSTNAMES: 'sdatygerberg.co.za' };
-const post = (body) => new Request('https://sdatygerberg.co.za/api/newsletter', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });
+const env = { BREVO_API_KEY: 'secret', NEWSLETTER_LIST_ID: '3', TURNSTILE_SECRET_KEY: 'turnstile', TURNSTILE_HOSTNAMES: 'sdatygerberg.co.za', NEWSLETTER_RATE_LIMITER: { limit: async () => ({ success: true }) } };
+const post = (body) => new Request('https://sdatygerberg.co.za/api/newsletter', { method: 'POST', headers: { 'content-type': 'application/json', 'cf-connecting-ip': '192.0.2.1' }, body: JSON.stringify(body) });
 
 test('hidden and unavailable until configured', async () => {
   assert.deepEqual(await (await handleNewsletter(new Request('https://example.org/api/newsletter'), {})).json(), { enabled: false });
@@ -54,4 +54,9 @@ test('an existing contact can be added without resetting its email blocklist sta
     };
     assert.equal((await handleNewsletter(post({ email: 'test@example.org', consent: true, token: 'x' }), env)).status, 200);
   } finally { globalThis.fetch = original; }
+});
+
+test('rate-limited submissions are rejected before contacting Brevo', async () => {
+  const limited = { ...env, NEWSLETTER_RATE_LIMITER: { limit: async () => ({ success: false }) } };
+  assert.equal((await handleNewsletter(post({ email: 'test@example.org', consent: true, token: 'x' }), limited)).status, 429);
 });

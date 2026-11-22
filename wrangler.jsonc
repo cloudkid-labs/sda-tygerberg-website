@@ -55,6 +55,8 @@
       "head_sampling_rate": 1
     }
   },
+  // Limits newsletter submissions per client IP and Cloudflare location.
+  "ratelimits": [{ "name": "NEWSLETTER_RATE_LIMITER", "namespace_id": "1001", "simple": { "limit": 5, "period": 60 } }],
   "vars": {
     // When the LIVE badge is allowed to cost YouTube API quota, as a 5-field
     // cron expression read as a *window* (minute hour day-of-month month

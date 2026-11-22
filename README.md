@@ -438,3 +438,11 @@ above.
 
 Carrying known risk: **the map ships no tile attribution** —
 [C-01](./CONCERNS.md#c-01--the-map-carries-no-tile-attribution).
+
+## Newsletter signup
+
+The home-page form appears only when the public Turnstile site key and the Worker newsletter configuration are present. It asks for consent to both monthly and quarterly newsletters; Brevo sends a double opt-in confirmation. Unconfirmed addresses must not receive campaigns. The church's Brevo list owns subscription and unsubscribe state; no list is stored in this repository.
+
+Before enabling, create a dedicated Brevo list and an active double opt-in transactional email template with Brevo's required confirmation link. Configure a confirmation redirect URL at the church's own HTTPS domain. Set Worker secret `NEWSLETTER_BREVO_API_KEY` with the required contacts permissions, and add `NEWSLETTER_LIST_ID`, `NEWSLETTER_TEMPLATE_ID`, and `NEWSLETTER_REDIRECT_URL` under `vars` in the appropriate environment in `wrangler.jsonc` before deploying. Wrangler manages these variables on deploy, so dashboard-only variables may be removed. Set `TURNSTILE_SECRET_KEY`, `TURNSTILE_HOSTNAMES`, and the build variable `PUBLIC_TURNSTILE_SITE_KEY`; configure the widget for the site's domain. Protect `/api/newsletter` with a Cloudflare WAF rate-limiting rule and test the full confirmation and unsubscribe flow before announcing it. Use isolated Brevo resources and secrets for devtest, never the production list. Without these settings the signup stays hidden. Do not put API keys in source control or client-side build variables.
+
+For campaigns later, verify `newsletter@sdatygerberg.co.za` as a Brevo sender, configure and verify the domain's SPF/DKIM and DMARC as appropriate, and include Brevo's unsubscribe link and the church's contact details in each campaign. Test deliverability and the suppression/unsubscribe flow before sending. Monthly and quarterly campaigns are not sent by this feature.

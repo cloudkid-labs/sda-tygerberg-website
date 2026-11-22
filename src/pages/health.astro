@@ -1,0 +1,21 @@
+---
+import Layout from '../layouts/Layout.astro';
+import { APP_COMMIT, APP_VERSION, CORE_VERSION } from '../worker/health';
+---
+
+<Layout title="Website status · Tygerberg SDA Kerk" description="Deployment and version information for the Tygerberg SDA Kerk website." noindex>
+  <main id="main" class="mx-auto min-h-screen max-w-3xl px-6 py-16 sm:px-10 sm:py-24">
+    <a class="text-sm font-semibold text-navy underline-offset-4 hover:underline" href="/">← Tygerberg SDA Kerk</a>
+    <section class="mt-10 rounded-card-lg border border-tan-border bg-cream-card p-7 shadow-card sm:p-10" aria-labelledby="health-title">
+      <p class="text-sm font-semibold uppercase tracking-[0.14em] text-slate-muted">Website status</p>
+      <h1 id="health-title" class="mt-3 font-serif text-4xl font-semibold text-navy">Website information</h1>
+      <p class="mt-4 flex items-center gap-2 text-live"><span class="inline-block size-2.5 rounded-full bg-live" aria-hidden="true"></span>Operational</p>
+      <dl class="mt-8 grid gap-5 border-t border-tan-border pt-6 sm:grid-cols-2">
+        <div><dt class="text-sm text-slate-muted">Template version</dt><dd class="mt-1 font-mono text-ink">{APP_VERSION}</dd></div>
+        <div><dt class="text-sm text-slate-muted">Core version</dt><dd class="mt-1 font-mono text-ink">{CORE_VERSION}</dd></div>
+        <div class="sm:col-span-2"><dt class="text-sm text-slate-muted">GitHub commit</dt><dd class="mt-1 font-mono text-ink">{APP_COMMIT}</dd></div>
+      </dl>
+      <p class="mt-8 text-sm text-slate-muted">Machine-readable status: <a class="font-semibold underline" href="/api/health">/api/health</a></p>
+    </section>
+  </main>
+</Layout>

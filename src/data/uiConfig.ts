@@ -12,7 +12,7 @@ export const UI_CONFIG = {
     copy: {
       title: {
         af: 'Bly op hoogte',
-        en: 'Stay in touch',
+        en: 'Subscribe to our newsletter',
       },
       description: {
         af: 'Ontvang maandelikse nuus oor die kerk en kwartaallikse terugvoer oor wat ons doen.',

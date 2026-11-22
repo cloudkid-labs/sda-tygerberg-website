@@ -3,7 +3,7 @@ import { test, describe, beforeEach } from 'node:test';
 
 /*
  * Routing that must stay in step with wrangler.jsonc run_worker_first (C-60):
- * masters fall back unless the transformer asks (C-51), /health answers JSON,
+ * masters fall back unless the transformer asks (C-51), /api/health answers JSON,
  * unknown paths reach ASSETS untouched.
  */
 
@@ -75,11 +75,14 @@ describe('headshot masters — C-51', () => {
 });
 
 describe('worker branches — C-60, C-63', () => {
-  test('/health answers the versioned JSON signal with no-store', async () => {
-    const res = await worker.fetch(new Request('https://x/health'), env(), ctx());
+  test('/api/health answers the versioned JSON signal with no-store', async () => {
+    const res = await worker.fetch(new Request('https://x/api/health'), env(), ctx());
     const json = await res.json();
     assert.equal(json.status, 204);
     assert.ok(json.version);
+    assert.ok(json.templateVersion);
+    assert.ok(json.coreVersion);
+    assert.match(json.commit, /^[a-f0-9]{7}$|^unknown$/);
     assert.match(res.headers.get('cache-control') ?? '', /no-store/i);
   });
 

@@ -1,6 +1,12 @@
 @import 'tailwindcss';
 @import '@cloudkid-labs/sda-church-site-core/styles.css';
 
+@media (min-width: 40rem) {
+  .sda-newsletter__controls input[type='email'] {
+    max-inline-size: 24rem;
+  }
+}
+
 /* Design tokens ported from the design handoff (reference/tokens/*.css) */
 @theme {
   --color-navy: #0b3d54;

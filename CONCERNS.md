@@ -1569,34 +1569,23 @@ hosts nothing non-public (C-20, C-61), so compliance (C-23) is the proportionate
 answer. Revival trigger: devtest ever stages embargoed content. Until then, do
 not re-propose it from scratch — re-read C-23 first.
 
-### C-63 — /health reports the deployed version for post-deploy polling
+### C-63 — Health page and deployment signal
 
-`GET /health` answers `{ "status": 204, "version": "X.Y.Z" }`, where the
-version is baked in at deploy time from `package.json` — the single source of
-truth — so it is the version the deploy is about to tag.
-`scripts/smoke.mjs --expect-version <v> --wait-version <seconds>` polls it
-after a deploy: the first check that can say the edge is serving the new
-release rather than the old one.
+`GET /health` is the human-readable, noindex status page. `GET /api/health`
+answers `{ "status": 204, "version": "X.Y.Z", "templateVersion": "X.Y.Z",
+"coreVersion": "X.Y.Z", "commit": "abcdef0" }`. The version comes from
+`package.json`, Core's resolved version from `package-lock.json`, and the
+seven-character commit from the GitHub Actions build environment.
+`scripts/smoke.mjs --expect-version <v> --wait-version <seconds>` polls the API
+after a deploy; CI also checks it against `wrangler dev` on every PR.
 
-Three traps, all load-bearing:
-
-- It is a Worker branch in `src/worker/index.ts`, not a prerendered static
-  file. A static endpoint would build to `dist/health/index.html` and be
-  served as `text/html`, losing the JSON content-type the Response carries.
-  And like every Worker route, its path must be listed in
-  `assets.run_worker_first` in `wrangler.jsonc` (C-60) or asset serving 404s
-  it before the Worker ever runs.
-- The response is `Cache-Control: no-store`. A cached /health would report the
-  previous release and the gate would pass against the wrong deploy.
-- The body carries `status: 204` over HTTP 200. A real 204 cannot carry a body
-  by spec, so the 204 is the signal value in the payload, not the status line.
-
-It is deliberately NOT in the sitemap: infrastructure, not a page. And the
-post-deploy polls are advisory on purpose — the edge answers GitHub runners
-403 (C-60), so from a runner the poll skips itself with a note when blocked
-rather than burning the budget. The enforcing gate is the `worker` job in
-ci.yml, which runs the same check against `wrangler dev` on every PR where no
-edge can block it.
+The API response is a Worker branch in `src/worker/index.ts`, and its path
+reaches the Worker through `assets.run_worker_first` in `wrangler.jsonc` (C-60).
+It uses `Cache-Control: no-store` so a stale response cannot pass the release
+gate. It carries `status: 204` in the JSON over HTTP 200 because a real 204
+response cannot carry a body. Neither endpoint is in the sitemap. Post-deploy
+polls may be blocked by the edge for GitHub runners (C-60); CI's Worker check
+is the enforcing gate.
 
 ### C-64 — The email channel has no health signal but a human
 

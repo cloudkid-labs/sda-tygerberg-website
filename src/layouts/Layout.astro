@@ -9,13 +9,14 @@ interface Props {
   /** Absolute or root-relative image for the social card. Defaults to the site card. */
   image?: string;
   ogType?: string;
+  noindex?: boolean;
   /** First-paint document language. The whole site ships Afrikaans; CMS pages
    *  whose audience lands there first (QR stickers) are English-first via
    *  Page.defaultLang — currently /personal-ministry, now CMS-managed. */
   lang?: 'af' | 'en';
 }
 
-const { title, description, image = '/og-image.png', ogType = 'website', lang = 'af' } = Astro.props;
+const { title, description, image = '/og-image.png', ogType = 'website', lang = 'af', noindex = false } = Astro.props;
 
 // Production origin on every build, devtest included — C-23.
 const site = Astro.site!;
@@ -48,7 +49,7 @@ const jsonLd = {
     <title>{title}</title>
     <meta name="description" content={description} />
     <link rel="canonical" href={canonical.href} />
-    {!indexable && <meta name="robots" content="noindex,nofollow" />}
+    {(!indexable || noindex) && <meta name="robots" content="noindex,nofollow" />}
     {appVersion && <meta name="app-version" content={appVersion} />}
     {appCommit && <meta name="app-commit" content={appCommit} />}
 

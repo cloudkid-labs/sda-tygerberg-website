@@ -438,3 +438,11 @@ above.
 
 Carrying known risk: **the map ships no tile attribution** —
 [C-01](./CONCERNS.md#c-01--the-map-carries-no-tile-attribution).
+
+## Newsletter signup
+
+The home-page form appears only when the public Turnstile site key and the Worker newsletter configuration are present. It asks for consent to both monthly and quarterly newsletters and adds the visitor directly to the Brevo list without a confirmation email. Existing Brevo unsubscribe and blocklist settings must be respected. The church's Brevo list owns subscription and unsubscribe state; no list is stored in this repository.
+
+Production uses the Tygerberg Newsletter list (Brevo list ID 4), configured as `NEWSLETTER_LIST_ID` in `wrangler.jsonc`. The existing Worker secret `BREVO_API_KEY` is reused; verify that the key has contacts access before enabling. Wrangler manages these variables on deploy, so dashboard-only variables may be removed. Set `TURNSTILE_SECRET_KEY`, `TURNSTILE_HOSTNAMES`, and the build variable `PUBLIC_TURNSTILE_SITE_KEY`; configure the widget for the site's domain. The Worker limits submissions to five per IP per minute at each Cloudflare location. Test signup and the unsubscribe flow before announcing it. Use isolated Brevo resources and secrets for devtest, never the production list. Without these settings the signup stays hidden. Do not put API keys in source control or client-side build variables.
+
+For campaigns later, verify `newsletter@sdatygerberg.co.za` as a Brevo sender, configure and verify the domain's SPF/DKIM and DMARC as appropriate, and include Brevo's unsubscribe link and the church's contact details in each campaign. Test deliverability and the suppression/unsubscribe flow before sending. Monthly and quarterly campaigns are not sent by this feature.

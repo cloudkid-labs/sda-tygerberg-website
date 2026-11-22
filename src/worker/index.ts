@@ -4,6 +4,7 @@ import { type LiveStatusEnv } from './liveStatus';
 import { getLiveStatusCached } from './liveStatusCache';
 import { getLatestVideoCached, LATEST_VIDEO_CACHE_SECONDS, type LatestVideoEnv } from './latestVideo';
 import { handleContact, type ContactEnv } from './contact';
+import { handleNewsletter, type NewsletterEnv } from './newsletter';
 import {
   handleAuthCallback,
   handleAuthLogin,
@@ -26,6 +27,7 @@ import { withSettings } from './settings';
 export type Env = LiveStatusEnv &
   LatestVideoEnv &
   ContactEnv &
+  NewsletterEnv &
   InboundEmailEnv &
   AuthEnv &
   MailSendEnv &
@@ -130,6 +132,8 @@ async function route(request: Request, env: Env, ctx: ExecutionContext): Promise
     // infrastructure, not a page. C-63
     return healthResponse();
   }
+
+  if (pathname === '/api/newsletter') return handleNewsletter(request, env);
 
   if (pathname === '/api/contact') {
     return handleContact(request, env);

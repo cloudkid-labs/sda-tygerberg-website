@@ -1,0 +1,44 @@
+import { verifyTurnstile } from './turnstile';
+
+export type NewsletterEnv = {
+  BREVO_API_KEY?: string;
+  NEWSLETTER_LIST_ID?: string;
+  NEWSLETTER_RATE_LIMITER?: { limit(options: { key: string }): Promise<{ success: boolean }> };
+  TURNSTILE_SECRET_KEY?: string;
+  TURNSTILE_HOSTNAMES?: string;
+};
+
+const json = (body: object, status = 200) => Response.json(body, { status, headers: { 'Cache-Control': 'no-store' } });
+
+export async function handleNewsletter(request: Request, env: NewsletterEnv): Promise<Response> {
+  const list = Number(env.NEWSLETTER_LIST_ID);
+  const configured = !!(env.BREVO_API_KEY && Number.isSafeInteger(list) && list > 0 && env.TURNSTILE_SECRET_KEY && env.TURNSTILE_HOSTNAMES && env.NEWSLETTER_RATE_LIMITER);
+  if (request.method === 'GET') return json({ enabled: configured });
+  if (request.method !== 'POST') return json({ ok: false }, 405);
+  if (!configured) return json({ ok: false }, 503);
+  const ip = request.headers.get('cf-connecting-ip');
+  if (!ip) return json({ ok: false }, 400);
+  try {
+    if (!(await env.NEWSLETTER_RATE_LIMITER!.limit({ key: ip })).success) return json({ ok: false }, 429);
+  } catch { return json({ ok: false }, 503); }
+  if (!request.headers.get('content-type')?.toLowerCase().startsWith('application/json')) return json({ ok: false }, 400);
+  const raw = await request.text();
+  if (raw.length > 4096) return json({ ok: false }, 400);
+  let body: Record<string, unknown>;
+  try { body = JSON.parse(raw); } catch { return json({ ok: false }, 400); }
+  if (!body || typeof body !== 'object' || typeof body.email !== 'string' || typeof body.token !== 'string' || body.consent !== true) return json({ ok: false }, 400);
+  const email = body.email.trim();
+  if (email.length > 254 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return json({ ok: false }, 400);
+  const hosts = env.TURNSTILE_HOSTNAMES!.split(',').map((s) => s.trim()).filter(Boolean);
+  if (!hosts.length || !(await verifyTurnstile(body.token, env.TURNSTILE_SECRET_KEY!, request.headers.get('cf-connecting-ip') ?? undefined, hosts, 'newsletter'))) return json({ ok: false }, 400);
+  try {
+    const response = await fetch('https://api.brevo.com/v3/contacts', {
+      method: 'POST',
+      headers: { 'api-key': env.BREVO_API_KEY!, 'content-type': 'application/json' },
+      body: JSON.stringify({ email, listIds: [list], updateEnabled: true }),
+      signal: AbortSignal.timeout(10000),
+    });
+    if (!response.ok) return json({ ok: false }, 502);
+    return json({ ok: true });
+  } catch { return json({ ok: false }, 502); }
+}

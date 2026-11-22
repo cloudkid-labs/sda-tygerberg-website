@@ -53,6 +53,7 @@ export async function verifyTurnstile(
   secret: string,
   remoteip?: string,
   allowedHostnames?: string[],
+  action = TURNSTILE_ACTION,
 ): Promise<boolean> {
   if (!token || !secret || token.length > MAX_TOKEN_LENGTH) return false;
   try {
@@ -71,7 +72,7 @@ export async function verifyTurnstile(
       action?: string;
       hostname?: string;
     };
-    if (data.success !== true || data.action !== TURNSTILE_ACTION) return false;
+    if (data.success !== true || data.action !== action) return false;
     // Fail closed where a list is configured: a token solved on a domain the
     // operator never approved is exactly what the check exists to catch.
     // Unset or empty keeps the check off — today's behaviour.

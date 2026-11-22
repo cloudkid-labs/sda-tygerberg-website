@@ -55,6 +55,8 @@
       "head_sampling_rate": 1
     }
   },
+  // Limits newsletter submissions per client IP and Cloudflare location.
+  "ratelimits": [{ "name": "NEWSLETTER_RATE_LIMITER", "namespace_id": "1001", "simple": { "limit": 5, "period": 60 } }],
   "vars": {
     // When the LIVE badge is allowed to cost YouTube API quota, as a 5-field
     // cron expression read as a *window* (minute hour day-of-month month
@@ -114,6 +116,8 @@
     "CONTACT_EMAIL_BCC": "archive@sdatygerberg.co.za",
     // Hostnames siteverify must echo back for /api/contact tokens — C-21.
     "TURNSTILE_HOSTNAMES": "sdatygerberg.co.za",
+    // Production Brevo list: Tygerberg Newsletter. Devtest uses a separate list.
+    "NEWSLETTER_LIST_ID": "4",
     // Board mail (/kerkraad). The role addresses the board may send as,
     // comma-separated like CONTACT_EMAIL_BCC. Public role addresses, so a var
     // (ADR-0001); the allow-list of board members stays a secret. Production

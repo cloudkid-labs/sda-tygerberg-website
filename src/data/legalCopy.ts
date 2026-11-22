@@ -45,20 +45,20 @@ export const privacyCopy: Record<Lang, LegalCopy> = {
         what: {
           af:
             'Die kerk insamel jou naam en e-posadres net wanneer jy selfelik dié by die kontak- of ' +
-            'kerkraadformulier verskaf. Die kerkraadpos blad hou ’n enregistrum van boodskappe wat as ' +
+            'kerkraadformulier verskaf, of jou e-posadres vir die nuusbrief inskryf. Brevo bestuur die nuusbrieflys. Die kerkraadpos blad hou ’n enregistrum van boodskappe wat as ' +
             'amptelike kerkadresse gestuur word, waaronder die afsender se e-posadres en die ontvanger.',
           en:
             'The church collects your name and email address only when you supply them through the ' +
-            'contact or board-mail forms. The board-mail page keeps a record of messages sent as official ' +
+            'contact or board-mail forms, or enter your email address for the newsletter. Brevo manages the newsletter list. The board-mail page keeps a record of messages sent as official ' +
             'church addresses, including the sender’s email address and the recipient.',
         },
         how: {
           af:
             'Inligting word gebruik om jou boodskap te beantwoord, om kerkraadpos te stuur namens die kerk, ' +
-            'en om die webwerf en die e-posdiens te bedryf en te beskerm.',
+            'om die nuusbriewe te stuur waarvoor jy inteken, en om die webwerf en die e-posdiens te bedryf en te beskerm.',
           en:
             'Information is used to answer your message, to send board mail on behalf of the church, and to ' +
-            'operate and protect the website and the email service.',
+            'send newsletters you subscribe to, and operate and protect the website and the email service.',
         },
         share: {
           af:
@@ -125,20 +125,20 @@ export const privacyCopy: Record<Lang, LegalCopy> = {
         what: {
           af:
             'Die kerk insamel jou naam en e-posadres net wanneer jy selfelik dié by die kontak- of ' +
-            'kerkraadformulier verskaf. Die kerkraadpos blad hou ’n enregistrum van boodskappe wat as ' +
+            'kerkraadformulier verskaf, of jou e-posadres vir die nuusbrief inskryf. Brevo bestuur die nuusbrieflys. Die kerkraadpos blad hou ’n enregistrum van boodskappe wat as ' +
             'amptelike kerkadresse gestuur word, waaronder die afsender se e-posadres en die ontvanger.',
           en:
             'The church collects your name and email address only when you supply them through the ' +
-            'contact or board-mail forms. The board-mail page keeps a record of messages sent as official ' +
+            'contact or board-mail forms, or enter your email address for the newsletter. Brevo manages the newsletter list. The board-mail page keeps a record of messages sent as official ' +
             'church addresses, including the sender’s email address and the recipient.',
         },
         how: {
           af:
             'Inligting word gebruik om jou boodskap te beantwoord, om kerkraadpos te stuur namens die kerk, ' +
-            'en om die webwerf en die e-posdiens te bedryf en te beskerm.',
+            'om die nuusbriewe te stuur waarvoor jy inteken, en om die webwerf en die e-posdiens te bedryf en te beskerm.',
           en:
             'Information is used to answer your message, to send board mail on behalf of the church, and to ' +
-            'operate and protect the website and the email service.',
+            'send newsletters you subscribe to, and operate and protect the website and the email service.',
         },
         share: {
           af:

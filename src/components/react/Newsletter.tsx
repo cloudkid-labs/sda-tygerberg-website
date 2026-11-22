@@ -69,7 +69,7 @@ export function Newsletter() {
       <p className="mt-2 text-slate">{t.description}</p>
       {status === 'success' ? <p role="status" className="mt-5 text-slate">{t.success}</p> : <form onSubmit={submit} className="mt-5">
         <label htmlFor="newsletter-email" className="block font-bold text-slate">{t.email}</label>
-        <div className="mt-2 flex flex-wrap gap-3"><input id="newsletter-email" name="email" type="email" autoComplete="email" required maxLength={254} className="min-w-0 flex-1 rounded border border-subtle bg-white px-4 py-3 text-ink" /><button type="submit" disabled={status === 'sending'} className="rounded-full bg-orange px-6 py-3 font-bold text-white disabled:opacity-50">{status === 'sending' ? t.sending : t.button}</button></div>
+        <div className="mt-2 flex flex-col gap-3 sm:flex-row"><input id="newsletter-email" name="email" type="email" autoComplete="email" required maxLength={254} className="min-w-0 flex-1 rounded border border-subtle bg-white px-4 py-3 text-ink" /><button type="submit" disabled={status === 'sending'} className="rounded-full bg-orange px-6 py-3 font-bold text-white disabled:opacity-50">{status === 'sending' ? t.sending : t.button}</button></div>
         <label className="mt-4 flex items-start gap-2 text-sm text-slate"><input name="consent" type="checkbox" required className="mt-1" /> <span>{t.consent} <a className="underline" href={withBase('/privacy/')}>{t.privacy}</a></span></label>
         <div ref={widget} className="mt-4" />
         {(status === 'error' || status === 'captcha') && <p role="alert" className="mt-3 text-slate">{status === 'captcha' ? t.captcha : t.error}</p>}

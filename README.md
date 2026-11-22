@@ -441,7 +441,7 @@ Carrying known risk: **the map ships no tile attribution** —
 
 ## Newsletter signup
 
-Tygerberg uses Core's configurable `NewsletterSignup` component. Localized form copy, the public Turnstile key, and the endpoint are configured in `src/data/uiConfig.ts` and passed through `src/data/churchSite.ts`. The component owns the responsive form, language selection, Turnstile widget, and request UX.
+Tygerberg uses Core 1.3's configurable `NewsletterSignup` component. Localized form copy, the public Turnstile key, and the endpoint are configured in `src/data/uiConfig.ts` and passed through `src/data/churchSite.ts`. The component owns the responsive form, language selection, Turnstile widget, and request UX.
 
 The Worker keeps Tygerberg's site-specific integration: it verifies Turnstile, enforces the per-IP rate limit, and adds consented contacts to the configured Brevo list. Production uses list ID 4 and the `BREVO_API_KEY` Worker secret; the secret never reaches the client. Without the public site key or Worker settings the form remains hidden. Existing Brevo unsubscribe and blocklist state is preserved. Devtest must use a separate Brevo list and credentials.
 

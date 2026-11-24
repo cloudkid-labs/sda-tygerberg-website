@@ -17,7 +17,7 @@
     // the asset store *before* the Worker would otherwise be invoked, so any
     // narrower list is a log with holes in it. The cost is a billable Worker
     // invocation per asset request. If the log ever stops being worth that,
-    // narrow this back to ["/health", "/api/*", "/images/hod/*"] and keep the
+    // narrow this back to ["/api/*", "/images/hod/*"] and keep the
     // negative pattern. C-60 has the history of what omitting a path does:
     // with `not_found_handling` above, a path with no file behind it gets
     // 404.html instead of the Worker — which is how /api/* went missing once,

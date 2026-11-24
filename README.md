@@ -219,7 +219,7 @@ every tagged version.
 
 ## Diagnostics
 
-`GET /health` is a human-readable status page. `GET /api/health` returns the
+`GET /api/health` returns the
 released template version, locked Core version, and first seven characters of
 the deployed GitHub commit as JSON, with `Cache-Control: no-store` so a poll
 never reads cached deployment information. After a deploy, `npm run smoke -- <origin>
@@ -227,7 +227,7 @@ never reads cached deployment information. After a deploy, `npm run smoke -- <or
 deployed version; the CI `worker` job runs the same check against `wrangler
 dev` on every PR, where it gates ([C-63](./CONCERNS.md#c-63--health-reports-the-deployed-version-for-post-deploy-polling)).
 
-`GET /health` is a human-readable status page. `GET /api/health` returns the released template version, locked Core version, and first seven characters of the deployed GitHub commit as JSON, with `Cache-Control: no-store`. After a deploy, `npm run smoke -- <origin> --expect-version <v> --wait-version 180` polls it for up to 3 minutes; the CI `worker` job runs the same check against `wrangler dev` on every PR (C-63).
+`GET /api/health` returns the released template version, locked Core version, and first seven characters of the deployed GitHub commit as JSON, with `Cache-Control: no-store`. After a deploy, `npm run smoke -- <origin> --expect-version <v> --wait-version 180` polls it for up to 3 minutes; the CI `worker` job runs the same check against `wrangler dev` on every PR (C-63).
 
 `curl https://sdatygerberg.co.za/api/live-status` returns the resolved
 window and a `source`:

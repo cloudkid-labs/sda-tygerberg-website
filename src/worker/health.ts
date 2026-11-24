@@ -3,7 +3,7 @@ import lockfile from '../../package-lock.json' with { type: 'json' };
 
 /**
  * `GET /api/health` reports the released site version, locked Core version,
- * and deployed GitHub commit. `/health` is the human-readable status page.
+ * and deployed GitHub commit.
  *
  * The body carries `status: 204` as the signal value, served over HTTP 200: a
  * real 204 response cannot carry a body by spec, so the status line stays 200

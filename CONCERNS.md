@@ -1571,7 +1571,7 @@ not re-propose it from scratch — re-read C-23 first.
 
 ### C-63 — Health page and deployment signal
 
-`GET /health` is the human-readable, noindex status page. `GET /api/health`
+`GET /api/health`
 answers `{ "status": 204, "version": "X.Y.Z", "templateVersion": "X.Y.Z",
 "coreVersion": "X.Y.Z", "commit": "abcdef0" }`. The version comes from
 `package.json`, Core's resolved version from `package-lock.json`, and the
@@ -1583,7 +1583,7 @@ The API response is a Worker branch in `src/worker/index.ts`, and its path
 reaches the Worker through `assets.run_worker_first` in `wrangler.jsonc` (C-60).
 It uses `Cache-Control: no-store` so a stale response cannot pass the release
 gate. It carries `status: 204` in the JSON over HTTP 200 because a real 204
-response cannot carry a body. Neither endpoint is in the sitemap. Post-deploy
+response cannot carry a body. The endpoint is absent from the sitemap. Post-deploy
 polls may be blocked by the edge for GitHub runners (C-60); CI's Worker check
 is the enforcing gate.
 

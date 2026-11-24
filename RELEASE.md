@@ -59,7 +59,7 @@ release**. The tag is cut last, so a failed deploy leaves no tag.
 
 ```sh
 gh run view <run-id> --json jobs --jq '.jobs[0].steps[]|"\(.name): \(.conclusion)"'
-curl -s https://sdatygerberg.co.za/health
+curl -s https://sdatygerberg.co.za/api/health
 git diff origin/dev origin/main --stat            # must be empty
 git rev-list --count origin/dev..origin/main      # must be 0
 ```

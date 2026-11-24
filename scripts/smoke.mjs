@@ -223,7 +223,7 @@ if (!expectVersion) {
 
 /* ---- every page renders ------------------------------------------------ */
 console.log('pages');
-const PAGES = ['/', '/health', '/beliefs/', '/bible-studies/', '/blood-bank/', '/connect/', '/giving/', '/map/', '/personal-ministry/', '/youth/'];
+const PAGES = ['/', '/beliefs/', '/bible-studies/', '/blood-bank/', '/connect/', '/giving/', '/map/', '/personal-ministry/', '/youth/'];
 for (const path of PAGES) {
   try {
     const res = await get(path);

@@ -1,0 +1,31 @@
+name: Deploy Tygerberg infrastructure map
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "infra-worker.js"
+      - "infra-public/**"
+      - "wrangler.infra.jsonc"
+      - ".github/workflows/deploy-infra-map.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: tygerberg-infra-map
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+      - name: Deploy map Worker
+        uses: cloudflare/wrangler-action@v4
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: deploy --config wrangler.infra.jsonc

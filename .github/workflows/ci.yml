@@ -55,6 +55,10 @@ jobs:
       - name: Build
         run: npm run build
 
+      - name: Validate hosted architecture map Worker
+        run: npx wrangler deploy --dry-run --config wrangler.infra.jsonc
+
+
       # The Worker splices live CMS content into built pages by re-rendering the
       # same React components (C-70). If its render of the build's own payload
       # differs from what Astro rendered, every homepage view would hydrate

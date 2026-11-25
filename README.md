@@ -447,3 +447,7 @@ Tygerberg uses Core 1.3's configurable `NewsletterSignup` component. Localized f
 The Worker keeps Tygerberg's site-specific integration: it verifies Turnstile, enforces the per-IP rate limit, and adds consented contacts to the configured Brevo list. Production uses list ID 4 and the `BREVO_API_KEY` Worker secret; the secret never reaches the client. Without the public site key or Worker settings the form remains hidden. Existing Brevo unsubscribe and blocklist state is preserved. Devtest must use a separate Brevo list and credentials.
 
 Before announcing signup, verify the unsubscribe flow and that the sending domain and campaign sender are configured in Brevo. This endpoint subscribes contacts; it does not send campaigns or confirmation emails.
+
+## Hosted architecture map
+
+The source-derived, noindex overview is served at [infra.sdatygerberg.co.za](https://infra.sdatygerberg.co.za/).

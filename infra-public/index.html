@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex,nofollow"><meta name="description" content="Infrastructure overview for the Tygerberg SDA website.">
+<meta name="theme-color" content="#f5f5f0"><title>Tygerberg SDA · Infrastructure</title>
+<style>
+:root{font:16px/1.55 system-ui,-apple-system,"Segoe UI",sans-serif;color:#1e2924;background:#f5f5f0;--muted:#65716a;--line:#dce3dc;--green:#1b6750;--panel:#fff}*{box-sizing:border-box}body{margin:0}.wrap{max-width:1120px;margin:auto;padding:0 25px}.top{height:70px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--line)}a{color:var(--green)}.brand{font-size:12px;font-weight:800;letter-spacing:.11em;text-decoration:none;color:#27372f}.back{font-size:12px}.hero{padding:50px 0 25px}.eyebrow{text-transform:uppercase;letter-spacing:.13em;font-size:10px;font-weight:800;color:var(--green)}h1{font-size:clamp(34px,5vw,56px);letter-spacing:-.05em;line-height:1.05;margin:10px 0}.lead{max-width:790px;color:var(--muted);margin:0}.host{margin-top:18px;color:#4c6256;font:12px ui-monospace,monospace}.panel{border:1px solid var(--line);border-radius:20px;background:#ffffffd9;padding:21px;box-shadow:0 20px 50px #24342b12}.bar{display:flex;justify-content:space-between;align-items:baseline;margin:0 0 15px}.bar h2{font-size:14px;margin:0}.bar span{font-size:11px;color:var(--muted)}.flow{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}.node{position:relative;border:1px solid var(--line);background:var(--panel);border-radius:14px;padding:15px;min-height:150px}.node:nth-child(1){background:#f0f8f3}.node:nth-child(2){background:#f0f5fb}.node:nth-child(3){background:#fbf7ed}.node:nth-child(4){background:#f7f2fb}.node:not(:last-child):after{content:"→";position:absolute;right:-14px;top:50%;transform:translate(50%,-50%);border-radius:50%;width:24px;height:24px;display:grid;place-items:center;background:#f5f5f0;color:var(--green);z-index:2}.num{color:var(--green);font-size:10px;font-weight:800;letter-spacing:.1em}.node h3{font-size:15px;margin:10px 0 5px}.node p{font-size:12px;color:var(--muted);margin:0}.below{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:12px}.below h2{font-size:13px;margin:0 0 10px}.below ul{margin:0;padding-left:18px;color:var(--muted);font-size:12px}.foot{border-top:1px solid var(--line);margin-top:23px;padding:15px 0 27px;color:var(--muted);font-size:11px;display:flex;justify-content:space-between;gap:12px}@media(max-width:760px){.flow{grid-template-columns:repeat(2,minmax(0,1fr))}.node:nth-child(2):after{display:none}.below{grid-template-columns:1fr}}@media(max-width:500px){.wrap{padding:0 15px}.top{height:60px}.hero{padding:35px 0 20px}.panel{padding:14px}.flow{grid-template-columns:1fr}.node{min-height:0}.node:not(:last-child):after{content:"↓";display:grid;right:50%;top:auto;bottom:-18px;transform:translate(50%,50%)}.node:nth-child(2):after{display:grid}.foot{display:block}.foot span{display:block;margin-top:5px}}
+</style>
+</head>
+<body><div class="wrap">
+<header class="top"><a class="brand" href="https://sdatygerberg.co.za/">TYGERBERG SDA</a><a class="back" href="https://sdatygerberg.co.za/">↗ Open church website</a></header>
+<main>
+<section class="hero"><div class="eyebrow">Application infrastructure</div><h1>Tygerberg SDA</h1><p class="lead">The bilingual Astro site is served by a Cloudflare Worker. The Worker also handles the site’s live status, forms, member pages and mail workflows.</p><p class="host">infra.sdatygerberg.co.za · production architecture</p></section>
+<section class="panel" aria-labelledby="flow"><div class="bar"><h2 id="flow">Request and data path</h2><span>Source-derived overview · no production data access</span></div>
+<div class="flow">
+<article class="node"><span class="num">01 · VISITOR</span><h3>Browser</h3><p>Loads Afrikaans or English public pages, contacts the church, or opens a member workflow.</p></article>
+<article class="node"><span class="num">02 · EDGE</span><h3>Cloudflare Worker</h3><p>Serves Astro assets and routes live-status, Turnstile-checked forms, CMS, sign-in and mail requests.</p></article>
+<article class="node"><span class="num">03 · STATE</span><h3>R2 and Worker bindings</h3><p>R2 stores CMS pages, form submissions, consent records and the church-controlled mail archive.</p></article>
+<article class="node"><span class="num">04 · SERVICES</span><h3>YouTube, Brevo and email</h3><p>YouTube supplies live status; Brevo handles newsletter delivery; Cloudflare Email Routing forwards mail and archives copies.</p></article>
+</div></section>
+<div class="below">
+<section class="panel"><h2>Security and boundaries</h2><ul><li>Secrets stay in Cloudflare Worker configuration; this page includes no values.</li><li>Turnstile protects contact submissions when configured.</li><li>CMS and member operations stay behind the Worker’s sign-in and access checks.</li></ul></section>
+<section class="panel"><h2>Source</h2><ul><li>Static architecture page; it makes no API calls and reads no church records.</li><li><a href="https://github.com/cloudkid-labs/sda-tygerberg-website" rel="noopener noreferrer">View source repository ↗</a></li></ul></section>
+</div>
+</main><footer class="foot"><span>Tygerberg SDA · Architecture overview</span><span>Reviewed 25 November 2026 · noindex</span></footer>
+</div></body></html>

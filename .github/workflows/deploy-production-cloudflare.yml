@@ -154,13 +154,6 @@ jobs:
           SESSION_SECRET: ${{ secrets.SESSION_SECRET }}
           BREVO_API_KEY: ${{ secrets.BREVO_API_KEY }}
 
-      - name: Deploy hosted architecture map
-        uses: cloudflare/wrangler-action@v4
-        with:
-          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          command: deploy --config wrangler.infra.jsonc
-
       # Between the deploy and the tag, deliberately. `wrangler deploy` reporting
       # success only means Cloudflare accepted the upload — it says nothing about
       # what the origin then serves. C-60 shipped a config that answered every

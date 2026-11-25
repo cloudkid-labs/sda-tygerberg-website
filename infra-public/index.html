@@ -16,7 +16,7 @@
 <div class="flow">
 <article class="node"><span class="num">01 · VISITOR</span><h3>Browser</h3><p>Loads Afrikaans or English public pages, contacts the church, or opens a member workflow.</p></article>
 <article class="node"><span class="num">02 · EDGE</span><h3>Cloudflare Worker</h3><p>Serves Astro assets and routes live-status, Turnstile-checked forms, CMS, sign-in and mail requests.</p></article>
-<article class="node"><span class="num">03 · STATE</span><h3>R2 and Worker bindings</h3><p>R2 stores CMS pages, form submissions, consent records and the church-controlled mail archive.</p></article>
+<article class="node"><span class="num">03 · STATE</span><h3>R2 and Worker bindings</h3><p>R2 stores CMS pages, form submissions and consent records. Incoming-mail archiving is handled through the separate email-routing integration.</p></article>
 <article class="node"><span class="num">04 · SERVICES</span><h3>YouTube, Brevo and email</h3><p>YouTube supplies live status; Brevo handles newsletter delivery; Cloudflare Email Routing forwards mail and archives copies.</p></article>
 </div></section>
 <div class="below">
